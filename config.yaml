@@ -1,0 +1,165 @@
+# Purpose: Single source of configuration for models, agents, retrieval, XML,
+# paper loading, logging, and outputs.
+
+project:
+  name: Reviewer
+  output_dir: outputs
+  random_seed: 42
+  dataset_dir: ../DeepReview-13K
+
+network:
+  all_proxy: ${ALL_PROXY}
+  no_proxy: ${NO_PROXY}
+  default_no_proxy:
+    - localhost
+    - 127.0.0.1
+    - 0.0.0.0
+
+models:
+  summary:
+    model: openai/gpt-5.5
+    base_url: ${OPENAI_BASE_URL}
+    api_key_env: OPENAI_API_KEY
+    temperature: 0.2
+    max_tokens: 4096
+    top_p: 1.0
+    timeout_seconds: 60
+    max_retries: 3
+
+  agent:
+    model: openai/gpt-5.5
+    base_url: ${OPENAI_BASE_URL}
+    api_key_env: OPENAI_API_KEY
+    temperature: 0.3
+    max_tokens: 4096
+    top_p: 1.0
+    timeout_seconds: 60
+    max_retries: 3
+
+  answer:
+    model: openai/gpt-5.5
+    base_url: ${OPENAI_BASE_URL}
+    api_key_env: OPENAI_API_KEY
+    temperature: 0.2
+    max_tokens: 4096
+    top_p: 1.0
+    timeout_seconds: 60
+    max_retries: 3
+
+  final_review:
+    model: openai/gpt-5.5
+    base_url: ${OPENAI_BASE_URL}
+    api_key_env: OPENAI_API_KEY
+    temperature: 0.2
+    max_tokens: 4096
+    top_p: 1.0
+    timeout_seconds: 60
+    max_retries: 3
+
+  vlm:
+    model: openai/gpt-5.5
+    base_url: ${OPENAI_BASE_URL}
+    api_key_env: OPENAI_API_KEY
+    temperature: 0.1
+    max_tokens: 4096
+    top_p: 1.0
+    timeout_seconds: 60
+    max_retries: 3
+
+  reranker:
+    model: bge-reranker-v2-m3
+    endpoint: http://localhost:8001/rerank
+    top_k: 8
+    no_proxy:
+      - localhost
+      - 127.0.0.1
+      - 0.0.0.0
+
+workflow:
+  require_xml_outputs: true
+  save_trace: true
+  max_total_steps: 30
+
+agents:
+  summary:
+    model: summary
+    output_format: xml
+
+  contribution:
+    model: agent
+    answer_model: answer
+    max_qa_turns: 5
+    default_retrieval: true
+    scoring_range: [1, 10]
+
+  soundness:
+    model: agent
+    answer_model: answer
+    max_qa_turns: 5
+    default_retrieval: true
+    scoring_range: [1, 10]
+
+  presentation:
+    model: agent
+    answer_model: answer
+    vlm_model: vlm
+    max_qa_turns: 4
+    default_retrieval: false
+    use_vlm: true
+    scoring_range: [1, 10]
+
+  final:
+    model: final_review
+    scoring_range: [1, 10]
+
+retrieval:
+  enabled: true
+  provider: semantic_scholar
+  semantic_scholar:
+    api_key_env: SEMANTIC_SCHOLAR_API_KEY
+    endpoint: https://api.semanticscholar.org/graph/v1/paper/search
+    timeout_seconds: 30
+    max_retries: 3
+  query_generation:
+    max_queries: 4
+    max_tags_per_query: 6
+  search:
+    limit_per_query: 20
+    fields:
+      - title
+      - abstract
+      - year
+      - authors
+      - venue
+      - citationCount
+      - publicationDate
+      - externalIds
+      - url
+  time_filter:
+    enabled: true
+    mode: before_submission
+  rerank:
+    enabled: true
+    model: reranker
+    top_k: 8
+
+qa:
+  require_review_impact: true
+  allowed_polarities: [strength, weakness, neutral, mixed]
+  allowed_severities: [minor, moderate, major, critical]
+  score_impact_range: [-2.0, 2.0]
+  require_evidence: true
+
+paper:
+  max_text_chars: 120000
+  render_pages_for_vlm: true
+  max_vlm_pages: 8
+  page_image_dpi: 160
+
+xml:
+  strict: true
+  repair_attempts: 2
+
+logging:
+  level: INFO
+  log_file: outputs/logs/reviewer.log

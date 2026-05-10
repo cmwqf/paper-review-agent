@@ -1,0 +1,19 @@
+# Purpose: Ignore local runtime artifacts, environments, caches, and generated reviews.
+
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.env
+.venv/
+venv/
+outputs/logs/*
+outputs/reviews/*
+outputs/summaries/*
+outputs/traces/*
+!outputs/logs/.gitkeep
+!outputs/reviews/.gitkeep
+!outputs/summaries/.gitkeep
+!outputs/traces/.gitkeep

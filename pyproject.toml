@@ -1,0 +1,31 @@
+# Purpose: Python packaging and tool configuration for the Reviewer project.
+# Keep runtime dependencies small at scaffold time; add concrete providers later.
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reviewer"
+version = "0.1.0"
+description = "A structured multi-agent workflow for paper review."
+requires-python = ">=3.10"
+dependencies = [
+  "pydantic>=2.0",
+  "pyyaml>=6.0",
+  "requests[socks]>=2.31",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+]
+
+[project.scripts]
+reviewer = "reviewer.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,12 @@
+<!-- Purpose: Fixture for dimension review XML output tests. -->
+<dimension_review>
+  <dimension>Soundness</dimension>
+  <score>6</score>
+  <strengths>
+    <item>Clear experimental setup.</item>
+  </strengths>
+  <weaknesses>
+    <item>Missing one important baseline.</item>
+  </weaknesses>
+</dimension_review>
+
