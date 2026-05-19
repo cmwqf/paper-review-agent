@@ -1,7 +1,7 @@
 """Purpose: Tests for XML parsing and validation helpers."""
 
 from reviewer.schemas.xml import root_tag
-from reviewer.schemas.summary import parse_summary_xml
+from reviewer.schemas.summary import parse_summary_xml, render_summary_for_agent
 from reviewer.tools.xml_validator import validate_xml_root
 
 
@@ -33,7 +33,11 @@ def test_parse_summary_xml_to_paper_map() -> None:
               <title>Introduction</title>
               <summary>Introduces the problem.</summary>
               <key_items>
-                <item><type>problem</type><text>Problem statement.</text></item>
+                <item>
+                  <type>problem</type>
+                  <text>Problem statement.</text>
+                  <location_hint>Section 1</location_hint>
+                </item>
               </key_items>
             </section>
           </paper_map>
@@ -48,5 +52,45 @@ def test_parse_summary_xml_to_paper_map() -> None:
     assert summary.metadata.title == "Paper"
     assert summary.paper_map[0].section_id == "s1"
     assert summary.paper_map[0].key_items[0].type == "problem"
+    assert summary.paper_map[0].key_items[0].location_hint == "Section 1"
     assert summary.global_index.claims[0].section_ref == "s1"
     assert summary.global_index.baselines[0].text == "Baseline A."
+
+
+def test_render_summary_for_agent_includes_refs_and_location_hints() -> None:
+    """Rendered summary should be compact and model-readable."""
+    summary = parse_summary_xml(
+        """
+        <paper_summary>
+          <metadata>
+            <title>Paper</title>
+            <authors>unknown</authors>
+            <venue>unknown</venue>
+            <submission_date>2024-01-01</submission_date>
+          </metadata>
+          <paper_map>
+            <section>
+              <section_id>s1</section_id>
+              <title>Experiments</title>
+              <summary>Reports baselines and ablations.</summary>
+              <key_items>
+                <item>
+                  <type>baseline</type>
+                  <text>Baseline A is compared.</text>
+                  <location_hint>Table 1</location_hint>
+                </item>
+              </key_items>
+            </section>
+          </paper_map>
+          <global_index>
+            <baselines><item section_ref="s1">Baseline A.</item></baselines>
+          </global_index>
+        </paper_summary>
+        """
+    )
+
+    rendered = render_summary_for_agent(summary)
+    assert "PAPER MAP" in rendered
+    assert "[s1] Experiments" in rendered
+    assert "baseline (Table 1): Baseline A is compared." in rendered
+    assert "- [s1] Baseline A." in rendered

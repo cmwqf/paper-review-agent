@@ -23,6 +23,7 @@ Use this structure:
         <item>
           <type>problem | motivation | claim | method_component | dataset | baseline | ablation | metric | result | stated_limitation | other</type>
           <text>Short factual item from this section.</text>
+          <location_hint>Optional explicit location such as Table 3, Figure 2, Algorithm 1, Equation 4, Section 4.2, or Appendix A.</location_hint>
         </item>
       </key_items>
     </section>
@@ -61,3 +62,7 @@ or a long detailed summary.
 
 Use at most 8 sections. Use at most 6 key_items per section. Use short text in
 each item. Avoid copying long paragraphs from the paper.
+
+Use `<location_hint>` only when the paper explicitly ties the item to a table,
+figure, algorithm, equation, appendix, or numbered section. If there is no
+explicit location, omit `<location_hint>`. Do not invent location hints.

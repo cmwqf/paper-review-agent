@@ -23,6 +23,7 @@ class KeyItem(BaseModel):
 
     type: str
     text: str
+    location_hint: str | None = None
 
 
 class PaperSection(BaseModel):
@@ -112,8 +113,15 @@ def parse_summary_xml(xml_text: str) -> SummarySchema:
                 for item_el in key_items_el.findall("item"):
                     item_type = _text(item_el, "type", default="other")
                     item_text = _text(item_el, "text", default="")
+                    location_hint = _text(item_el, "location_hint", default="")
                     if item_text:
-                        key_items.append(KeyItem(type=item_type, text=item_text))
+                        key_items.append(
+                            KeyItem(
+                                type=item_type,
+                                text=item_text,
+                                location_hint=location_hint or None,
+                            )
+                        )
             sections.append(
                 PaperSection(
                     section_id=_text(section_el, "section_id", default=f"s{idx}"),
@@ -141,3 +149,78 @@ def parse_summary_xml(xml_text: str) -> SummarySchema:
         global_index=global_index,
         raw_xml=clean_xml,
     )
+
+
+def _render_index_group(name: str, items: list[IndexedItem], max_items: int) -> list[str]:
+    """Render one global-index group into compact text lines."""
+    if not items:
+        return []
+    lines = [f"{name}:"]
+    for item in items[:max_items]:
+        ref = f"[{item.section_ref}] " if item.section_ref else ""
+        lines.append(f"- {ref}{item.text}")
+    if len(items) > max_items:
+        lines.append(f"- ... {len(items) - max_items} more")
+    return lines
+
+
+def render_summary_for_agent(
+    summary: SummarySchema,
+    *,
+    max_sections: int = 8,
+    max_key_items_per_section: int = 6,
+    max_index_items_per_group: int = 8,
+) -> str:
+    """Render a paper-map summary into compact text for downstream agents.
+
+    JSON is useful for storage and programmatic access, but this text form is
+    easier for LLM agents to read. It preserves section IDs and location hints
+    so AnswerAgent can decide what to search or read in the original paper.
+    """
+    lines: list[str] = ["PAPER MAP"]
+    metadata = summary.metadata
+    lines.append(f"Title: {metadata.title or 'unknown'}")
+    if metadata.authors:
+        lines.append(f"Authors: {metadata.authors}")
+    if metadata.venue:
+        lines.append(f"Venue: {metadata.venue}")
+    if metadata.submission_date:
+        lines.append(f"Submission date: {metadata.submission_date}")
+
+    lines.append("")
+    lines.append("SECTIONS")
+    for section in summary.paper_map[:max_sections]:
+        lines.append(f"[{section.section_id}] {section.title}")
+        if section.summary:
+            lines.append(f"Summary: {section.summary}")
+        if section.key_items:
+            lines.append("Key items:")
+            for item in section.key_items[:max_key_items_per_section]:
+                location = f" ({item.location_hint})" if item.location_hint else ""
+                lines.append(f"- {item.type}{location}: {item.text}")
+            if len(section.key_items) > max_key_items_per_section:
+                lines.append(f"- ... {len(section.key_items) - max_key_items_per_section} more")
+        lines.append("")
+
+    if len(summary.paper_map) > max_sections:
+        lines.append(f"... {len(summary.paper_map) - max_sections} more sections")
+        lines.append("")
+
+    lines.append("GLOBAL INDEX")
+    index = summary.global_index
+    groups = [
+        ("Claims", index.claims),
+        ("Method components", index.method_components),
+        ("Datasets", index.datasets),
+        ("Baselines", index.baselines),
+        ("Ablations", index.ablations),
+        ("Metrics", index.metrics),
+        ("Results", index.results),
+        ("Stated limitations", index.stated_limitations),
+    ]
+    for group_name, items in groups:
+        rendered = _render_index_group(group_name, items, max_index_items_per_group)
+        if rendered:
+            lines.extend(rendered)
+
+    return "\n".join(lines).strip() + "\n"

@@ -41,7 +41,7 @@ def main() -> None:
     json_output = args.json_output
     if json_output is None:
         json_output = str(Path(output_path).with_suffix(".json"))
-    write_json(json_output, summary.model_dump(exclude={"raw_xml"}))
+    write_json(json_output, summary.model_dump(exclude={"raw_xml"}, exclude_none=True))
     print(output_path)
     print(json_output)
 
