@@ -1,0 +1,33 @@
+<final_review>
+  <final_score>5</final_score>
+  <summary>The paper studies uncertainty calibration of aligned language models in multiple-choice settings, comparing pre-trained and aligned model pairs and arguing that alignment can alter answer uncertainty in ways that increase overconfidence. It offers a useful empirical analysis across tasks, prompting settings, formats, model scales, and some alignment stages, and proposes a simple post-hoc calibration method that matches an aligned model's scaled predictive distribution to that of its pre-trained counterpart. Overall, the work is relevant and mostly well presented, but the contribution is incremental, the mechanistic claims rely on only partially validated assumptions and proxies, and the proposed mitigation has a narrow scope. The paper is close to the acceptance threshold but falls slightly below it due to limited novelty and soundness concerns around statistical support, generality, and causal interpretation.</summary>
+  <strengths>
+    <item>Addresses an important and timely problem: calibration degradation and overconfidence in aligned or instruction-tuned language models under multiple-choice evaluation.</item>
+    <item>Provides a reasonably broad empirical study across multiple MCQ tasks, pre-trained and aligned model families, model sizes, zero-shot versus few-shot prompting, and answer formats.</item>
+    <item>The answer-uncertainty versus format-uncertainty framing is a useful diagnostic lens for separating choice prediction from response-format preference.</item>
+    <item>Includes meaningful ablations over alignment stages and synthetic SFT/DPO-style variants, giving suggestive evidence about how answer-targeted alignment can affect calibration.</item>
+    <item>Proposes a simple post-hoc calibration method that performs well in the evaluated setting and is compared against relevant few-shot calibration baselines.</item>
+    <item>The paper is generally well organized and understandable, with logical structure, clear equations, and useful appendices.</item>
+  </strengths>
+  <weaknesses>
+    <item>The central observation that aligned or post-trained language models can become overconfident is already known, so the novelty lies mainly in the MCQ-specific diagnostic analysis.</item>
+    <item>The answer/format uncertainty decomposition is largely a probability factorization and reframing of prompt-format sensitivity, rather than a major new conceptual advance.</item>
+    <item>The key assumption that the pre-trained counterpart is well calibrated once format uncertainty is resolved is only partially validated and appears strongest for large models with few-shot ICL.</item>
+    <item>The format-uncertainty proxy relies heavily on the probability of a single format token, such as "(", and is not well validated across broader prompt or response formats.</item>
+    <item>The causal claim that altered answer uncertainty is the main source of aligned-model overconfidence is plausible but supported mostly by indirect and synthetic evidence.</item>
+    <item>The post-hoc calibration method has limited practical scope because it requires access to the corresponding pre-trained model and assumes that model is well calibrated on the target task.</item>
+    <item>The empirical results lack confidence intervals, standard errors, seed variation, or significance testing, which is especially concerning for five-example calibration sets.</item>
+    <item>The method and analysis are largely confined to logit-based multiple-choice settings and are not shown to generalize to open-ended generation, semantic uncertainty, API-only models, or broader calibration scenarios.</item>
+    <item>Presentation is mostly clear, but several figures and appendix tables are crowded or difficult to inspect, and some formatting choices are visually distracting.</item>
+  </weaknesses>
+  <requested_changes>
+    <item>Add statistical uncertainty estimates, such as confidence intervals, standard errors, seed variation, or significance tests, for ECE and accuracy comparisons.</item>
+    <item>More thoroughly validate the assumption that the pre-trained counterpart is well calibrated after resolving format uncertainty, including across model scales, tasks, and prompting regimes.</item>
+    <item>Test the answer/format uncertainty decomposition and format proxy across more response formats and prompt styles, rather than relying primarily on the single "("-token proxy.</item>
+    <item>Evaluate the proposed post-hoc calibration method on more aligned model families and sizes, not primarily on Llama-2-Chat 70B.</item>
+    <item>Clarify the strength of the causal claims about answer uncertainty and distinguish better between demonstrated empirical associations and mechanistic conclusions.</item>
+    <item>Improve figure readability, reduce visual clutter, and make appendix tables easier to audit.</item>
+  </requested_changes>
+  <recommendation>Reject</recommendation>
+  <confidence_score>4</confidence_score>
+</final_review>

@@ -13,6 +13,6 @@ class ReviewWorkflowState:
     paper: dict[str, Any]
     summary_xml: str | None = None
     dimension_reviews: dict[str, str] = field(default_factory=dict)
+    qa_trajectories: dict[str, list[Any]] = field(default_factory=dict)
     traces: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     final_review_xml: str | None = None
-

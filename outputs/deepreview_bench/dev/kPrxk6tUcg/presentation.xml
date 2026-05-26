@@ -1,0 +1,18 @@
+<dimension_review>
+  <dimension>Presentation</dimension>
+  <score>3</score>
+  <strengths>
+    <item>The paper is logically organized, moving from motivation and method to theory, related connections, numerical results, conclusion, and appendices.</item>
+    <item>The PDF uses a standard ICLR-style format with consistent margins, section numbering, equations, and typography, making it generally easy to inspect.</item>
+    <item>Equations and theorem statements are generally clear and numbered, and the main method description is supported by a schematic figure.</item>
+    <item>Figure and table captions are informative and explain the corresponding visual evidence; Table 1 is compact, aligned, and readable.</item>
+  </strengths>
+  <weaknesses>
+    <item>The paper is text-heavy, especially in the theoretical sections, and dense theorem/equation blocks on pages 5–6 reduce skimmability.</item>
+    <item>Some visual elements are small: Figure 1 has fine icons/arrows that are difficult to distinguish at page scale, and Figure 2 has small axis labels, ticks, and legends.</item>
+    <item>There are minor layout/formatting issues, such as an awkward title line break on page 1 and somewhat cramped author/affiliation information.</item>
+    <item>Long captions are useful but can add to the visual density of the experimental pages.</item>
+  </weaknesses>
+  <evidence_summary>The paper map indicates a conventional and coherent structure: introduction, method, theoretical guarantee, connection to prior work, numerical results, conclusion, and appendices. PDF inspection found standard ICLR formatting across pages 1–8, readable main text, clear centered equations, and logically placed figures/tables. Page-level observations noted that Figure 1 on page 4 is mostly legible with an informative caption, Figure 2 on page 8 is understandable but has small labels and legends, and Table 1 on page 8 is legible and well aligned. The main presentation drawbacks are dense theoretical pages and some small figure details.</evidence_summary>
+  <rationale>Overall, the presentation is good: the writing and organization appear understandable, the formatting is professional, and the figures/tables are serviceable with helpful captions. However, the paper is not polished enough for an excellent score because several pages are visually dense, some figure labels are hard to read, and there are minor layout issues. These issues make inspection somewhat less comfortable but do not substantially impede understanding.</rationale>
+</dimension_review>

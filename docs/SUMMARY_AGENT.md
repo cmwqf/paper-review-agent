@@ -88,7 +88,13 @@ reviewer --config config.yaml summarize \
 outputs/summaries/<paper_id>.xml
 ```
 
-同时会保存解析后的 JSON：
+同时会保存下游 Agent 实际读取的 `PAPER MAP` 文本：
+
+```text
+outputs/summaries/<paper_id>.md
+```
+
+只有显式传入 `--json-output` 时，才会额外保存解析后的 JSON：
 
 ```text
 outputs/summaries/<paper_id>.json

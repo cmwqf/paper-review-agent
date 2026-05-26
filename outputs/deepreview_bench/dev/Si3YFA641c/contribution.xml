@@ -1,0 +1,18 @@
+<dimension_review>
+  <dimension>Contribution</dimension>
+  <score>3</score>
+  <strengths>
+    <item>Identifies and clarifies two specific design choices in traditional EDL—fixed prior weight and the variance-minimizing term—as relaxable rather than essential under the subjective-logic formulation.</item>
+    <item>Provides a simple modification, alpha=e+lambda, and a simplified objective that are easy to implement and directly linked to the paper’s over-confidence motivation.</item>
+    <item>Empirically evaluates the method across a reasonably broad range of settings, including classical image OOD detection, few-shot OOD detection, noisy data, and video open-set recognition.</item>
+    <item>Ablations support that both proposed relaxations contribute to performance, with full R-EDL improving over variants that restore lambda=1 or reintroduce the variance term.</item>
+  </strengths>
+  <weaknesses>
+    <item>The core technical changes are only moderately novel in the broader Dirichlet uncertainty literature, where prior/concentration parameters and alternative Dirichlet training objectives are already common design choices.</item>
+    <item>The contribution is stronger as a reinterpretation and simplification of Sensoy-style EDL than as a fundamentally new uncertainty-estimation framework.</item>
+    <item>Empirical gains over close variants are often modest, e.g. around one to two AUPR points in the clearest ablation comparisons.</item>
+    <item>The paper leaves important conceptual questions open, including how to determine the optimal prior weight and whether optimizing only the Dirichlet expectation is sufficient.</item>
+  </weaknesses>
+  <evidence_summary>The Q&amp;A results indicate that R-EDL’s two main changes are useful within traditional EDL but not highly novel relative to broader Dirichlet-based uncertainty methods. The paper supports its claims with subjective-logic analysis, decomposition of the EDL loss into expectation and variance-related terms, and ablations showing drops when lambda is fixed to 1 or the variance term is restored. The empirical evaluation is broad, spanning image, few-shot, noisy-data, and video settings, but the most controlled gains over close EDL variants appear moderate.</evidence_summary>
+  <rationale>Overall, the paper makes a good contribution: it offers a clear, simple, and practically useful refinement of EDL, backed by broad empirical validation and a coherent conceptual explanation. However, the novelty is limited because the relaxed prior weight and alternative Dirichlet objectives are not substantially new in the wider literature, and the empirical improvements over close baselines are incremental rather than dramatic. This supports a score of 3 rather than 4.</rationale>
+</dimension_review>

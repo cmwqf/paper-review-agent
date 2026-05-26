@@ -19,7 +19,7 @@ def extract_xml_document(text: str, root_tag: str) -> str:
     start_token = f"<{root_tag}"
     end_token = f"</{root_tag}>"
     start = text.find(start_token)
-    end = text.rfind(end_token)
+    end = text.find(end_token, start + len(start_token))
     if start == -1 or end == -1:
         return text.strip()
     return text[start : end + len(end_token)].strip()

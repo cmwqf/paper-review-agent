@@ -1,0 +1,18 @@
+<dimension_review>
+  <dimension>Contribution</dimension>
+  <score>2</score>
+  <strengths>
+    <item>The paper targets an important practical problem: reducing the need for dense pixel-level segmentation labels by learning from noisy positive and negative coarse annotations.</item>
+    <item>The proposed formulation combines weak/coarse supervision, complementary negative-label learning, and pixel-wise confusion-matrix modeling in an end-to-end segmentation framework.</item>
+    <item>The paper evaluates the idea across multiple settings, including MNIST-derived segmentation, Cityscapes, and retinal vessel segmentation, and reports gains from using negative annotations in addition to positive coarse annotations.</item>
+    <item>The use of real coarse annotations on the retinal dataset suggests some potential practical relevance beyond purely synthetic annotation experiments.</item>
+  </strengths>
+  <weaknesses>
+    <item>The core contribution appears to be mostly an integration of existing ideas from weakly supervised segmentation, complementary-label learning, and noisy-label/confusion-matrix modeling rather than a clearly new technical paradigm.</item>
+    <item>The novelty claim that jointly using positive and complementary coarse annotations with pixel-wise confusion matrices is first or substantially different from prior work is not independently established in the available evidence.</item>
+    <item>The paper itself characterizes the implementation as requiring only the addition of a complementary-label learning term, which weakens the impression of a deep methodological advance.</item>
+    <item>The likely impact is somewhat narrow: the contribution is specialized to coarse annotation regimes and depends on the availability or construction of useful positive and negative coarse labels.</item>
+  </weaknesses>
+  <evidence_summary>The paper proposes two coupled CNNs: one to estimate true segmentation distributions and another to estimate pixel-wise confusion matrices for noisy coarse annotations. It adds a complementary negative-label learning term and evaluates on MNIST-derived segmentation, Cityscapes, and LES-AV retinal segmentation. Reported results show improvements when using both positive and negative annotations, e.g. 82.5 versus 77.2 mIoU on MNIST and 68.3 versus 62.3 on Cityscapes. The related work summary indicates that the individual ingredients—weak segmentation supervision, complementary-label learning, and noisy-label transition/confusion-matrix modeling—are all established areas. The prior Q&amp;A concluded that, based on the available information, the contribution is likely incremental-to-moderate and mainly a particular recombination for coarse semantic segmentation.</evidence_summary>
+  <rationale>The paper addresses a meaningful and practically relevant problem and presents a coherent combination of positive coarse labels, negative/complementary labels, and learned confusion matrices for segmentation. However, the available evidence does not support a strong novelty claim: most components are known, and the main contribution seems to be their application and integration in this specific weakly supervised/coarse-label setting. The empirical results indicate potential usefulness, but the conceptual and technical advance appears incremental rather than broadly transformative. Therefore the contribution is best rated as fair.</rationale>
+</dimension_review>

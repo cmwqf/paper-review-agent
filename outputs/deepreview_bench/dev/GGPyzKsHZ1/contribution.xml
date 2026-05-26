@@ -1,0 +1,18 @@
+<dimension_review>
+  <dimension>Contribution</dimension>
+  <score>3</score>
+  <strengths>
+    <item>The paper identifies and formalizes a relevant task setting: task-free continual self-supervised audio-video representation learning under shifting data distributions.</item>
+    <item>It positions the setting against prior masked audio-video learners that assume static data distributions and multimodal continual learning methods that often require labels or task boundaries.</item>
+    <item>The proposed FLAVA mechanism introduces a plausible task-specific contribution: localized audio-video patch selection using cross-modal attention, combined with a forget-robust comparison between current and memory-induced importance.</item>
+    <item>The paper provides empirical evidence across VGGSound and AudioSet, including retrieval, classification, efficiency, ablations, memory-size studies, and additional downstream analyses.</item>
+  </strengths>
+  <weaknesses>
+    <item>The methodological novelty is moderate rather than fundamental: FLAVA combines masked audio-video pretraining, attention-based patch importance, rehearsal memory, and a DER++-style penalty, all of which are familiar ingredients.</item>
+    <item>The main new mechanism—current-versus-memory cross-attention for forget-robust patch selection—is a useful specialization, but appears incremental relative to existing continual learning and masked multimodal representation learning ideas.</item>
+    <item>Reported gains are generally modest in several settings, including small improvements on some AudioSet retrieval metrics, which limits the evidence for broad impact.</item>
+    <item>The contribution is somewhat narrow, targeting continual audio-video pretraining with specific masked-modeling and rehearsal assumptions rather than a broadly applicable continual learning principle.</item>
+  </weaknesses>
+  <evidence_summary>The paper introduces FLAVA for task-free continual audio-video masked autoencoding. It argues that prior audiovisual masked modeling methods such as TVLT and CAV assume fixed distributions, while methods such as IncCLIP and AV-CIL require labels or task-boundary information. The method uses an Audio-Video Matching module to produce cross-modal attention maps, derives patch importance scores, compares current and memory-based attention to select forget-robust localized patches, and trains with reconstruction, masked contrastive, and DER++-style memory losses. Experiments on VGGSound and AudioSet report improvements over continual learning baselines in retrieval and classification, with ablations supporting the patch-selection components, though some gains are modest.</evidence_summary>
+  <rationale>The paper makes a meaningful contribution by defining and studying a timely task-free continual audio-video representation learning setting and by proposing a tailored patch-selection mechanism for preserving audio-video alignments. However, the technical contribution mostly adapts and integrates known components from masked audiovisual learning, attention-based selection, rehearsal, and DER++-style continual learning. The empirical results suggest usefulness but not a clearly transformative advance. Overall, the contribution is good but limited in originality and breadth, warranting a score of 3.</rationale>
+</dimension_review>

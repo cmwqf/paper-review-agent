@@ -1,0 +1,31 @@
+<final_review>
+  <final_score>5</final_score>
+  <summary>GNRK is a plausible and well-motivated hybrid architecture that embeds a shared graph neural network inside an explicit Runge-Kutta-style recurrent update for PDE and graph dynamical-system prediction. The paper reports encouraging results on controlled Burgers' and graph-coupled ODE benchmarks, including low errors and small model size. However, the main novelty is limited by close conceptual overlap with learned dynamics, neural differential equation, and graph physical-simulator approaches, and the central claims about broad discretization generalization and improving precision by changing RK order without retraining are not sufficiently justified. The empirical evaluation is promising but incomplete, with uneven baselines, limited ablations, and weak statistical evidence. Overall, the paper is interesting but falls marginally below the acceptance threshold.</summary>
+  <strengths>
+    <item>Combines Runge-Kutta-style recurrent integration with graph neural message passing in a coherent and practically motivated architecture.</item>
+    <item>Targets an important problem: neural PDE and dynamical-system solvers that can handle changing initial conditions, coefficients, meshes, graph structures, and time steps.</item>
+    <item>Reports favorable results on 2D Burgers' equation, including low MAE, small parameter count, and efficient runtime and memory usage relative to listed baselines.</item>
+    <item>Includes experiments across both Euclidean-grid PDEs and graph-domain coupled dynamical systems.</item>
+    <item>The paper is generally readable and logically organized, with the main architectural idea easy to understand at a high level.</item>
+  </strengths>
+  <weaknesses>
+    <item>The core contribution appears largely to be an engineering combination of established components: explicit RK integration, recurrent residual computation, and graph neural networks.</item>
+    <item>The paper does not adequately distinguish the method from closely related neural ODE, graph neural ODE, learned simulator, and learned dynamics with numerical integration literature.</item>
+    <item>The claim that increasing RK order at inference improves precision without retraining is under-supported, since classical RK guarantees do not directly transfer to a learned right-hand-side model trained with one-step loss.</item>
+    <item>Ablations do not sufficiently isolate the value of the RK recurrence, weight sharing, graph representation, spatial encodings, or RK-order choices.</item>
+    <item>Baseline comparisons are uneven and not fully documented across data budgets, tuning, applicability, and all claimed generalization regimes.</item>
+    <item>The evidence for broad robustness is limited to controlled synthetic settings and mostly point-estimate reporting, without strong seed analysis, confidence intervals, or long-horizon stability analysis.</item>
+    <item>Presentation is generally good but has notation ambiguities, inconsistent terminology around coefficients, small dense figures, and some distracting formatting artifacts.</item>
+  </weaknesses>
+  <requested_changes>
+    <item>Clarify the novelty relative to neural ODEs, graph neural ODEs, graph-network simulators, and learned dynamics models coupled with numerical integrators.</item>
+    <item>Provide stronger theoretical or empirical justification for changing RK order at test time, including systematic train-order versus test-order experiments and analysis of learned-model error.</item>
+    <item>Add ablations comparing against a plain GNN one-step predictor, non-shared RK stage networks, different RK depths, different spatial and coefficient encodings, and alternative integrator choices.</item>
+    <item>Improve baseline fairness and documentation, including comparable data budgets, tuning protocols, and adapted baselines for variable meshes, graph structures, and temporal discretizations.</item>
+    <item>Report results across multiple random seeds with uncertainty estimates and include long-horizon rollout error and stability analyses.</item>
+    <item>Clarify notation for the governing function, graph dependence, time-step inputs, coefficients, boundary conditions, and RK equations.</item>
+    <item>Improve figure readability and remove or explain distracting colored text and formatting artifacts.</item>
+  </requested_changes>
+  <recommendation>Reject</recommendation>
+  <confidence_score>4</confidence_score>
+</final_review>

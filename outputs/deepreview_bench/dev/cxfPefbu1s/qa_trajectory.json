@@ -1,0 +1,59 @@
+{
+  "Contribution": [
+    {
+      "question": "How novel is the paper's core idea of decoupling objectionable causal components via reference points and local causal modules compared with prior causal fairness work such as path-specific counterfactual fairness, fair representations, or mechanism-based interventions? Is the contribution mainly conceptual, technical, or empirical?",
+      "answer": "The core idea is moderately novel rather than wholly new. Prior causal fairness already studies path-specific effects, counterfactual interventions, and removing or controlling unfair causal pathways; fair representation work also tries to construct predictors that suppress sensitive information. The paper's more distinctive contribution is to frame fairness as preservation and decoupling of data-generating components: it argues that prior fairness-constrained fitting can inadvertently alter neutral mechanisms, and proposes learning local causal modules without fairness constraints, then applying reference-point substitutions only along objectionable components. This is a meaningful conceptual reframing of causal fairness around procedural fairness and mechanism preservation. Technically, the reference-point/value-instantiation rule and topological aggregation of local modules provide a concrete implementation, but they appear closer to a structured adaptation of causal interventions/module composition than a fundamentally new causal formalism. Empirically, the contribution is comparatively secondary: the experiments mainly illustrate the claimed failure modes and show behavior on UCI Adult/Folktables-style tasks, rather than establishing broad empirical superiority. Overall, the contribution is primarily conceptual, with a useful but relatively lightweight technical instantiation and illustrative empirical support.",
+      "evidence": [
+        "paper: The paper positions itself against existing causal fairness approaches by arguing that they often quantify effects on outcomes while under-characterizing properties of the data-generating process itself, and introduces “disguised procedural unfairness” as alteration of neutral components while mitigating objectionable ones.",
+        "paper: In the illustrative linear model, the paper compares constraints associated with prior causal fairness work, including Kilbertus-style direct/proxy discrimination constraints and Nabi/Shpitser-style path-specific effect constraints, and claims these can cause fitted neutral parameters to deviate from ground truth.",
+        "paper: The proposed method defines reference points propagated along objectionable edges, a value-instantiation rule for local causal-module inputs, learning of local modules without fairness constraints, and topological aggregation while applying the reference-point rule.",
+        "paper: The appendix related-work section explicitly reviews causal fairness notions, responsive-agent settings, and fair representation learning, and states that the proposed approach differs from fair representation learning by modularly decoupling objectionable components rather than learning a holistic representation.",
+        "retrieval: No external scholarly retrieval results were provided, so the novelty judgment is based on the paper's own related-work positioning and reviewer knowledge of the cited families of prior work; confidence is therefore somewhat limited.",
+        "inference: Because path-specific counterfactual fairness and causal interventions already manipulate or block selected causal pathways, the novelty is not the mere idea of causal pathway intervention. The stronger novelty is the procedural-fairness framing: preserving neutral local mechanisms while substituting reference values for objectionable components and optimizing these reference points for least-advantaged individuals."
+      ],
+      "retrieved_papers": [],
+      "review_impact": {
+        "dimension": "Contribution",
+        "polarity": "strength",
+        "impact_level": "C2",
+        "confidence": "medium"
+      }
+    }
+  ],
+  "Soundness": [
+    {
+      "question": "What assumptions does the paper make about knowing the causal DAG, identifying objectionable vs neutral components, and estimating local causal modules/reference points, and do the experiments include statistics such as repeated runs, confidence intervals, or significance tests to support the reported approval-rate comparisons?",
+      "answer": "The method appears to require substantial prior causal and normative knowledge: the causal DAG and parent sets are taken as given; objectionable versus neutral components are designated by the modeler/decision-maker rather than discovered; and local causal modules are estimated from data under the assumed graph, then combined with optimized reference points. This is a soundness concern because the empirical claims depend on whether these assumptions are correct in real applications. The experiments report approval-rate comparisons, but the available paper evidence does not show repeated-run statistics, confidence intervals, or significance tests for those approval-rate differences; a targeted search for terms related to assumptions and statistical uncertainty also returned no matches. Thus, the reported approval-rate improvements should be interpreted as illustrative point estimates rather than statistically supported performance comparisons.",
+      "evidence": [
+        "paper: The framework represents the data-generating process as a DAG whose directed edges are treated as atomic objectionable or neutral components, and the proposed algorithms operate over local causal modules in topological order. This indicates that the method assumes an available causal graph/ordering and known parent-child structure.",
+        "paper: The method defines reference points for tails of objectionable edges and uses a value-instantiation rule to replace inputs along objectionable components while leaving neutral components intact. This requires the objectionable components to be pre-identified; the paper frames this as part of the procedural fairness specification rather than as something learned from data.",
+        "paper: The experiments implement local causal modules as neural networks and use simulated annealing to derive reference-point configurations that maximize benefit for least-advantaged individuals, implying assumptions about learnability of local mechanisms from the available data and the adequacy of the reference-point optimization procedure.",
+        "paper: The experimental sections report approval rates and group-wise approval-rate changes for the simulated example, UCI Adult, and appendix Folktables experiments, but the provided paper map and targeted search do not identify repeated runs, confidence intervals, standard errors, or significance tests attached to these approval-rate comparisons.",
+        "inference: Because causal graph specification, ethical classification of components, and reference-point optimization are central inputs to the method, errors or contestability in any of these inputs could materially change the resulting predictions and fairness conclusions."
+      ],
+      "retrieved_papers": [],
+      "review_impact": {
+        "dimension": "Soundness",
+        "polarity": "weakness",
+        "impact_level": "C2",
+        "confidence": "medium"
+      }
+    }
+  ],
+  "Presentation": [
+    {
+      "question": "Inspect the PDF pages for presentation evidence: readability, figures, tables, captions, layout, and formatting.",
+      "answer": "VLM page observations:\n- **Overall (pp. 1–8):** The paper is visually easy to inspect in the ICLR format: consistent margins, readable serif body text, clear section hierarchy, page numbers, and standard header/footer styling.\n\n- **Figures/tables:**\n  - **No tables observed** in the provided pages.\n  - **Figure 1 (p. 4):** Conceptually clear, but the matrix entries, color bars, and small annotations are dense and may be hard to read at normal zoom. The red/green/orange box encodings are useful but somewhat color-dependent.\n  - **Figure 2 (p. 8):** The three-panel figure is informative, but panel (c) is crowded; axis labels, legends, tick labels, and bars are quite small. It likely requires zooming for comfortable inspection.\n\n- **Captions:**\n  - **Figure 1 caption (p. 4):** Informative and well connected to the panels; it explains what each panel shows and defines the orange/green boxes.\n  - **Figure 2 caption (p. 8):** Good high-level summary of all panels and ties them to the experimental narrative, though it could be easier to parse if the visual labels were larger.\n\n- **Algorithms/layout:**\n  - **Algorithm 1 (p. 6) and Algorithm 2 (p. 7):** Generally legible, with clear rule lines and indentation. Some input/output descriptions are long and dense, but still readable.\n  - Algorithm blocks are visually prominent and well separated from surrounding text.\n\n- **Equations/typography:**\n  - **Equations (pp. 3–4, 8):** Mostly clean and readable. Equation (1) on p. 3 and Equation (4) on p. 8 are somewhat dense but not visually broken.\n  - Mathematical notation is consistent; superscripts/subscripts are small but acceptable.\n\n- **Formatting issues:**\n  - **Footnotes (pp. 1–8):** Several pages have dense footnotes in small type; readable but visually heavy, especially pp. 3–5 and p. 8.\n  - **Figures (pp. 4, 8):** Main readability issue is scale: both figures compress substantial information into limited width.\n  - If this were a **blind ICLR submission**, the visible author list and “Published as a conference paper at ICLR 2024” header would be inappropriate; as a camera-ready/published version, the format is fine.",
+      "evidence": [
+        "pdf_image:vlm_pages"
+      ],
+      "retrieved_papers": [],
+      "review_impact": {
+        "dimension": "Presentation",
+        "polarity": "neutral",
+        "impact_level": "C1",
+        "confidence": "medium"
+      }
+    }
+  ]
+}

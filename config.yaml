@@ -2,10 +2,13 @@
 # paper loading, logging, and outputs.
 
 project:
-  name: Reviewer
   output_dir: outputs
-  random_seed: 42
-  dataset_dir: ../DeepReview-13K
+
+bench:
+  root: ../DeepReview-Bench
+  dev_split: ../DeepReview-Bench/splits/deepreview13k_test_dev.jsonl
+  dev_output_dir: outputs/deepreview_bench/dev
+  concurrency: 8
 
 network:
   all_proxy: ${ALL_PROXY}
@@ -21,7 +24,7 @@ models:
     base_url: ${OPENAI_BASE_URL}
     api_key_env: OPENAI_API_KEY
     temperature: 0.2
-    max_tokens: 4096
+    max_tokens: 32768
     top_p: 1.0
     timeout_seconds: 60
     max_retries: 3
@@ -31,7 +34,7 @@ models:
     base_url: ${OPENAI_BASE_URL}
     api_key_env: OPENAI_API_KEY
     temperature: 0.3
-    max_tokens: 4096
+    max_tokens: 32768
     top_p: 1.0
     timeout_seconds: 60
     max_retries: 3
@@ -41,7 +44,7 @@ models:
     base_url: ${OPENAI_BASE_URL}
     api_key_env: OPENAI_API_KEY
     temperature: 0.2
-    max_tokens: 4096
+    max_tokens: 32768
     top_p: 1.0
     timeout_seconds: 60
     max_retries: 3
@@ -51,7 +54,7 @@ models:
     base_url: ${OPENAI_BASE_URL}
     api_key_env: OPENAI_API_KEY
     temperature: 0.2
-    max_tokens: 4096
+    max_tokens: 32768
     top_p: 1.0
     timeout_seconds: 60
     max_retries: 3
@@ -61,68 +64,58 @@ models:
     base_url: ${OPENAI_BASE_URL}
     api_key_env: OPENAI_API_KEY
     temperature: 0.1
-    max_tokens: 4096
+    max_tokens: 32768
     top_p: 1.0
     timeout_seconds: 60
     max_retries: 3
 
   reranker:
-    model: bge-reranker-v2-m3
-    endpoint: http://localhost:8001/rerank
-    top_k: 8
-    no_proxy:
-      - localhost
-      - 127.0.0.1
-      - 0.0.0.0
-
-workflow:
-  require_xml_outputs: true
-  save_trace: true
-  max_total_steps: 30
+    model: openai/gpt-5.5
+    base_url: ${OPENAI_BASE_URL}
+    api_key_env: OPENAI_API_KEY
+    temperature: 0
+    max_tokens: 1024
+    timeout_seconds: 30
+    max_retries: 2
 
 agents:
   summary:
     model: summary
-    output_format: xml
 
   contribution:
     model: agent
     answer_model: answer
-    max_qa_turns: 5
-    default_retrieval: true
-    scoring_range: [1, 10]
+    min_qa_turns: 3
+    max_qa_turns: 10
+    require_balanced_qa: true
 
   soundness:
     model: agent
     answer_model: answer
-    max_qa_turns: 5
-    default_retrieval: true
-    scoring_range: [1, 10]
+    min_qa_turns: 4
+    max_qa_turns: 10
+    require_balanced_qa: true
 
   presentation:
     model: agent
     answer_model: answer
     vlm_model: vlm
-    max_qa_turns: 4
-    default_retrieval: false
+    min_qa_turns: 2
+    max_qa_turns: 10
+    require_balanced_qa: true
     use_vlm: true
-    scoring_range: [1, 10]
+    require_vlm: false
+    require_pdf: true
 
   final:
     model: final_review
-    scoring_range: [1, 10]
 
 retrieval:
   enabled: true
-  provider: semantic_scholar
   semantic_scholar:
     api_key_env: SEMANTIC_SCHOLAR_API_KEY
     endpoint: https://api.semanticscholar.org/graph/v1/paper/search
     timeout_seconds: 30
-    max_retries: 3
-  query_generation:
-    max_queries: 4
-    max_tags_per_query: 6
   search:
     limit_per_query: 20
     fields:
@@ -137,28 +130,21 @@ retrieval:
       - url
   time_filter:
     enabled: true
-    mode: before_submission
   rerank:
     enabled: true
     model: reranker
     top_k: 8
+    min_candidates: 15
 
 qa:
-  require_review_impact: true
-  allowed_polarities: [strength, weakness, neutral, mixed]
-  allowed_severities: [minor, moderate, major, critical]
-  score_impact_range: [-2.0, 2.0]
-  require_evidence: true
+  max_answer_steps: 6
 
 paper:
   max_text_chars: 120000
-  render_pages_for_vlm: true
+  max_pdf_read_pages: 3
+  presentation_pdf_pages: 3
   max_vlm_pages: 8
   page_image_dpi: 160
-
-xml:
-  strict: true
-  repair_attempts: 2
 
 logging:
   level: INFO

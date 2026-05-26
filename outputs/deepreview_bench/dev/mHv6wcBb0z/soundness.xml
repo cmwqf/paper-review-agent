@@ -1,0 +1,21 @@
+<dimension_review>
+  <dimension>Soundness</dimension>
+  <score>2</score>
+  <strengths>
+    <item>The paper identifies a plausible and practically relevant failure mode in DCCA-style training: downstream performance can degrade substantially as training proceeds.</item>
+    <item>The proposed NR-DCCA objective is clearly motivated by a correlation-with-noise regularization idea and is evaluated on both synthetic and real-world multi-view datasets.</item>
+    <item>The experiments include several relevant CCA/DCCA-family baselines, including CCA, PRCCA, KCCA, DCCA, DGCCA, DCCAE/DGCCAE, private-view variants, CONCAT, and MVTCAE.</item>
+    <item>The appendix provides useful additional evidence, including final-epoch results, an alpha sensitivity study for NR-DCCA, a ridge-regularization comparison for DCCA, and an extension to DGCCA.</item>
+    <item>The paper includes a diagnostic related to the proposed collapse mechanism: unrelated or noise data becoming correlated after transformation in collapsed DCCA-based models.</item>
+  </strengths>
+  <weaknesses>
+    <item>The theoretical justification is limited. The main propositions appear to apply only to square linear CCA transformations under restrictive assumptions, while the extension to neural networks is largely definitional rather than a theorem proving rank preservation or non-collapse.</item>
+    <item>The claim that the method enforces a meaningful “full-rank” neural transformation is not independently validated; the neural-network full-rank property is defined through the proposed noise-regularization loss itself.</item>
+    <item>Important anti-collapse and regularization baselines are missing or insufficiently explored, such as early stopping, dropout, weight decay, orthogonality or whitening constraints, covariance/rank/spectral regularizers, and other standard stabilization methods.</item>
+    <item>The baseline tuning evidence is incomplete. The paper varies DCCA ridge regularization and NR-DCCA alpha, but does not show a broad, matched hyperparameter-tuning protocol for regularized alternatives.</item>
+    <item>The statistical evidence is weak: results are reported as 5-fold cross-validation averages with fixed seeds, but there is no clear reporting of variance, confidence intervals, error bars, significance tests, or multi-seed robustness.</item>
+    <item>The ablations do not fully isolate the proposed mechanism. The paper does not test different noise distributions or scales, alternative penalty locations, or simpler norm/Jacobian/variance/rank penalties, nor does it directly measure singular values, rank, covariance degeneracy, or Jacobian spectra.</item>
+  </weaknesses>
+  <evidence_summary>The paper supports its main claims with a combination of narrow linear theory, synthetic experiments, real-world downstream evaluations, final-epoch tables, and limited ablations. The evidence suggests that the proposed noise regularization can stabilize DCCA and DGCCA in the reported settings. However, the theory does not rigorously establish the claimed nonlinear full-rank mechanism, the experimental comparisons lack several strong regularization and anti-collapse baselines, and the statistical reporting is limited. The ablations show that the regularizer weight matters and that ridge regularization alone may not prevent collapse on one dataset, but they do not convincingly rule out simpler explanations such as generic smoothing, capacity control, or variance regularization.</evidence_summary>
+  <rationale>The paper is methodologically suggestive but not fully rigorous. It provides meaningful experiments and some relevant ablations, so the claims are not unsupported. However, the central mechanistic explanation rests on a weak extension from square linear transformations to neural networks, and the empirical evidence lacks uncertainty estimates, strong anti-collapse baselines, and mechanism-isolating ablations. Therefore, the soundness is best characterized as fair rather than good: the results provide partial support for NR-DCCA preventing collapse in the tested settings, but notable methodological gaps prevent the evidence from fully justifying the broader claims.</rationale>
+</dimension_review>

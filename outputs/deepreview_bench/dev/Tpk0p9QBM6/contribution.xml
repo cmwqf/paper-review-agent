@@ -1,0 +1,19 @@
+<dimension_review>
+  <dimension>Contribution</dimension>
+  <score>2</score>
+  <strengths>
+    <item>The paper identifies an important problem: computing useful low-entropy couplings for distributions with very large or implicit supports, where classical MEC approximation methods and prior IMEC variants are limited.</item>
+    <item>The partition-set formulation of IMEC is a meaningful conceptual contribution that unifies TIMEC and FIMEC as special cases.</item>
+    <item>ARIMEC introduces a plausible new instantiation using prefix-tree partitions, allowing the method to handle arbitrary autoregressive or non-factorized discrete distributions more naturally than FIMEC.</item>
+    <item>The paper provides empirical demonstrations in Markov coding games and steganography showing that using ARIMEC with a more accurate autoregressive prior can improve encoding efficiency or throughput.</item>
+  </strengths>
+  <weaknesses>
+    <item>The core novelty is relatively narrow: it mainly recombines IMEC-style coupling with a partition-family abstraction and prefix-tree search, rather than providing a fundamentally new MEC approximation guarantee.</item>
+    <item>The scalability claim is weakened by the runtime dependence on the number of prefix-tree nodes searched and the explicit lack of a polynomial-time worst-case guarantee.</item>
+    <item>The empirical evidence is limited to two application families and does not validate the broader claimed applicability to areas such as causal inference, random number generation, functional representations, or dimensionality reduction.</item>
+    <item>The main empirical comparisons are against relatively weak uniform-token/FIMEC-style baselines, making it difficult to separate the benefit of ARIMEC itself from the benefit of using a better autoregressive prior.</item>
+    <item>In at least one reported steganography setting, the results are mixed, with FIMEC achieving lower joint entropy while ARIMEC achieves lower decoding error.</item>
+  </weaknesses>
+  <evidence_summary>The Q&amp;A indicates that the closest prior works are TIMEC, FIMEC, MEME, and classical MEC approximation algorithms. The paper’s main technical contribution is a partition-set IMEC framework and a prefix-tree instantiation, ARIMEC, with lazy updates and entropy-bound pruning. This extends IMEC beyond tabular or independent-factor message distributions. However, the method has no worst-case polynomial-time guarantee, since prefix-tree search may require exponentially many node checks. Empirical evaluation is restricted to Markov coding games and GPT-2-based steganography, where ARIMEC is mainly compared to uniform-token FIMEC/MEME baselines. The observed gains therefore support the narrow claim that ARIMEC can exploit richer autoregressive priors, but not a broad claim of general-purpose superiority for low-entropy coupling.</evidence_summary>
+  <rationale>The paper makes a real but limited contribution. The partition-set unification and prefix-tree ARIMEC construction are novel enough to be of interest, and the applications show some practical promise. However, the contribution is best characterized as a heuristic framework and engineering/generalization step for IMEC rather than a major algorithmic advance. Its broader impact is uncertain due to the lack of polynomial-time guarantees, limited empirical scope, and weak baselines that conflate algorithmic improvement with access to a better prior. Overall, this merits a fair contribution score rather than a good or excellent one.</rationale>
+</dimension_review>

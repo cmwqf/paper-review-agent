@@ -1,0 +1,301 @@
+<paper_summary>
+  <metadata>
+    <title>Revisiting Plasticity in Visual Reinforcement Learning: Data, Modules and Training Stages</title>
+    <authors>Guozheng Ma, Lu Li, Sen Zhang, Zixuan Liu, Zhen Wang, Yixin Chen, Li Shen, Xueqian Wang, Dacheng Tao</authors>
+    <venue>ICLR 2024</venue>
+    <submission_date>2023-10-11</submission_date>
+  </metadata>
+  <paper_map>
+    <section>
+      <section_id>s1</section_id>
+      <title>Introduction</title>
+      <summary>The paper frames plasticity loss as a central obstacle for sample-efficient visual reinforcement learning. It states three empirical findings about data augmentation, critic plasticity, and early-stage intervention, and proposes Adaptive Replay Ratio as a method motivated by these findings.</summary>
+      <key_items>
+        <item>
+          <type>problem</type>
+          <text>Visual RL agents must learn from non-stationary data and objectives, making plasticity loss a sample-efficiency challenge.</text>
+        </item>
+        <item>
+          <type>claim</type>
+          <text>Data augmentation is indispensable for preserving plasticity in visual RL agents.</text>
+        </item>
+        <item>
+          <type>claim</type>
+          <text>The critic module's plasticity loss is identified as the main bottleneck for efficient training.</text>
+        </item>
+        <item>
+          <type>claim</type>
+          <text>Early-stage plasticity recovery is necessary; without timely intervention, critic plasticity loss becomes catastrophic.</text>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>Adaptive RR dynamically changes replay ratio based on the critic's plasticity level.</text>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s2</section_id>
+      <title>Related Work</title>
+      <summary>This section reviews prior work on plasticity loss in reinforcement learning and on the high replay-ratio dilemma. It contrasts reset-based, regularization-based, and architecture-based plasticity interventions, and describes replay ratio as the number of updates per environment step.</summary>
+      <key_items>
+        <item>
+          <type>problem</type>
+          <text>Plasticity loss has been discussed under terms including primacy bias, dormant neurons, implicit underparameterization, capacity loss, and plasticity loss.</text>
+        </item>
+        <item>
+          <type>baseline</type>
+          <text>Prior interventions include Reset, ReDo, Plasticity Injection, L2-Init, and Concatenated ReLU.</text>
+        </item>
+        <item>
+          <type>problem</type>
+          <text>Increasing replay ratio can improve data reuse but can also intensify plasticity loss.</text>
+        </item>
+        <item>
+          <type>claim</type>
+          <text>The paper positions Adaptive RR as a dynamic replay-ratio approach based on critic plasticity.</text>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s3</section_id>
+      <title>Data: Data Augmentation Is Essential in Maintaining Plasticity</title>
+      <summary>This section studies data augmentation through factorial experiments with Reset and comparisons against other interventions. The reported experiments use DrQ-v2 on DeepMind Control tasks and show that data augmentation alone preserves plasticity more effectively than Reset without augmentation.</summary>
+      <key_items>
+        <item>
+          <type>ablation</type>
+          <text>Factorial experiment compares four combinations: with or without data augmentation and with or without Reset.</text>
+          <location_hint>Figure 1</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>Without data augmentation, Reset consistently improves performance, indicating plasticity loss.</text>
+          <location_hint>Figure 1</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>With data augmentation, adding Reset gives only slight improvement or sometimes decreases performance.</text>
+          <location_hint>Figure 1</location_hint>
+        </item>
+        <item>
+          <type>baseline</type>
+          <text>Architectural and optimization interventions include Weight Decay, L2-Init, Layer Normalization, Spectral Normalization, Shrink and Perturb, and CReLU.</text>
+        </item>
+        <item>
+          <type>result</type>
+          <text>Data augmentation is reported as the most effective intervention among the compared methods on Cheetah Run.</text>
+          <location_hint>Figure 2</location_hint>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s4</section_id>
+      <title>Modules: The Plasticity Loss of Critic Network Is Predominant</title>
+      <summary>This section separates the visual RL agent into encoder, actor, and critic modules and measures their plasticity trends. Experiments with FAU, a frozen ImageNet-pretrained encoder, and plasticity injection support the paper's claim that critic plasticity loss dominates sample inefficiency.</summary>
+      <key_items>
+        <item>
+          <type>metric</type>
+          <text>Fraction of Active Units measures the proportion of neurons with positive activation in a module.</text>
+          <location_hint>Equation 1</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>Data augmentation substantially raises critic FAU, while encoder and actor FAU show similar trends with or without augmentation.</text>
+          <location_hint>Figure 3</location_hint>
+        </item>
+        <item>
+          <type>ablation</type>
+          <text>Uses a frozen ImageNet-pretrained ResNet encoder to isolate representation learning effects.</text>
+          <location_hint>Figure 4</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>With a frozen pretrained encoder, using data augmentation still outperforms not using it.</text>
+          <location_hint>Figure 4</location_hint>
+        </item>
+        <item>
+          <type>ablation</type>
+          <text>Plasticity injection is applied separately to actor and critic, with and without data augmentation.</text>
+          <location_hint>Figure 5</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>Without data augmentation during early training, plasticity injection into the critic significantly improves performance.</text>
+          <location_hint>Figure 5</location_hint>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s5</section_id>
+      <title>Stages: Early-Stage Plasticity Loss Becomes Irrecoverable</title>
+      <summary>This section studies how plasticity loss differs across training stages by turning data augmentation on or off at selected training steps. It reports that early critic plasticity recovery is crucial, while later plasticity decline may be benign in single-task visual RL.</summary>
+      <key_items>
+        <item>
+          <type>ablation</type>
+          <text>Data augmentation is turned on or off at particular training steps to test early and late intervention effects.</text>
+          <location_hint>Figure 6</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>Turning off data augmentation after critic plasticity recovery does not affect training efficiency.</text>
+          <location_hint>Figure 6</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>Turning on data augmentation after significant early plasticity loss does not revive training performance.</text>
+          <location_hint>Figure 6</location_hint>
+        </item>
+        <item>
+          <type>claim</type>
+          <text>The paper distinguishes early catastrophic plasticity loss from later benign plasticity loss.</text>
+        </item>
+        <item>
+          <type>motivation</type>
+          <text>Early bootstrapped targets are described as highly non-stationary because they are based on limited and low-quality experience.</text>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s6</section_id>
+      <title>Methods: Adaptive RR for Addressing the High RR Dilemma</title>
+      <summary>This section introduces Adaptive RR, which starts with a low replay ratio and switches to a higher replay ratio when critic FAU stabilizes. Evaluations on DeepMind Control and Atari-100K compare Adaptive RR against static replay-ratio settings and reset-based methods.</summary>
+      <key_items>
+        <item>
+          <type>problem</type>
+          <text>Higher static replay ratio can reduce sample efficiency because early plasticity loss becomes more severe.</text>
+          <location_hint>Figure 7</location_hint>
+        </item>
+        <item>
+          <type>metric</type>
+          <text>Critic FAU is used to monitor plasticity and decide when to increase replay ratio.</text>
+          <location_hint>Figure 8</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>Adaptive RR starts at RR=0.5 and switches to RR=2 when consecutive critic FAU checkpoints differ by less than 0.001.</text>
+        </item>
+        <item>
+          <type>dataset</type>
+          <text>DeepMind Control evaluation uses six challenging continuous-control tasks.</text>
+          <location_hint>Figure 9</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>Adaptive RR shows higher sample efficiency than static low RR and static high RR on the reported DMC tasks.</text>
+          <location_hint>Figure 9</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>On Atari-100K, Adaptive RR obtains mean HNS 55.8%, median HNS 48.7%, 4 superhuman games, and 11 best scores among compared settings.</text>
+          <location_hint>Table 2</location_hint>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s7</section_id>
+      <title>Conclusion, Limitations, and Future Work</title>
+      <summary>The conclusion restates the three main findings and the Adaptive RR proposal. The limitations name the experimental scope and the basic design of Adaptive RR, while future work calls for further study of DRL-specific architectures and optimization techniques.</summary>
+      <key_items>
+        <item>
+          <type>claim</type>
+          <text>Data augmentation mitigates plasticity loss; critic plasticity is the primary hurdle; early recovery is pivotal for efficient training.</text>
+        </item>
+        <item>
+          <type>stated_limitation</type>
+          <text>Experiments focus on DeepMind Control and Atari environments, without evaluation in more complex settings.</text>
+        </item>
+        <item>
+          <type>stated_limitation</type>
+          <text>Adaptive RR is demonstrated only under basic configurations.</text>
+        </item>
+        <item>
+          <type>other</type>
+          <text>The authors suggest future work on DRL-specific network architectures and optimization techniques.</text>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s8</section_id>
+      <title>Appendices and Experimental Details</title>
+      <summary>The appendices provide extended related work, additional experiments, the Adaptive RR algorithm, and hyperparameters for DMC and Atari. Additional figures cover Reset intervals, heavy priming, intervention comparisons, plasticity-injection replications, FAU trends, and extra plasticity metrics.</summary>
+      <key_items>
+        <item>
+          <type>method_component</type>
+          <text>Adaptive RR algorithm checks critic FAU every interval and switches to high RR when the FAU change is below a threshold.</text>
+          <location_hint>Algorithm 1</location_hint>
+        </item>
+        <item>
+          <type>dataset</type>
+          <text>DMC experiments use image observations and DrQ-v2 hyperparameters including replay buffer capacity 1e6, batch size 256, learning rate 1e-4, and hidden dimension 1024.</text>
+          <location_hint>Table 3</location_hint>
+        </item>
+        <item>
+          <type>dataset</type>
+          <text>Atari-100K experiments use the Dopamine framework, 17 games, and 5 random seeds per game.</text>
+          <location_hint>Table 5</location_hint>
+        </item>
+        <item>
+          <type>metric</type>
+          <text>Additional plasticity metrics discussed include feature rank, weight norm, and FAU.</text>
+          <location_hint>Appendix B.7</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>Additional DMC and Atari tables and figures report consistent trends for Reset, plasticity injection, DA timing, and FAU across tasks and seeds.</text>
+          <location_hint>Appendix B</location_hint>
+        </item>
+      </key_items>
+    </section>
+  </paper_map>
+  <global_index>
+    <claims>
+      <item section_ref="s1">Data augmentation is essential for maintaining plasticity in visual reinforcement learning.</item>
+      <item section_ref="s1">The critic module's plasticity loss is the main bottleneck for efficient visual RL training.</item>
+      <item section_ref="s5">Plasticity loss in early training can become catastrophic and irrecoverable if not addressed promptly.</item>
+      <item section_ref="s6">Adaptive RR can balance data reuse and plasticity loss by changing replay ratio based on critic FAU.</item>
+    </claims>
+    <method_components>
+      <item section_ref="s3">Data augmentation applied to input observations in DrQ-v2-style visual RL.</item>
+      <item section_ref="s4">FAU-based module analysis for encoder, actor, and critic.</item>
+      <item section_ref="s4">Plasticity injection applied separately to actor and critic as a diagnostic tool.</item>
+      <item section_ref="s6">Adaptive RR starts with low RR and switches to high RR after critic FAU stabilizes.</item>
+      <item section_ref="s8">Algorithm 1 specifies the check interval, FAU threshold, and switch rule for Adaptive RR.</item>
+    </method_components>
+    <datasets>
+      <item section_ref="s6">DeepMind Control suite continuous-control visual RL tasks.</item>
+      <item section_ref="s6">Atari-100K benchmark with 17 games.</item>
+      <item section_ref="s4">ImageNet-pretrained ResNet encoder used in frozen-encoder experiments.</item>
+    </datasets>
+    <baselines>
+      <item section_ref="s3">DrQ-v2 with and without data augmentation.</item>
+      <item section_ref="s3">Reset, Weight Decay, L2-Init, Layer Normalization, Spectral Normalization, Shrink and Perturb, and CReLU.</item>
+      <item section_ref="s6">Static RR=0.5 and static RR=2 on DMC.</item>
+      <item section_ref="s6">Static RR settings and ReDo on Atari-100K.</item>
+      <item section_ref="s6">Reset and ReDo under static replay-ratio settings.</item>
+    </baselines>
+    <ablations>
+      <item section_ref="s3">Four-way comparison of data augmentation and Reset presence or absence.</item>
+      <item section_ref="s4">Frozen ImageNet-pretrained encoder comparison with and without data augmentation.</item>
+      <item section_ref="s4">Plasticity injection into actor versus critic, with and without data augmentation.</item>
+      <item section_ref="s5">Turning data augmentation on or off at selected training steps.</item>
+      <item section_ref="s6">Varying static replay ratio values and comparing them to Adaptive RR.</item>
+    </ablations>
+    <metrics>
+      <item section_ref="s4">Fraction of Active Units for encoder, actor, and critic plasticity.</item>
+      <item section_ref="s6">Average episode return on DMC tasks.</item>
+      <item section_ref="s6">Human-normalized score, median HNS, number of superhuman games, and number of best scores on Atari-100K.</item>
+      <item section_ref="s8">Feature rank and weight norm are discussed as additional plasticity metrics.</item>
+    </metrics>
+    <results>
+      <item section_ref="s3">Reset improves training in the absence of data augmentation, while adding Reset to data augmentation gives limited or negative gains.</item>
+      <item section_ref="s4">Critic FAU changes strongly with data augmentation, while actor and encoder FAU trends are similar across augmentation settings.</item>
+      <item section_ref="s4">Plasticity injection into the critic improves performance after no-augmentation early training.</item>
+      <item section_ref="s5">Early use of data augmentation enables critic plasticity recovery; late use after severe loss does not recover training performance.</item>
+      <item section_ref="s6">Adaptive RR outperforms static low and high replay-ratio settings in the reported DMC learning curves.</item>
+      <item section_ref="s6">Adaptive RR reports 55.8% mean HNS and 48.7% median HNS on Atari-100K.</item>
+    </results>
+    <stated_limitations>
+      <item section_ref="s7">Experiments are limited to DMC and Atari environments and do not evaluate more complex settings.</item>
+      <item section_ref="s7">Adaptive RR is evaluated only under basic configurations, and more nuanced designs are left for future work.</item>
+    </stated_limitations>
+  </global_index>
+</paper_summary>

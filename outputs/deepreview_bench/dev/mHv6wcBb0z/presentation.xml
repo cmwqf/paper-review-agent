@@ -1,0 +1,19 @@
+<dimension_review>
+  <dimension>Presentation</dimension>
+  <score>3</score>
+  <strengths>
+    <item>The paper is generally well organized in a standard ICLR-style structure, with clear sections for introduction, related work, preliminaries, method, experiments, conclusion, and appendix.</item>
+    <item>Main text, equations, and mathematical derivations are mostly readable and visually well aligned, with consistent equation numbering.</item>
+    <item>Captions are usually placed appropriately and describe the corresponding figures or tables sufficiently to make the visual evidence reviewable.</item>
+    <item>The appendix is usable for verification: Tables 2–3 and Figures 7–12 are formatted in conventional result-table and multi-panel-plot styles, with captions identifying the experiments and plotted quantities.</item>
+  </strengths>
+  <weaknesses>
+    <item>Several figures are visually dense or too small at normal reading size, especially the multi-panel plots on page 8 such as Figures 4 and 5; legends, axis labels, tick labels, and markers may require zooming.</item>
+    <item>Yellow-highlighted text appears across multiple pages, which is distracting and makes the manuscript look less polished for a clean ICLR submission.</item>
+    <item>Some captions are descriptive but not fully explanatory, particularly for dense diagrams and plots where more guidance would help reviewers interpret the visual evidence quickly.</item>
+    <item>There are minor formatting and typography issues, including awkward title line breaks/hyphenation on page 1 and a missing space in the section title “DCCA with Noise Regularization(NR-DCCA)” on page 5.</item>
+    <item>The appendix and experimental figures compress many methods, datasets, and training curves into limited space, reducing ease of inspection even though the material remains interpretable.</item>
+  </weaknesses>
+  <evidence_summary>The PDF inspection found that the manuscript uses a readable ICLR-style layout and is generally easy to follow. Pages 4–6 contain mostly clear equations, and the appendix tables and figures are reviewable. However, visual inspection also identified repeated yellow highlighting on pages 2, 5, 6, 7, and 8; small labels in Figures 1–3; crowded and hard-to-read experimental plots in Figures 4–5 on page 8; and dense appendix plots/tables whose legends and labels require close reading.</evidence_summary>
+  <rationale>The presentation is good overall: the paper is readable, organized, and mostly easy to inspect, with sufficient captions and conventional formatting for equations, figures, and appendix results. However, the recurring highlighting, minor typography issues, and notably compressed plots prevent an excellent score. These issues affect polish and reviewer convenience but do not make the paper difficult to understand, so a score of 3 is appropriate.</rationale>
+</dimension_review>

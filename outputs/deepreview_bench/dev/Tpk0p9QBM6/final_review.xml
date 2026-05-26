@@ -1,0 +1,31 @@
+<final_review>
+  <final_score>5</final_score>
+  <summary>The paper addresses an important problem: constructing low-entropy couplings for large-support or implicit discrete distributions. Its main contributions are a partition-set formulation that unifies prior IMEC variants and a prefix-tree instantiation, ARIMEC, for more general autoregressive or non-factorized distributions. The technical core appears valid in showing that the generic procedure induces a coupling, and the paper is generally well organized. However, the main claims are only partially supported: ARIMEC lacks global optimality or approximation guarantees, has potentially exponential search cost, and the experiments mostly compare against weak or misspecified uniform-token/FIMEC baselines. As a result, the paper is a plausible heuristic and conceptual generalization, but the evidence is not strong enough for acceptance.</summary>
+  <strengths>
+    <item>Targets a relevant and difficult problem in minimum-entropy coupling for large-support distributions.</item>
+    <item>Provides a useful partition-set abstraction that unifies TIMEC and FIMEC as special cases.</item>
+    <item>Introduces ARIMEC via prefix-tree partitions, making IMEC-style methods more naturally applicable to arbitrary autoregressive or non-factorized discrete distributions.</item>
+    <item>Proves the basic validity property that the generic IMEC procedure, and hence ARIMEC, induces a coupling with the desired marginals.</item>
+    <item>Includes empirical demonstrations in Markov coding games and steganography where using an autoregressive prior can improve encoding efficiency or throughput.</item>
+    <item>The exposition is mostly clear, with logical organization, useful algorithms, definitions, and appendices.</item>
+  </strengths>
+  <weaknesses>
+    <item>The central novelty is moderate: the work is mainly a unifying framework and prefix-tree heuristic rather than a major new MEC approximation algorithm.</item>
+    <item>ARIMEC has no global minimum-entropy, approximation, or strong low-entropy guarantee beyond coupling validity and limited greedy reasoning.</item>
+    <item>The scalability claim is weakened by the runtime dependence on the number of checked prefix-tree nodes, which can be exponential in the worst case.</item>
+    <item>The experiments do not convincingly isolate the benefit of ARIMEC from the benefit of using a better autoregressive prior, since the main baselines are often uniform-token or misspecified FIMEC/MEME variants.</item>
+    <item>Runtime, scaling behavior, number of prefix-tree nodes checked, and the practical impact of pruning and lazy updates are not sufficiently evaluated.</item>
+    <item>Empirical scope is limited to two application families and does not substantiate broader claimed applicability to other MEC-related domains.</item>
+    <item>Some presentation issues remain, including pervasive blue text, crowded pages, small figure labels, and dense terminology.</item>
+  </weaknesses>
+  <requested_changes>
+    <item>Add stronger and better-matched baselines, including variants that use comparable autoregressive prior information where possible.</item>
+    <item>Include small-scale comparisons to exact MEC or stronger tabular approximations to quantify the entropy quality of ARIMEC couplings.</item>
+    <item>Report runtime, wall-clock scaling, number of prefix-tree nodes checked, and memory usage across support sizes and sequence lengths.</item>
+    <item>Provide ablations for prefix-tree partition choice, entropy-bound pruning, lazy posterior updates, and prior modeling to isolate each contribution.</item>
+    <item>Clarify and temper claims about general applicability and scalability given the absence of polynomial-time worst-case guarantees.</item>
+    <item>Improve formatting polish, especially by removing draft-like blue text and enlarging crowded figure labels.</item>
+  </requested_changes>
+  <recommendation>Reject</recommendation>
+  <confidence_score>4</confidence_score>
+</final_review>

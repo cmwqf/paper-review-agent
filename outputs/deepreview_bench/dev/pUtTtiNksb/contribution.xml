@@ -1,0 +1,18 @@
+<dimension_review>
+  <dimension>Contribution</dimension>
+  <score>3</score>
+  <strengths>
+    <item>Addresses an important and practical problem in learned distributed stereo image compression: improving decoder-side use of stereo side information while reducing decoding latency.</item>
+    <item>Proposes a coherent stereo-prior-aware system combining coarse stereo patch matching, sparse disparity refinement, channel-selective warping, and lightweight feature fusion.</item>
+    <item>Empirical results indicate strong rate-distortion performance on KITTI-stereo, Cityscapes, and InStereo2K, especially under MS-SSIM BD-rate, and substantially faster decoding than several compared stereo/distributed compression baselines.</item>
+    <item>The speed-quality tradeoff is a meaningful practical contribution, with reported lower FLOPs and lower decoding latency than the listed joint and asymmetric stereo compression methods on the evaluated resolution.</item>
+  </strengths>
+  <weaknesses>
+    <item>The core ideas are largely adaptations or recombinations of established techniques from stereo matching, feature warping, cost-volume/disparity refinement, patch matching, and lightweight convolutional fusion rather than a fundamentally new compression paradigm.</item>
+    <item>The contribution is scoped to rectified stereo/distributed compression settings and relies on assumptions such as same-row disparity search and decoder-side side information, limiting broader applicability.</item>
+    <item>The empirical SOTA claim is qualified: FFCA is not uniformly best under PSNR, some baselines are not evaluated on all datasets, some results are taken from prior papers, and runtime comparability may depend on implementation and hardware details.</item>
+    <item>The method appears less likely to transfer directly to arbitrary learned image compression, unrectified multi-view data, or more general visual compression settings without similar geometric priors.</item>
+  </weaknesses>
+  <evidence_summary>The Q&amp;A analysis found that FFCA-Net is moderately novel as an efficient stereo-prior-aware integration of known alignment and fusion components. It improves over many relevant baselines on the paper's selected datasets, particularly in MS-SSIM BD-rate and decoding speed, with Table 2 reporting 4.91s decoding time versus substantially higher times for several baselines. However, the same analysis noted that close prior work already uses feature-domain disparity estimation, side-information alignment, cross-attention, patch matching, and inter-view modeling, and that FFCA's PSNR results are not uniformly best against LDMIC. The paper's own conclusion also indicates that more general priors are needed to broaden applicability.</evidence_summary>
+  <rationale>Overall, the paper makes a good contribution: it is not conceptually groundbreaking, but it presents a meaningful and well-targeted engineering advance for distributed stereo image compression. The main value is the practical combination of stereo-specific alignment and efficient fusion that yields strong speed-rate-distortion tradeoffs. Because the novelty is incremental and the scope is relatively narrow, it does not merit an excellent score, but the empirical gains and relevance to stereo compression are substantial enough for a score of 3 rather than 2.</rationale>
+</dimension_review>

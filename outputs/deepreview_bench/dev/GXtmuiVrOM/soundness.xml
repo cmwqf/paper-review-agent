@@ -1,0 +1,18 @@
+<dimension_review>
+  <dimension>Soundness</dimension>
+  <score>3</score>
+  <strengths>
+    <item>The core method is technically well motivated: it formulates domain randomization as entropy maximization subject to a task-success constraint, with a KL trust region and backup optimization to stabilize distribution updates.</item>
+    <item>The empirical evaluation covers multiple MuJoCo sim-to-sim benchmarks and a real robotic PandaPush task, using relevant metrics such as global success rate, return, final distance, and distribution entropy.</item>
+    <item>The paper compares against several meaningful baselines, including No-DR, Fixed-DR, LSDR, and AutoDR.</item>
+    <item>The appendices include useful ablations and sensitivity analyses, including effects of history conditioning, asymmetric critics, oracle dynamics conditioning, backup optimization, distribution family, and trust-region parameters.</item>
+  </strengths>
+  <weaknesses>
+    <item>The statistical support for the main claims is limited: the evidence does not indicate formal significance tests, confidence intervals, or rigorous variability analysis for the main improvements over LSDR, AutoDR, and Fixed-DR.</item>
+    <item>It is not fully clear that all baselines are evaluated under identical policy architectures, asymmetric-critic usage, training budgets, simulator interaction accounting, and hyperparameter tuning. This weakens attribution of the gains specifically to the entropy-maximizing distribution update.</item>
+    <item>The importance-sampled success estimator is central to the method, but the paper does not appear to analyze estimator variance, effective sample size, weight degeneracy, or support mismatch, especially in high-dimensional settings such as PandaPush with 17 randomized parameters.</item>
+    <item>The independent Beta factorization assumption for dynamics parameters is empirically usable but not deeply justified; possible effects of correlated dynamics parameters are not strongly analyzed.</item>
+  </weaknesses>
+  <evidence_summary>The paper presents a coherent constrained optimization formulation for adaptive domain randomization and implements it with SAC, history-conditioned actors, asymmetric critics, KL-constrained distribution updates, importance-sampled success estimates, and a backup optimization. Experiments report stronger performance for DORAEMON than No-DR, Fixed-DR, LSDR, and AutoDR across MuJoCo tasks and PandaPush, with DORAEMON achieving 66.57% Sim2Sim and 60% Sim2Real success on PandaPush. The paper also includes ablations and sensitivity studies in the appendices. However, the Q&amp;A indicates limited statistical testing, incomplete evidence of fully controlled baseline comparability, and no quantitative reliability analysis of the importance-sampling estimator used for distribution updates.</evidence_summary>
+  <rationale>The claims are mostly technically plausible and supported by a broad empirical evaluation with relevant baselines and ablations. However, the soundness is not excellent because several aspects needed for strong causal and statistical support are incomplete: baseline comparability is not fully established, improvements are not backed by rigorous significance or variability analysis, and the reliability of the off-distribution success estimator is not quantitatively analyzed. These issues are meaningful but do not appear to invalidate the overall method or empirical conclusions, so the appropriate soundness rating is good rather than excellent.</rationale>
+</dimension_review>

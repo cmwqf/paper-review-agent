@@ -1,0 +1,28 @@
+<final_review>
+  <final_score>6</final_score>
+  <summary>R-EDL is a clear and practically useful refinement of evidential deep learning that relaxes two traditional design choices: the fixed prior weight and the variance-minimizing term in the EDL objective. The prior-weight relaxation is well supported by the subjective-logic formulation, and the removal of the variance term is reasonably motivated by the loss decomposition and over-confidence concerns. The empirical evaluation is broad and includes relevant EDL-family baselines, ablations, and multiple uncertainty/OOD settings. However, the core technical novelty is moderate relative to broader Dirichlet uncertainty literature, the strongest gains over close variants are often incremental, and the empirical evidence lacks statistical variability and more complete factorial ablations. Overall, the paper is above the acceptance threshold as a coherent, useful, and well-presented contribution, but not a strong accept.</summary>
+  <strengths>
+    <item>Identifies two specific traditional EDL assumptions as relaxable under subjective logic and gives a simple implementation via alpha = e + lambda.</item>
+    <item>The prior-weight relaxation is mathematically justified by the subjective-logic-to-Dirichlet mapping with arbitrary positive prior weight.</item>
+    <item>The critique of the EDL variance-minimizing term is supported by a plausible decomposition of the loss and targeted ablations.</item>
+    <item>Empirical evaluation is broad, covering classical image OOD detection, few-shot OOD detection, noisy data, and video open-set recognition.</item>
+    <item>The paper is generally well organized, readable, and provides helpful appendices, derivations, additional metrics, and code.</item>
+  </strengths>
+  <weaknesses>
+    <item>The technical novelty is limited: adjustable Dirichlet concentration/prior choices and alternative Dirichlet objectives are not fundamentally new in the broader literature.</item>
+    <item>Empirical improvements over close EDL variants are often modest, with some ablation gains around one to two AUPR points.</item>
+    <item>The ablation study is not fully factorial and does not fully explore interactions between lambda selection and the variance term.</item>
+    <item>The work does not provide repeated-run statistics, confidence intervals, or significance tests, making it difficult to judge robustness of small gains.</item>
+    <item>The optimal prior-weight mechanism remains unresolved, and the paper acknowledges that optimizing only the Dirichlet expectation is a coarse objective.</item>
+    <item>Main result tables and figures are somewhat dense, which creates some friction in inspecting comparisons.</item>
+  </weaknesses>
+  <requested_changes>
+    <item>Add repeated-run means and standard deviations or confidence intervals for the main and ablation results.</item>
+    <item>Include a more complete factorial ablation that jointly varies lambda and the presence or absence of the variance term.</item>
+    <item>Clarify how lambda should be selected in practice and whether the selected value transfers across datasets, architectures, and uncertainty tasks.</item>
+    <item>Temper broad novelty and uncertainty-estimation claims, positioning the method as a useful simplification and reinterpretation of EDL rather than a fundamentally new framework.</item>
+    <item>Improve the readability of dense experimental tables and plots, especially by reducing abbreviations and making key comparisons easier to scan.</item>
+  </requested_changes>
+  <recommendation>Accept</recommendation>
+  <confidence_score>4</confidence_score>
+</final_review>

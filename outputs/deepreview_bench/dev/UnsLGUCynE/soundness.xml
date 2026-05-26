@@ -1,0 +1,22 @@
+<dimension_review>
+  <dimension>Soundness</dimension>
+  <score>2</score>
+  <strengths>
+    <item>The paper presents a technically plausible formulation of language-conditioned manipulation as conditional diffusion over 3D end-effector keyposes, including position, 6D rotation, and gripper state.</item>
+    <item>The main simulation evaluation uses a substantial RLBench multi-task setting with 18 tasks, 249 variations, 100 demonstrations per task, and 100 unseen test episodes per task.</item>
+    <item>The reported empirical results show meaningful point-estimate improvements over listed baselines, including 77% average RLBench success versus 65% for the previous best listed baseline.</item>
+    <item>The paper includes relevant ablations comparing the full 3D Diffuser Actor to a 2D Diffuser Actor variant and to a variant without relative attention/grounding, providing some evidence that 3D representations and relative 3D attention are useful.</item>
+    <item>The paper explicitly reports an important practical limitation: diffusion inference is much slower than Act3D, with 3 seconds per keypose versus 0.12 seconds.</item>
+  </strengths>
+  <weaknesses>
+    <item>The main success-rate claims are reported only as point estimates, with no multiple random seeds, confidence intervals, standard errors, or significance tests for either simulation or real-world experiments.</item>
+    <item>The headline RLBench comparison is weakened because major baselines such as InstructRL, PerAct, Act3D, and RVT are copied from prior papers rather than clearly rerun under a fully matched protocol.</item>
+    <item>The ablation studies do not fully isolate the claimed technical contributions: relative attention and 3D grounding are confounded, and the ablations are reported only on a small 5-task subset rather than the full benchmark.</item>
+    <item>The diffusion formulation itself is not directly ablated against a non-diffusion 3D keypose model with the same scene encoder, so the gains cannot be cleanly attributed to diffusion rather than other architectural choices.</item>
+    <item>Important design choices such as denoising iteration count, scheduler selection, and separate position/rotation schedules are not quantitatively validated with controlled success-rate ablations.</item>
+    <item>Some implementation details needed for full reproducibility appear underspecified, including the exact inference-time denoising steps, handling/projection of 6D rotation outputs into executable rotations, and the complete keypose-to-trajectory execution pipeline.</item>
+    <item>The real-world evaluation is promising but weakly supported because it reports only per-task success percentages without the number of evaluation trials or uncertainty estimates.</item>
+  </weaknesses>
+  <evidence_summary>The paper reports strong point-estimate performance for 3D Diffuser Actor on RLBench, including 77% average success on 18 tasks and a claimed 12 percentage-point gain over Act3D. It also reports real-world success rates on five tasks and ablations showing 68.5 average success for the full model versus 40 for a 2D variant and 62 for a no-relative-attention/no-grounding variant. However, the Q&amp;A indicates that the experiments lack statistical uncertainty, several main baselines are taken from prior papers rather than rerun under a controlled matched setup, and the ablations are limited and confounded. The method description is mostly coherent but leaves some reproducibility gaps around rotation denoising, inference steps, and execution details.</evidence_summary>
+  <rationale>The evidence provides some support for the core claim that combining 3D scene representations with diffusion-style keypose prediction can improve manipulation performance, but the methodological support is incomplete. The lack of uncertainty estimates and matched baseline reruns directly affects the reliability of the headline SOTA claim. The ablations are useful but insufficient to isolate the independent contributions of 3D grounding, relative attention, diffusion, and scheduler choices. Because the method is plausible and the empirical results are relevant, the soundness is not poor; however, the missing statistical analysis, baseline control, and component isolation are notable enough to prevent a good or excellent soundness rating.</rationale>
+</dimension_review>

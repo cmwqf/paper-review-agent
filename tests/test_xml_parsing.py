@@ -1,6 +1,7 @@
 """Purpose: Tests for XML parsing and validation helpers."""
 
 from reviewer.schemas.xml import root_tag
+from reviewer.schemas.final_review import parse_final_review_xml
 from reviewer.schemas.summary import parse_summary_xml, render_summary_for_agent
 from reviewer.tools.xml_validator import validate_xml_root
 
@@ -14,6 +15,23 @@ def test_validate_xml_root_extracts_wrapped_xml() -> None:
     """Model text around XML should be stripped when the root tag is present."""
     xml = validate_xml_root("```xml\n<paper_summary></paper_summary>\n```", "paper_summary")
     assert xml == "<paper_summary></paper_summary>"
+
+
+def test_validate_xml_root_extracts_first_matching_xml_document() -> None:
+    """Multiple XML documents should not make the first target invalid."""
+    xml = validate_xml_root(
+        """
+        <tool_call>
+          <tool_name>search_file</tool_name>
+        </tool_call>
+        <tool_call>
+          <tool_name>search_scholar</tool_name>
+        </tool_call>
+        """,
+        "tool_call",
+    )
+
+    assert xml.strip() == "<tool_call>\n          <tool_name>search_file</tool_name>\n        </tool_call>"
 
 
 def test_parse_summary_xml_to_paper_map() -> None:
@@ -94,3 +112,24 @@ def test_render_summary_for_agent_includes_refs_and_location_hints() -> None:
     assert "[s1] Experiments" in rendered
     assert "baseline (Table 1): Baseline A is compared." in rendered
     assert "- [s1] Baseline A." in rendered
+
+
+def test_parse_final_review_xml_uses_iclr_confidence_score() -> None:
+    """Final review XML should parse the ICLR confidence score."""
+    review = parse_final_review_xml(
+        """
+        <final_review>
+          <final_score>6</final_score>
+          <summary>Mixed paper.</summary>
+          <strengths><item>Useful problem.</item></strengths>
+          <weaknesses><item>Needs stronger baselines.</item></weaknesses>
+          <requested_changes><item>Add comparisons.</item></requested_changes>
+          <recommendation>Reject</recommendation>
+          <confidence_score>4</confidence_score>
+        </final_review>
+        """
+    )
+
+    assert review.final_score == 6
+    assert review.confidence_score == 4
+    assert review.recommendation == "Reject"

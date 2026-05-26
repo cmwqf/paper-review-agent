@@ -8,25 +8,33 @@ from reviewer.models.llm_client import LLMClient, is_gpt_model, resolve_chat_end
 class FakeResponse:
     """Small fake response object for testing response parsing."""
 
+    def __init__(self, data=None) -> None:
+        self.data = data or {"choices": [{"message": {"content": "<xml>ok</xml>"}}]}
+
     def raise_for_status(self) -> None:
         """Pretend the HTTP request succeeded."""
 
     def json(self) -> dict:
         """Return an OpenAI-style response body."""
-        return {"choices": [{"message": {"content": "<xml>ok</xml>"}}]}
+        return self.data
 
 
 class FakeSession:
     """Capture the outgoing request without performing network I/O."""
 
-    def __init__(self) -> None:
+    def __init__(self, responses=None) -> None:
         self.request = None
+        self.responses = list(responses or [FakeResponse()])
+        self.calls = 0
 
     def post(self, url, **kwargs):
         """Store request kwargs and return a fake response."""
         self.request = kwargs
         self.request["url"] = url
-        return FakeResponse()
+        self.calls += 1
+        if len(self.responses) > 1:
+            return self.responses.pop(0)
+        return self.responses[0]
 
 
 def test_resolve_chat_endpoint_appends_chat_completions() -> None:
@@ -96,3 +104,101 @@ def test_llm_client_maps_gpt_max_tokens_and_temperature(caplog) -> None:
     assert "max_tokens" not in session.request["json"]
     assert session.request["json"]["temperature"] == 1
     assert "Detected GPT model" in caplog.text
+
+
+def test_llm_client_retries_empty_model_content() -> None:
+    """Empty assistant content should be treated as a retryable model failure."""
+    session = FakeSession(
+        [
+            FakeResponse(
+                {
+                    "choices": [
+                        {
+                            "message": {"content": ""},
+                            "finish_reason": "length",
+                        }
+                    ],
+                    "usage": {"completion_tokens": 128},
+                }
+            ),
+            FakeResponse({"choices": [{"message": {"content": "<xml>ok</xml>"}}]}),
+        ]
+    )
+    client = LLMClient(
+        {
+            "model": "local-model",
+            "base_url": "http://localhost:8000/v1",
+            "api_key_env": None,
+            "max_retries": 2,
+        },
+        session=session,
+    )
+
+    assert client.generate([{"role": "user", "content": "hello"}]) == "<xml>ok</xml>"
+    assert session.calls == 2
+
+
+def test_llm_client_logs_raw_empty_response(caplog) -> None:
+    """Raw model JSON should be logged when assistant content is empty."""
+    session = FakeSession(
+        [
+            FakeResponse(
+                {
+                    "choices": [
+                        {
+                            "message": {"content": ""},
+                            "finish_reason": "length",
+                        }
+                    ],
+                    "usage": {"completion_tokens": 128},
+                }
+            )
+        ]
+    )
+    client = LLMClient(
+        {
+            "model": "local-model",
+            "base_url": "http://localhost:8000/v1",
+            "api_key_env": None,
+            "max_retries": 1,
+        },
+        session=session,
+    )
+
+    try:
+        client.generate([{"role": "user", "content": "hello"}])
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("Expected empty model content to fail.")
+
+    assert "raw_response=" in caplog.text
+    assert "finish_reason" in caplog.text
+    assert "completion_tokens" in caplog.text
+
+
+def test_llm_client_logs_raw_success_response(caplog) -> None:
+    """Successful model responses should also be logged for debugging."""
+    caplog.set_level("INFO")
+    session = FakeSession(
+        [
+            FakeResponse(
+                {
+                    "id": "chatcmpl-ok",
+                    "choices": [{"message": {"content": "<xml>ok</xml>"}}],
+                }
+            )
+        ]
+    )
+    client = LLMClient(
+        {
+            "model": "local-model",
+            "base_url": "http://localhost:8000/v1",
+            "api_key_env": None,
+        },
+        session=session,
+    )
+
+    assert client.generate([{"role": "user", "content": "hello"}]) == "<xml>ok</xml>"
+    assert "Model raw response" in caplog.text
+    assert "chatcmpl-ok" in caplog.text

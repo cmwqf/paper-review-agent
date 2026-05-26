@@ -1,0 +1,30 @@
+<final_review>
+  <final_score>5</final_score>
+  <summary>OpenMixup is a practically useful benchmark and codebase for mixup-based supervised visual classification, covering many representative methods, datasets, backbones, and evaluation metrics. Its main value is engineering, standardization, and empirical breadth rather than a new algorithmic or conceptual contribution. However, because the paper's central claims depend on the fairness and reliability of benchmark comparisons, several shortcomings are important: lack of uncertainty estimates, unequal method-specific tuning, no clear validation of reimplementations against original or official results, and only partially substantiated claims of comprehensiveness. Overall, the work is useful and well presented, but the current version falls slightly below the acceptance threshold for a benchmark paper.</summary>
+  <strengths>
+    <item>Provides a unified, modular PyTorch/OpenMMLab-style benchmark and codebase focused on mixup-family methods.</item>
+    <item>Has broad empirical coverage, including 16 mixup algorithms, many CNN and Transformer backbones, multiple classification datasets, and limited transfer evaluations.</item>
+    <item>Reports evaluation dimensions beyond top-1 accuracy, including training cost, GPU memory, corruption robustness, calibration, CAM visualizations, and loss landscape analyses.</item>
+    <item>The framework, configuration system, benchmark recipes, and model zoo could be practically useful for researchers developing or comparing mixup methods.</item>
+    <item>The paper is generally well organized and understandable, with a clear progression from motivation to framework design and experiments.</item>
+  </strengths>
+  <weaknesses>
+    <item>The contribution is primarily benchmarking and engineering, with limited new algorithmic or conceptual insight.</item>
+    <item>The claim of being the first comprehensive mixup benchmark is not sufficiently substantiated relative to existing augmentation libraries, classification toolboxes, surveys, and augmentation benchmark resources.</item>
+    <item>The benchmark reports point estimates without standard deviations, confidence intervals, or statistical tests, making small differences and rankings difficult to interpret.</item>
+    <item>Only the shared mixup alpha parameter appears to receive systematic common tuning, while other method-specific hyperparameters follow original papers, potentially confounding fairness.</item>
+    <item>The paper does not clearly validate its reimplementations against original-paper or official-code results, which is a significant weakness for a benchmark contribution.</item>
+    <item>Some relevant mixup variants are omitted from the main benchmark or only appear in limited supplementary comparisons, weakening the comprehensiveness claim.</item>
+    <item>Several figures and tables are dense and difficult to inspect at normal page scale, with minor layout and formatting issues.</item>
+  </weaknesses>
+  <requested_changes>
+    <item>Add standard deviations, confidence intervals, or statistical significance tests for the main benchmark comparisons and rankings.</item>
+    <item>Provide a clear validation table comparing OpenMixup reimplementations with original papers and/or official implementations under matched settings.</item>
+    <item>Clarify and, where possible, equalize the hyperparameter tuning budget across methods, including method-specific hyperparameters beyond alpha.</item>
+    <item>Moderate or better substantiate the “first comprehensive” claim with a more detailed comparison to prior augmentation benchmarks, libraries, classification toolboxes, and surveys.</item>
+    <item>Explain the criteria for selecting the 16 methods and discuss omitted or partially included mixup variants more explicitly.</item>
+    <item>Improve readability of dense figures and tables, especially radar/scatter plots and side-by-side benchmark tables.</item>
+  </requested_changes>
+  <recommendation>Reject</recommendation>
+  <confidence_score>4</confidence_score>
+</final_review>

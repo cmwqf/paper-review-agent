@@ -1,0 +1,18 @@
+<dimension_review>
+  <dimension>Contribution</dimension>
+  <score>2</score>
+  <strengths>
+    <item>Introduces a useful empirical diagnostic for Edge-Popup strong lottery ticket search: dying edges and the dying ratio, which help characterize limited exploration during mask-score optimization.</item>
+    <item>Provides a clear empirical motivation for the proposed method, showing that dying ratios can become large at high pruning levels and that many initially masked edges may never be explored.</item>
+    <item>Adapts iterative pruning and rewinding-style ideas to the strong lottery ticket / Edge-Popup setting, and compares several hard and soft iterative variants.</item>
+    <item>Reports meaningful empirical gains over standard Edge-Popup and hard iterative variants on ImageNet, CIFAR-10, and CIFAR-100, including large-scale ImageNet results.</item>
+  </strengths>
+  <weaknesses>
+    <item>The core algorithmic idea is largely an incremental adaptation of existing lottery-ticket iterative pruning, gradual sparsification, and rewinding mechanisms to Edge-Popup score optimization.</item>
+    <item>The “soft” modification—keeping the full original search space while increasing pruning and inheriting scores—is sensible, but not a fundamentally new pruning paradigm.</item>
+    <item>The contribution is primarily empirical and diagnostic; the paper does not provide a theoretical explanation of why dying edges arise or why Soft iEP succeeds.</item>
+    <item>The likely impact is somewhat narrow, mainly benefiting the strong lottery ticket / fixed-random-weight subnetwork search literature rather than broadly changing pruning or training practice.</item>
+  </weaknesses>
+  <evidence_summary>The paper defines dying edges as masked edges that are never activated during Edge-Popup optimization and introduces the dying ratio as a measure of exploration inefficiency. It reports that, for CIFAR-10 ResNet18, the dying ratio increases substantially with pruning, e.g. from 0.028 at pruning k=0.200 to 0.656 at k=0.832. The proposed Soft iEP iteratively applies Edge-Popup with increasing pruning while inheriting learned scores, resetting the learning rate by default, and keeping the original full search space available instead of permanently pruning edges. Experiments compare against Edge-Popup, hard iterative Edge-Popup variants, IteRand, dense trained networks, and multicoated tickets, with reported improvements on ImageNet and CIFAR datasets. The Q&amp;A assessment characterized the method as moderately novel: the dying-edge diagnostic is a distinct contribution, while the algorithm is mostly a transfer of known iterative pruning and rewinding ideas into the Edge-Popup / strong lottery ticket setting.</evidence_summary>
+  <rationale>Overall, the paper makes a fair contribution. Its main novelty is the dying-edge analysis, which is a useful and reasonably original lens for diagnosing exploration inefficiency in gradient-based strong lottery ticket search. Soft iEP is also practically motivated and empirically improves over relevant baselines. However, the method itself is conceptually close to established iterative pruning, gradual pruning, and rewinding approaches from the lottery-ticket literature, with the main change being their application to Edge-Popup score optimization and avoiding hard removal of earlier low-score edges. Because the work is mostly an empirical diagnostic plus an incremental algorithmic adaptation, with limited theoretical explanation and a relatively narrow target area, it falls short of a good or excellent contribution.</rationale>
+</dimension_review>

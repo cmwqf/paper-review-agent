@@ -1,0 +1,333 @@
+<paper_summary>
+  <metadata>
+    <title>Lifelong Audio-video Masked Autoencoder with Forget-robust Localized Alignments</title>
+    <authors>Anonymous authors</authors>
+    <venue>ICLR 2024</venue>
+    <submission_date>2023-09-16</submission_date>
+  </metadata>
+  <paper_map>
+    <section>
+      <section_id>s1</section_id>
+      <title>Abstract and Introduction</title>
+      <summary>The paper introduces task-free continual audio-video representation learning, where audio-video data distributions shift over time. It identifies sparse audio-video correlations and forgetting of learned cross-modal relationships as key challenges, and proposes FLAVA to select localized and forget-robust multimodal patches.</summary>
+      <key_items>
+        <item>
+          <type>problem</type>
+          <text>Audio-video models are assumed to train on static distributions, while real-world video streams can shift across categories and environments.</text>
+        </item>
+        <item>
+          <type>problem</type>
+          <text>The paper highlights sparse spatiotemporal correlation between audio and video patches and forgetting of audio-video relationships.</text>
+          <location_hint>Figure 2</location_hint>
+        </item>
+        <item>
+          <type>claim</type>
+          <text>FLAVA addresses continual audio-video representation learning without task identification.</text>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>Localized Alignment uses a small trainable multimodal encoder to predict well-aligned audio and video tokens.</text>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>Forget-robust multimodal patch selection compares current and past patch importance to reduce drift of previous audio-video representations.</text>
+        </item>
+        <item>
+          <type>result</type>
+          <text>The introduction reports improvements of 1.52%p, 1.80%p, and 0.31%p on audio-to-video retrieval, video-to-audio retrieval, and audiovisual classification.</text>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s2</section_id>
+      <title>Related Work</title>
+      <summary>This section situates the paper relative to self-supervised audiovisual understanding and multimodal continual learning. It contrasts FLAVA with masked audio-video representation learners and continual learning approaches that require labels or task boundaries.</summary>
+      <key_items>
+        <item>
+          <type>baseline</type>
+          <text>TVLT and CAV are discussed as masked audiovisual representation learning methods.</text>
+        </item>
+        <item>
+          <type>baseline</type>
+          <text>IncCLIP and AV-CIL are discussed as multimodal continual learning methods.</text>
+        </item>
+        <item>
+          <type>claim</type>
+          <text>The paper states that prior audiovisual masked modeling methods assume a fixed input distribution.</text>
+        </item>
+        <item>
+          <type>claim</type>
+          <text>The paper states that some multimodal continual learning approaches require dense labels or task boundary information.</text>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s3</section_id>
+      <title>Continual Audio-Video Representation Learning</title>
+      <summary>This section formalizes the task-free continual audio-video pre-training setup over a sequence of disjoint unsupervised datasets. It defines audio/video patch embeddings and the base reconstruction plus masked contrastive objective, then analyzes forgetting of audio-video alignments using attention map visualizations.</summary>
+      <key_items>
+        <item>
+          <type>problem</type>
+          <text>The model trains on a sequence of disjoint unsupervised audio-video datasets without explicit knowledge of task boundaries.</text>
+          <location_hint>Section 3.1</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>Audio spectrograms and video clips are patchified and embedded through convolutional layers.</text>
+          <location_hint>Equation 1</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>The base pre-training loss combines masked reconstruction loss and masked contrastive loss.</text>
+          <location_hint>Section 3.1</location_hint>
+        </item>
+        <item>
+          <type>problem</type>
+          <text>Cross-attention with mismatched past and current audio-video data can focus on misleading regions.</text>
+          <location_hint>Figure 3</location_hint>
+        </item>
+        <item>
+          <type>claim</type>
+          <text>The paper argues that spurious cross-modal correlations can overwrite earlier audio-video alignments.</text>
+          <location_hint>Section 3.2</location_hint>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s4</section_id>
+      <title>Lifelong Audio-Video Masked Autoencoder with FLAVA</title>
+      <summary>This section presents the FLAVA method: an Audio-Video Matching module for localized alignment, a pruning-probability computation comparing current and past attention, and audio/video patch selection for continual masked modeling. It also introduces FLAVA+, which stores selected patches rather than raw data in memory.</summary>
+      <key_items>
+        <item>
+          <type>method_component</type>
+          <text>The AVM module computes audio-to-video and video-to-audio cross-attention maps.</text>
+          <location_hint>Equation 2</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>Importance scores are produced by mean-pooling cross-attention maps for audio and video patches.</text>
+          <location_hint>Equation 3</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>Forget-robust patch selection compares attention induced by current queries and past memory queries.</text>
+          <location_hint>Equations 4 and 5</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>Audio patches are selected in time chunks to preserve temporal continuity in spectrogram patches.</text>
+          <location_hint>Algorithm 2</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>Video selection masks patches with high pruning probability and samples from remaining importance scores.</text>
+          <location_hint>Equation 6</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>The final objective is reconstruction loss plus masked contrastive loss plus a DER++-style memory penalty loss.</text>
+          <location_hint>Section 4.3</location_hint>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s5</section_id>
+      <title>Experiments: Setup</title>
+      <summary>This section defines evaluation for task-free lifelong audio-video representation learning on VGGSound and AudioSet. It describes downstream zero-shot retrieval and audiovisual classification tasks, continual learning baselines, and metrics for accuracy and forgetting.</summary>
+      <key_items>
+        <item>
+          <type>dataset</type>
+          <text>Experiments use VGGSound and AudioSet, both containing 10-second YouTube videos.</text>
+          <location_hint>Section 5.1</location_hint>
+        </item>
+        <item>
+          <type>baseline</type>
+          <text>Baselines include ER, MIR, DER++, GMED, CLS-ER, LUMP, Finetune, and Multitask.</text>
+          <location_hint>Section 5.1</location_hint>
+        </item>
+        <item>
+          <type>metric</type>
+          <text>Zero-shot retrieval is evaluated with R@K and continual-learning average accuracy and average forgetting.</text>
+          <location_hint>Table 1</location_hint>
+        </item>
+        <item>
+          <type>metric</type>
+          <text>Audiovisual classification uses accuracy on VGGSound and mAP on AudioSet, with average accuracy and average forgetting.</text>
+          <location_hint>Table 4</location_hint>
+        </item>
+        <item>
+          <type>metric</type>
+          <text>Efficiency is measured using GPU memory and throughput.</text>
+          <location_hint>Table 2</location_hint>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s6</section_id>
+      <title>Experiments: Quantitative Results and Analysis</title>
+      <summary>This section reports retrieval, classification, efficiency, ablation, and modality-gap analyses. FLAVA and FLAVA+ are compared with continual learning baselines under the same task-free setting.</summary>
+      <key_items>
+        <item>
+          <type>result</type>
+          <text>On VGGSound retrieval, FLAVA and FLAVA+ improve average audio-to-video scores by 1.52%p and 2.80%p, and video-to-audio scores by 1.80%p and 3.26%p over baselines.</text>
+          <location_hint>Table 1</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>On AudioSet retrieval, FLAVA and FLAVA+ report average audio-to-video gains of 0.03%p and 2.94%p, and video-to-audio gains of 0.58%p and 3.76%p.</text>
+          <location_hint>Table 1</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>FLAVA uses 17.45 GB GPU memory, compared with 30.95 GB for DER++, and reports throughput of 17.43 samples/sec.</text>
+          <location_hint>Table 2</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>On audiovisual classification, FLAVA and FLAVA+ improve over baselines on VGGSound and AudioSet average scores.</text>
+          <location_hint>Table 4</location_hint>
+        </item>
+        <item>
+          <type>ablation</type>
+          <text>Ablations compare Random, MATS, LAVA-only, FRS-only, and full FLAVA patch selection.</text>
+          <location_hint>Table 3</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>Modality-gap analysis reports that FLAVA maintains the highest modality gap across tasks among compared methods.</text>
+          <location_hint>Figure 5</location_hint>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s7</section_id>
+      <title>Conclusion and Reproducibility Statement</title>
+      <summary>The conclusion restates the task-free continual audio-video learning problem and the observed issues of sparse correlation and forgetting. The reproducibility statement says the code is based on RepLAI, TVLT, and CAV, with experimental details and supplementary code provided.</summary>
+      <key_items>
+        <item>
+          <type>claim</type>
+          <text>The paper states that FLAVA adaptively captures sparse audio-video attention while mitigating forgetting without task identification.</text>
+        </item>
+        <item>
+          <type>other</type>
+          <text>The authors state that experimental setup details are in Section 5 and Appendix A.</text>
+          <location_hint>Section 7</location_hint>
+        </item>
+        <item>
+          <type>other</type>
+          <text>The authors state that code is included in supplementary material and will be publicly released.</text>
+          <location_hint>Section 7</location_hint>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s8</section_id>
+      <title>Appendix</title>
+      <summary>The appendix provides implementation details, evaluation protocol, objective definitions, AVM training, additional experiments, hyperparameter tuning, additional modality-gap analysis, audio selection pseudocode, visualization examples, and limitations. It includes dataset split statistics and extra downstream evaluations such as AVE and sound source localization.</summary>
+      <key_items>
+        <item>
+          <type>dataset</type>
+          <text>VGGSound is split into 8 tasks; AudioSet is split into 7 tasks based on class hierarchy.</text>
+          <location_hint>Figure 6</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>AVM is trained with positive and negative audio-video pairs using a binary audio-video matching objective.</text>
+          <location_hint>Appendix D</location_hint>
+        </item>
+        <item>
+          <type>ablation</type>
+          <text>Additional experiments vary rehearsal memory size, audio patch selection strategy, task order, sampling ratios, and AVM temperature.</text>
+          <location_hint>Appendices E and F</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>On AVE event localization, FLAVA and FLAVA+ report 56.68 accuracy, compared with 57.73 for Multitask.</text>
+          <location_hint>Table 8</location_hint>
+        </item>
+        <item>
+          <type>stated_limitation</type>
+          <text>In sound source localization, the paper states that all methods fail to accurately pinpoint exact sound-source locations, attributed mainly to backbone limitations.</text>
+          <location_hint>Figure 12</location_hint>
+        </item>
+        <item>
+          <type>stated_limitation</type>
+          <text>The appendix organization states that Appendix K outlines limitations of the study.</text>
+        </item>
+      </key_items>
+    </section>
+  </paper_map>
+  <global_index>
+    <claims>
+      <item section_ref="s1">FLAVA continually learns audio-video representations under shifting data distributions without requiring task identification.</item>
+      <item section_ref="s1">Sparse spatiotemporal audio-video correlation and forgetting of audio-video relationships are presented as core challenges.</item>
+      <item section_ref="s2">Prior audiovisual masked-modeling methods are described as assuming fixed input distributions.</item>
+      <item section_ref="s3">Cross-modal attention with mismatched current and past data can induce misleading or spurious alignments.</item>
+      <item section_ref="s7">The paper claims FLAVA captures sparse audio-video attention and mitigates forgetting of previous relationships.</item>
+    </claims>
+    <method_components>
+      <item section_ref="s3">Task-free continual pre-training over disjoint unsupervised audio-video datasets.</item>
+      <item section_ref="s3">Patchification and convolutional embedding of audio spectrogram and video inputs.</item>
+      <item section_ref="s3">Masked reconstruction loss and masked contrastive loss for audio-video pre-training.</item>
+      <item section_ref="s4">Audio-Video Matching module for cross-modal attention and localized audio-video alignment.</item>
+      <item section_ref="s4">Importance-score computation from mean-pooled cross-attention maps.</item>
+      <item section_ref="s4">Forget-robust pruning probability using current and past queries from rehearsal memory.</item>
+      <item section_ref="s4">Audio time-chunk patch selection and video importance-weighted patch selection.</item>
+      <item section_ref="s4">DER++-style penalty loss included in the final FLAVA objective.</item>
+      <item section_ref="s4">FLAVA+ stores selected patches rather than raw data in rehearsal memory.</item>
+      <item section_ref="s8">AVM training uses positive and shuffled negative audio-video pairs with binary cross-entropy.</item>
+    </method_components>
+    <datasets>
+      <item section_ref="s5">VGGSound.</item>
+      <item section_ref="s5">AudioSet.</item>
+      <item section_ref="s8">VGGSound continual split: 8 tasks including sports, music, vehicle, people, animals, home&amp;nature, and two others groups.</item>
+      <item section_ref="s8">AudioSet continual split: 7 tasks based on class hierarchy.</item>
+      <item section_ref="s8">AVE dataset is used for audiovisual event localization and sound source localization analyses.</item>
+    </datasets>
+    <baselines>
+      <item section_ref="s2">TVLT and CAV are discussed as audiovisual masked modeling references.</item>
+      <item section_ref="s5">ER.</item>
+      <item section_ref="s5">MIR.</item>
+      <item section_ref="s5">DER++.</item>
+      <item section_ref="s5">GMED.</item>
+      <item section_ref="s5">CLS-ER.</item>
+      <item section_ref="s5">LUMP.</item>
+      <item section_ref="s5">Finetune and Multitask are used as lower-bound and upper-bound comparisons.</item>
+      <item section_ref="s6">Random and MATS are included in patch-selection comparisons.</item>
+    </baselines>
+    <ablations>
+      <item section_ref="s6">Patch-selection ablation: Random, MATS, LAVA-only, FRS-only, and full FLAVA.</item>
+      <item section_ref="s8">Rehearsal memory size variation.</item>
+      <item section_ref="s8">Audio patch selection variation including time-chunk sizes and frequency/no-constraint alternatives.</item>
+      <item section_ref="s8">Pre-training without MAE objective.</item>
+      <item section_ref="s8">Shuffled task-order experiments on VGGSound and AudioSet.</item>
+      <item section_ref="s8">Sampling-ratio tuning for audio and video patches.</item>
+      <item section_ref="s8">AVM temperature tuning.</item>
+      <item section_ref="s8">Modality-gap analysis for LAVA and FRS components.</item>
+    </ablations>
+    <metrics>
+      <item section_ref="s5">Average accuracy, defined as final average performance across tasks.</item>
+      <item section_ref="s5">Average forgetting, defined as the average gap between best earlier task performance and final performance.</item>
+      <item section_ref="s5">R@K for zero-shot audio-to-video and video-to-audio retrieval.</item>
+      <item section_ref="s5">Classification accuracy on VGGSound.</item>
+      <item section_ref="s5">mAP on AudioSet classification.</item>
+      <item section_ref="s5">GPU memory occupancy and throughput.</item>
+      <item section_ref="s6">Modality gap between audio and video embedding clusters.</item>
+    </metrics>
+    <results>
+      <item section_ref="s6">VGGSound retrieval: FLAVA and FLAVA+ improve average audio-to-video scores by 1.52%p and 2.80%p over baselines.</item>
+      <item section_ref="s6">VGGSound retrieval: FLAVA and FLAVA+ improve average video-to-audio scores by 1.80%p and 3.26%p over baselines.</item>
+      <item section_ref="s6">AudioSet retrieval: FLAVA and FLAVA+ report average audio-to-video gains of 0.03%p and 2.94%p.</item>
+      <item section_ref="s6">AudioSet retrieval: FLAVA and FLAVA+ report average video-to-audio gains of 0.58%p and 3.76%p.</item>
+      <item section_ref="s6">Efficiency: FLAVA reports 17.45 GB GPU memory and 17.43 samples/sec throughput in Table 2.</item>
+      <item section_ref="s6">Classification: FLAVA and FLAVA+ report higher average classification scores than listed continual learning baselines on VGGSound and AudioSet.</item>
+      <item section_ref="s6">Ablation: full FLAVA reports 14.16 audio-to-video average and 14.07 video-to-audio average on VGGSound retrieval in Table 3.</item>
+      <item section_ref="s8">AVE event localization: FLAVA and FLAVA+ report 56.68 accuracy.</item>
+    </results>
+    <stated_limitations>
+      <item section_ref="s8">In sound source localization, the paper states that all methods fail to accurately pinpoint exact locations of sound sources.</item>
+      <item section_ref="s8">The paper attributes sound source localization limitations mainly to the backbone model and states that the backbone has restricted potential for audiovisual parsing and segmentation downstream tasks.</item>
+      <item section_ref="s8">The appendix organization notes that Appendix K outlines limitations of the study.</item>
+    </stated_limitations>
+  </global_index>
+</paper_summary>

@@ -1,0 +1,29 @@
+<final_review>
+  <final_score>5</final_score>
+  <summary>The paper addresses the important problem of distilling closed-source language models when teacher logits and internals are unavailable. It proposes estimating soft token distributions using an n-gram prior over teacher-generated data and a proxy-model-based Bayesian posterior, then applying KL-based distillation. The idea is plausible and yields consistent but moderate improvements over hard-label instruction fine-tuning in the reported LLaMA experiments. However, the contribution is not sufficiently established against stronger black-box distillation or proxy-based baselines, the Bayesian formulation is only weakly justified, and the empirical evidence lacks statistical reliability and broader controls. Overall, the work is interesting but falls slightly below the acceptance threshold.</summary>
+  <strengths>
+    <item>Addresses a timely and practically relevant setting: knowledge distillation from closed-source LLMs without access to logits, weights, activations, or output distributions.</item>
+    <item>Proposes a concrete method for constructing approximate soft labels through prior estimation and proxy-based posterior estimation, enabling KL-based distillation in a black-box setting.</item>
+    <item>Reports consistent average gains over hard-label instruction fine-tuning for LLaMA-7B and LLaMA-13B, especially on the OpenOrca setting.</item>
+    <item>Includes several useful ablations analyzing prior versus posterior components, sampling rounds, corpus size, and proxy model choice.</item>
+    <item>The paper is generally well organized, with clear experimental setup and readable main result tables.</item>
+  </strengths>
+  <weaknesses>
+    <item>The novelty and contribution are only partially established because comparisons to broader black-box probability-estimation, proxy-logit, sampling-based, label-smoothing, self-training, or stronger closed-source distillation methods are limited.</item>
+    <item>The central Bayesian interpretation is under-justified; the paper does not convincingly show that samples from an aligned open-source proxy are calibrated evidence about the closed-source teacher distribution.</item>
+    <item>Empirical gains are moderate and sometimes quite small, particularly on Alpaca and FlanT5 settings.</item>
+    <item>The results lack statistical reliability evidence such as multiple seeds, confidence intervals, or significance tests, making small improvements hard to interpret.</item>
+    <item>The method depends on a large aligned proxy model, repeated sampling, large generated corpora, and additional estimation overhead, which may limit practical impact.</item>
+    <item>Important implementation and hyperparameter details are deferred to the appendix, and the mathematical exposition of the prior/posterior estimator is somewhat difficult to reconstruct.</item>
+  </weaknesses>
+  <requested_changes>
+    <item>Add comparisons against stronger and more diverse baselines, including proxy-only distillation, black-box distillation alternatives, label smoothing, self-training, rationale or chain-of-thought distillation where applicable, and contemporary instruction-tuning baselines.</item>
+    <item>Provide a clearer probabilistic justification for the Bayesian posterior estimator, including the assumed likelihood model and why proxy samples should be treated as evidence about the closed-source teacher distribution.</item>
+    <item>Include calibration or distributional validation showing whether the estimated soft labels approximate teacher behavior better than simpler alternatives.</item>
+    <item>Report multiple-seed results, variance, confidence intervals, or significance tests, especially for settings where average gains are small.</item>
+    <item>Add more complete ablations and sensitivity analyses for alpha, beta, gamma, n-gram order, top-token truncation, posterior sampling rounds, and proxy model size while controlling for additional compute.</item>
+    <item>Move key reproducibility details into the main method section and improve the readability of compressed figures and notation-heavy explanations.</item>
+  </requested_changes>
+  <recommendation>Reject</recommendation>
+  <confidence_score>3</confidence_score>
+</final_review>

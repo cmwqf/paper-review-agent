@@ -1,0 +1,323 @@
+<paper_summary>
+  <metadata>
+    <title>Gradient Descent Provably Solves Nonlinear Tomographic Reconstruction</title>
+    <authors>Anonymous authors</authors>
+    <venue>ICLR 2024</venue>
+    <submission_date>2023-10-06</submission_date>
+  </metadata>
+  <paper_map>
+    <section>
+      <section_id>s1</section_id>
+      <title>Abstract and Introduction</title>
+      <summary>This section motivates direct reconstruction from raw nonlinear CT measurements governed by the Beer-Lambert law, instead of applying logarithmic preprocessing to obtain a linear Radon model. It states that the logarithm becomes ill-conditioned near complete X-ray absorption, especially around metal or in low-dose scans. The section lists theoretical convergence results and 3D cone-beam CT experiments as the main contributions.</summary>
+      <key_items>
+        <item>
+          <type>problem</type>
+          <text>Linearized CT preprocessing uses −ln(1−y), which is numerically unstable when raw measurements approach one.</text>
+          <location_hint>Section 1</location_hint>
+        </item>
+        <item>
+          <type>motivation</type>
+          <text>High-density materials such as metal implants can produce streak artifacts under linearized reconstruction.</text>
+          <location_hint>Section 1</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>The paper studies direct least-squares optimization through the nonlinear model y_i = 1 − exp(−a_i^T x).</text>
+          <location_hint>Equation 1.2</location_hint>
+        </item>
+        <item>
+          <type>claim</type>
+          <text>Gradient descent is claimed to converge geometrically to the global optimum despite the nonconvex objective.</text>
+        </item>
+        <item>
+          <type>claim</type>
+          <text>The regularized setting is claimed to recover structured signals with sample complexity matching the relevant statistical dimension up to constants.</text>
+        </item>
+        <item>
+          <type>result</type>
+          <text>Experiments are reported on synthetic and real 3D cone-beam CT volumes, including a skull with metal dental crowns.</text>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s2</section_id>
+      <title>Problem Formulation</title>
+      <summary>This section defines the theoretical nonlinear measurement model using i.i.d. Gaussian measurement vectors and a ReLU inside the Beer-Lambert nonlinearity. It introduces the least-squares loss, subgradient descent from zero initialization, and a regularized loss for compressive sensing. It also explains how the Gaussian model is connected to ray-structured CT measurements and shows empirical positivity of a pseudoconvexity correlation for the true ray model.</summary>
+      <key_items>
+        <item>
+          <type>method_component</type>
+          <text>The theoretical model uses y_i = f(a_i^T x), where f(u)=1−exp(−u_+) and a_i are i.i.d. N(0,I_n).</text>
+          <location_hint>Equation 2.1</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>The unregularized objective is a least-squares loss over nonlinear measurements.</text>
+          <location_hint>Equation 2.2</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>Subgradient descent starts from z_0=0 and uses the specified subdifferential of f, including f'(0)=1/2.</text>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>The regularized/compressive version adds λR(z); experiments use 3D total variation as R.</text>
+          <location_hint>Equation 2.3</location_hint>
+        </item>
+        <item>
+          <type>stated_limitation</type>
+          <text>The theoretical analysis replaces sparse nonnegative ray-structured CT measurement vectors with Gaussian measurement vectors.</text>
+        </item>
+        <item>
+          <type>result</type>
+          <text>The paper reports empirical positivity of the key gradient-error correlation for the true projection-based loss.</text>
+          <location_hint>Figure 1</location_hint>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s3</section_id>
+      <title>Global Convergence in the Unregularized Setting</title>
+      <summary>This section states Theorem 1 for exact recovery from nonlinear Gaussian measurements without regularization. The theorem gives a measurement requirement proportional to n with exponential dependence on the signal norm and proves geometric convergence from zero initialization with specified step sizes. The section also describes estimating the unknown signal norm from the average measurement value.</summary>
+      <key_items>
+        <item>
+          <type>claim</type>
+          <text>For Gaussian nonlinear CT measurements, gradient descent globally recovers the true signal at a geometric rate.</text>
+          <location_hint>Theorem 1</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>Theorem 1 requires m at least proportional to exp(c||x||_2)/||x||_2^2 times n.</text>
+          <location_hint>Theorem 1</location_hint>
+        </item>
+        <item>
+          <type>metric</type>
+          <text>The convergence guarantee bounds squared ℓ2 reconstruction error ||z_t−x||_2^2.</text>
+          <location_hint>Theorem 1</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>The stated convergence rate is geometric with factor 1−μ exp(−10||x||_2).</text>
+          <location_hint>Theorem 1</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>The first step size depends on ||x||_2 through an expression involving the complementary error function.</text>
+          <location_hint>Theorem 1</location_hint>
+        </item>
+        <item>
+          <type>stated_limitation</type>
+          <text>The convergence rate and sample complexity depend exponentially on ||x||_2 because measurements saturate as density increases.</text>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s4</section_id>
+      <title>Global Convergence in the Regularized Setting</title>
+      <summary>This section extends the analysis to compressive sensing with structured signals and convex regularizers. It formulates constrained nonlinear least squares, defines the descent cone, Gaussian width, and minimal sample function m0, and states Theorem 2. The theorem gives geometric convergence for projected gradient descent with sample complexity proportional to m0 up to signal-norm-dependent factors.</summary>
+      <key_items>
+        <item>
+          <type>method_component</type>
+          <text>The constrained optimization minimizes nonlinear least squares subject to R(z) ≤ R(x).</text>
+          <location_hint>Equation 4.1</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>The algorithm is projected gradient descent onto K={z: R(z) ≤ R(x)}.</text>
+          <location_hint>Equations 4.2 and 4.3</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>The section defines descent sets, descent cones, Gaussian width, and m0 as the squared Gaussian width of the restricted descent cone.</text>
+          <location_hint>Definitions 1-3</location_hint>
+        </item>
+        <item>
+          <type>claim</type>
+          <text>Theorem 2 applies to any convex regularizer and arbitrary signal structure captured by that regularizer.</text>
+          <location_hint>Theorem 2</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>Theorem 2 requires m at least proportional to exp(c||x||_2)/||x||_2^2 times m0.</text>
+          <location_hint>Theorem 2</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>For an s-sparse signal with ℓ1 regularization, the stated sample complexity scales as s log(n/s).</text>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s5</section_id>
+      <title>Experiments</title>
+      <summary>This section reports 3D cone-beam CT experiments implemented with a JAX Plenoxels-based dense 3D grid and mild total variation regularization. Synthetic experiments use a modified 3D Shepp-Logan phantom with a density-varied ellipsoid and compare linearized versus nonlinear reconstruction. Real experiments use CBCT measurements of a human skull with metal dental crowns and compare nonlinear reconstruction to commercial linearized reconstruction and FDK.</summary>
+      <key_items>
+        <item>
+          <type>dataset</type>
+          <text>Synthetic data are generated from a modified 3D Shepp-Logan phantom with scaled voxel densities and one density-varied ellipsoid.</text>
+        </item>
+        <item>
+          <type>dataset</type>
+          <text>Real data are CBCT measurements of a human skull containing metal dental crowns.</text>
+        </item>
+        <item>
+          <type>baseline</type>
+          <text>Synthetic comparisons include reconstruction after logarithmic linearization using the linear forward model.</text>
+        </item>
+        <item>
+          <type>baseline</type>
+          <text>Real comparisons include a commercial linearized reconstruction and the FDK baseline.</text>
+          <location_hint>Figure 3</location_hint>
+        </item>
+        <item>
+          <type>metric</type>
+          <text>PSNR is reported for synthetic reconstructions, defined as −10 log10(MSE) over the full volume.</text>
+          <location_hint>Figure 2</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>Nonlinear reconstruction is reported to reduce metal artifacts compared with linearized reconstruction in synthetic and real CBCT examples.</text>
+          <location_hint>Figures 2 and 3</location_hint>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s6</section_id>
+      <title>Related Work</title>
+      <summary>This section situates the paper among CT reconstruction methods, compressive sensing and regularized reconstruction, neural CT reconstruction methods, photon-counting CT, and nonlinear measurement recovery. It states that standard CT methods often rely on the linear Radon model and that prior work on nonlinear measurements covers phase retrieval, ReLU models, and other nonlinearities. The section contrasts the paper’s activation and structured recovery setting with cited nonlinear recovery results.</summary>
+      <key_items>
+        <item>
+          <type>baseline</type>
+          <text>Filtered Back Projection is described as a closed-form inverse for the Radon transform and a standard CT option.</text>
+        </item>
+        <item>
+          <type>baseline</type>
+          <text>ISTA and FISTA are cited as iterative methods for convex regularized CT reconstruction.</text>
+        </item>
+        <item>
+          <type>baseline</type>
+          <text>Neural adaptive tomography and data-driven priors are cited as deep learning approaches for limited-measurement CT reconstruction.</text>
+        </item>
+        <item>
+          <type>other</type>
+          <text>Photon-counting CT scanners are described as measuring raw X-ray photon counts and potentially supporting nonlinear reconstruction and noise modeling.</text>
+        </item>
+        <item>
+          <type>claim</type>
+          <text>The paper states that cited neural and regularized CT methods are still based on the linear measurement model.</text>
+        </item>
+        <item>
+          <type>claim</type>
+          <text>The paper states that its nonlinear recovery result handles a non-differentiable activation, arbitrary signal structures, and any convex regularizer.</text>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s7</section_id>
+      <title>Discussion</title>
+      <summary>This section recaps the motivation for avoiding logarithmic preprocessing and summarizes the theoretical and experimental findings. It reiterates exact recovery and geometric convergence for nonlinear raw-measurement reconstruction, including a compressive sensing extension. It identifies more realistic measurement noise models, especially Poisson noise, as future work.</summary>
+      <key_items>
+        <item>
+          <type>claim</type>
+          <text>The paper concludes that direct nonlinear reconstruction avoids an unstable preprocessing step at the cost of nonconvex least squares.</text>
+        </item>
+        <item>
+          <type>result</type>
+          <text>The discussion restates that the unregularized nonlinear problem uses order n measurements, matching linear forward-model sample complexity in order.</text>
+        </item>
+        <item>
+          <type>result</type>
+          <text>The discussion restates that structural regularization allows reconstruction with far fewer than n measurements.</text>
+        </item>
+        <item>
+          <type>result</type>
+          <text>The discussion states that nonlinear reconstruction reduced metal artifacts in both synthetic and real 3D cone-beam CT experiments.</text>
+        </item>
+        <item>
+          <type>stated_limitation</type>
+          <text>Future work may extend the theory and experiments to more realistic measurement noise settings such as Poisson noise.</text>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s8</section_id>
+      <title>Appendices: Proofs of Theorems 1 and 2</title>
+      <summary>The appendices provide proof outlines and details for the unregularized and regularized convergence theorems. The proofs use a first-step neighborhood argument, local pseudoconvexity/correlation lower bounds, a gradient smoothness bound, and induction for geometric convergence. The regularized proof modifies the unregularized argument by replacing dimension n with the minimal sample parameter m0 in concentration terms.</summary>
+      <key_items>
+        <item>
+          <type>method_component</type>
+          <text>The proof of Theorem 1 has four steps: first iteration near x, local pseudoconvexity, smoothness, and a contraction argument.</text>
+          <location_hint>Appendix B.1</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>The first-step analysis shows z_1 enters a ball of radius one quarter of ||x||_2 under sufficient measurements.</text>
+          <location_hint>Appendix B.2</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>Local pseudoconvexity is proved via lower bounds on the gradient-error correlation in two angular cases.</text>
+          <location_hint>Appendices B.3 and B.4</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>The smoothness step bounds ||∇L(z)||_2 by a constant times ||z−x||_2 using the operator norm of the Gaussian measurement matrix.</text>
+          <location_hint>Appendix B.5</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>The proof of Theorem 2 uses the descent cone and replaces n by m0 in concentration bounds.</text>
+          <location_hint>Appendix C</location_hint>
+        </item>
+      </key_items>
+    </section>
+  </paper_map>
+  <global_index>
+    <claims>
+      <item section_ref="s1">Direct nonlinear reconstruction is proposed as an alternative to logarithmic preprocessing for CT measurements near saturation.</item>
+      <item section_ref="s1">Gradient descent is claimed to converge globally at a geometric rate for the nonlinear CT objective under the Gaussian model.</item>
+      <item section_ref="s4">Projected gradient descent with any convex regularizer is claimed to recover structured signals from a number of nonlinear measurements proportional to m0 up to signal-norm factors.</item>
+      <item section_ref="s6">The paper states that its nonlinear recovery setting handles a non-differentiable activation, arbitrary signal structures, and any convex regularizer.</item>
+    </claims>
+    <method_components>
+      <item section_ref="s1">Nonlinear Beer-Lambert measurement model y_i = 1−exp(−a_i^T x).</item>
+      <item section_ref="s2">Gaussian theoretical model with ReLU-wrapped inner product f(u)=1−exp(−u_+).</item>
+      <item section_ref="s2">Unregularized nonlinear least-squares loss optimized with subgradient descent from zero.</item>
+      <item section_ref="s2">Regularized loss with λR(z), using 3D total variation in experiments.</item>
+      <item section_ref="s4">Constrained nonlinear least squares with projected gradient descent onto R(z) ≤ R(x).</item>
+      <item section_ref="s8">Proof strategy based on first-step concentration, pseudoconvexity, smoothness, and contraction.</item>
+    </method_components>
+    <datasets>
+      <item section_ref="s5">Modified 3D Shepp-Logan phantom with one ellipsoid varied from soft-tissue-like to bone-like to metal-like density.</item>
+      <item section_ref="s5">Real cone-beam CT measurements of a human skull with metal dental crowns.</item>
+    </datasets>
+    <baselines>
+      <item section_ref="s5">Linearized reconstruction using logarithmic preprocessing and the linear forward model.</item>
+      <item section_ref="s5">Commercial linearized reconstruction for the real skull dataset.</item>
+      <item section_ref="s5">FDK reconstruction baseline for the real skull dataset.</item>
+      <item section_ref="s6">Filtered Back Projection, ISTA, FISTA, and neural CT reconstruction methods are discussed as related CT reconstruction approaches.</item>
+    </baselines>
+    <ablations/>
+    <metrics>
+      <item section_ref="s3">Squared ℓ2 reconstruction error ||z_t−x||_2^2 in theoretical convergence bounds.</item>
+      <item section_ref="s5">PSNR over the whole synthetic volume, defined as −10 log10(MSE).</item>
+      <item section_ref="s2">Empirical gradient-error correlation ∇L(z)^T(z−x)/||z−x||_2^2 used to illustrate pseudoconvexity.</item>
+    </metrics>
+    <results>
+      <item section_ref="s3">Theorem 1 gives geometric convergence in the unregularized Gaussian setting with m on the order of n times a signal-norm-dependent factor.</item>
+      <item section_ref="s4">Theorem 2 gives geometric convergence in the regularized setting with m on the order of m0 times a signal-norm-dependent factor.</item>
+      <item section_ref="s4">For s-sparse signals with ℓ1 regularization, the paper states sample complexity of order s log(n/s).</item>
+      <item section_ref="s5">Synthetic experiments report that nonlinear reconstruction remains close to the ground truth as the ellipsoid density increases, while linearized reconstruction shows increasing artifacts.</item>
+      <item section_ref="s5">Real skull experiments report fewer visible metal artifacts for nonlinear reconstruction than for the shown commercial linearized and FDK reconstructions.</item>
+      <item section_ref="s8">Appendix proof results include entry into a local neighborhood after the first step and local pseudoconvexity/smoothness sufficient for contraction.</item>
+    </results>
+    <stated_limitations>
+      <item section_ref="s2">The theoretical model uses Gaussian measurements instead of true sparse, nonnegative, ray-structured CT measurement vectors.</item>
+      <item section_ref="s2">The theoretical analysis focuses on the noiseless setting, while the least-squares loss corresponds to Gaussian noise.</item>
+      <item section_ref="s3">The convergence rate and sample complexity have exponential dependence on ||x||_2 because measurements saturate for very dense signals.</item>
+      <item section_ref="s5">The experiments do not focus on speed or measurement sparsity.</item>
+      <item section_ref="s5">No ground truth is available for the real skull volume, so real-data comparison uses reference reconstructions.</item>
+      <item section_ref="s7">Future work is stated to include more realistic noise models such as Poisson noise.</item>
+    </stated_limitations>
+  </global_index>
+</paper_summary>

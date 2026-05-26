@@ -1,0 +1,18 @@
+<dimension_review>
+  <dimension>Contribution</dimension>
+  <score>2</score>
+  <strengths>
+    <item>Proposes a simple modular attack enhancement, APD, that can be integrated with several iterative transfer attacks such as MI-FGSM, DIM, TIM, SIM, AAM, and AA-TI-DIM.</item>
+    <item>The specific perturbation-level dropout operator—replacing selected adversarial perturbation regions with clean-image pixels, using Grad-CAM++ peaks and multiple scales—is a meaningful implementation-level contribution.</item>
+    <item>Reports substantial empirical gains in black-box transfer attack success rates across normally trained models, adversarially trained models, ensemble-source settings, and some defense/diverse architecture targets.</item>
+    <item>The paper provides ablations on CAM-based region selection, region size, number of centers/scales, cutout-style masking, and computational-cost comparisons, which help characterize the proposed contribution.</item>
+  </strengths>
+  <weaknesses>
+    <item>The novelty is limited: APD is largely an expectation-over-transformation/gradient-averaging attack over masked variants of the adversarial image, using ingredients already common in transferable attacks, including stochastic transformations, masking/dropout/cutout-like operations, attention guidance, and gradient averaging.</item>
+    <item>The conceptual contribution is relatively narrow and mostly framed as reducing perturbation-region synergy; this interpretation is plausible but not a fundamentally new attack paradigm.</item>
+    <item>The main impact is confined to improving ImageNet transfer attacks, rather than offering a broadly applicable theoretical or methodological advance.</item>
+    <item>APD introduces additional computational cost compared with standard iterative attacks, which may limit practical impact despite the reported gains.</item>
+  </weaknesses>
+  <evidence_summary>The paper proposes Adversarial Perturbation Dropout, which uses Grad-CAM++ to select salient centers, creates multi-scale square regions around those centers, replaces the perturbation in those regions with clean-image content, averages gradients over the dropped variants, and applies an iterative attack update. Experiments on 1000 ImageNet images report average black-box ASR improvements of about 6.8%–12.7% when added to several single-source attacks, 15.62% in ensemble-source settings, and smaller but positive gains on defense models and diverse architectures. The Q&amp;A assessment found APD only moderately novel because related transferable attack literature already uses input transformations, masking/dropout/cutout-like augmentations, attention/CAM guidance, and gradient averaging; APD’s defensible novelty is the particular perturbation-dropout construction and its synergy-reduction interpretation.</evidence_summary>
+  <rationale>Overall, the contribution is fair. The method is useful and empirically effective, and the clean-pixel perturbation dropout with CAM-centered multi-scale masks is a concrete technical variant that appears meaningfully different from ordinary cutout or DIM/TIM/SIM-style input transformations. However, the contribution is best viewed as an incremental combination and specialization of established ideas in transfer attacks rather than a clearly novel or foundational advance. Its likely impact is moderate within the adversarial-transferability subcommunity, but narrower and less original than would warrant a higher contribution score.</rationale>
+</dimension_review>

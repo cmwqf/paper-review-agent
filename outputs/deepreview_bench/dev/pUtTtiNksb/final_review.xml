@@ -1,0 +1,29 @@
+<final_review>
+  <final_score>5</final_score>
+  <summary>FFCA-Net addresses an important problem in distributed stereo image compression and proposes a coherent stereo-prior-aware decoder-side alignment and fusion pipeline. The reported rate-distortion and decoding-speed results are promising, especially for MS-SSIM BD-rate and practical latency relative to several stereo and distributed compression baselines. However, the contribution is mostly an engineering recombination of established stereo matching, feature warping, sparse refinement, and lightweight fusion ideas. More importantly, the central empirical claims are weakened by partially controlled baseline comparisons, under-specified bitrate and side-information accounting, incomplete runtime protocols, and ablations that do not fully isolate the proposed components. Presentation is understandable but insufficiently polished, with cramped figures, visible markup, typos, and dense notation. Overall, the paper is close to the bar because the problem and empirical gains are relevant, but the current evidence and polish are not strong enough for acceptance.</summary>
+  <strengths>
+    <item>Targets a practically meaningful problem: improving decoder-side use of stereo side information while reducing latency in distributed stereo image compression.</item>
+    <item>Provides a coherent system combining stereo patch matching, sparse disparity refinement, channel-selective warping, and lightweight feature fusion.</item>
+    <item>Reports strong rate-distortion performance across KITTI-stereo, Cityscapes, and InStereo2K, particularly under MS-SSIM BD-rate.</item>
+    <item>Includes a reasonably broad set of baselines, standard compression metrics, complexity comparisons, and component ablations.</item>
+    <item>The proposed speed-quality tradeoff appears practically useful, with reported lower decoding latency and FLOPs than several compared methods.</item>
+  </strengths>
+  <weaknesses>
+    <item>The novelty is incremental: the main components are adaptations or recombinations of known stereo matching, cost-volume/disparity refinement, feature warping, and lightweight convolutional fusion techniques.</item>
+    <item>Baseline comparisons are not fully controlled, with some results taken from prior papers, incomplete dataset coverage for some baselines, and unclear retraining or tuning consistency.</item>
+    <item>Runtime and FLOPs claims lack a sufficiently detailed timing protocol, including batch size, warm-up, precision, software/hardware settings, and whether entropy decoding or I/O are included.</item>
+    <item>Bitrate accounting and the distributed compression assumption are under-specified, especially regarding whether side information is free and whether bpp is measured per image or per stereo pair.</item>
+    <item>Ablations do not fully isolate all claimed contributions; for example, stereo patch matching is not independently separated from HSSR, and speed-oriented components are not always evaluated with end-to-end latency and matched quality.</item>
+    <item>Presentation issues, including small figures, red revision-like text, typos, and dense notation, make the method and results harder to verify.</item>
+  </weaknesses>
+  <requested_changes>
+    <item>Provide a fully controlled baseline protocol, including which baselines are retrained, fine-tuned, or quoted, and ensure fair comparison across datasets and bitrate ranges.</item>
+    <item>Clarify bitrate accounting, side-information assumptions, and whether reported bpp is per image, per target view, or per stereo pair.</item>
+    <item>Add a rigorous latency measurement protocol with hardware, software, batch size, precision, warm-up, synchronization, entropy decoding, and I/O details.</item>
+    <item>Strengthen ablations to isolate stereo patch matching, HSSR, sparse channel selection, and FFF independently, reporting both rate-distortion and end-to-end speed.</item>
+    <item>Report BD-rate computation details and, where feasible, variance or per-image statistics to support robustness of the empirical conclusions.</item>
+    <item>Improve presentation by enlarging figures and legends, removing red markup, fixing typos, and clarifying notation in the method section.</item>
+  </requested_changes>
+  <recommendation>Reject</recommendation>
+  <confidence_score>4</confidence_score>
+</final_review>

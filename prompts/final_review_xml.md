@@ -3,13 +3,30 @@ Purpose: XML output contract for the final aggregated review.
 -->
 
 Return exactly one `<final_review>` XML document with final_score, summary,
-strengths, weaknesses, requested_changes, and confidence.
+strengths, weaknesses, requested_changes, recommendation, and confidence_score.
+
+Use the ICLR-style final rating scale:
+
+- 10: strong accept, should be highlighted at the conference
+- 8: accept, good paper
+- 6: marginally above the acceptance threshold
+- 5: marginally below the acceptance threshold
+- 3: reject, not good enough
+- 1: strong reject
+
+Use the ICLR-style confidence scale:
+
+- 5: absolutely certain; very familiar with the related work and checked details carefully
+- 4: confident, but not absolutely certain
+- 3: fairly confident; some uncertainty about parts of the submission or related work
+- 2: willing to defend the assessment, but likely missed central parts or related work
+- 1: unable to assess; an AC should seek another opinion
 
 Use this structure:
 
 ```xml
 <final_review>
-  <final_score>1-10</final_score>
+  <final_score>1 | 3 | 5 | 6 | 8 | 10</final_score>
   <summary>...</summary>
   <strengths>
     <item>...</item>
@@ -20,14 +37,11 @@ Use this structure:
   <requested_changes>
     <item>...</item>
   </requested_changes>
-  <dimension_scores>
-    <dimension name="Contribution">...</dimension>
-    <dimension name="Soundness">...</dimension>
-    <dimension name="Presentation">...</dimension>
-  </dimension_scores>
-  <confidence>low | medium | high</confidence>
+  <recommendation>Accept | Reject</recommendation>
+  <confidence_score>1 | 2 | 3 | 4 | 5</confidence_score>
 </final_review>
 ```
 
-The final score should synthesize the three dimension reviews. It should not
-blindly average them if one dimension contains a critical weakness.
+The final_score is the final overall recommendation score, not a list of
+dimension scores. Synthesize the three dimension reviews, but do not blindly
+average them if one dimension contains a critical weakness.

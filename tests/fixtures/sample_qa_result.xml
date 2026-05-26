@@ -4,11 +4,8 @@
   <answer>Partially.</answer>
   <review_impact>
     <dimension>Contribution</dimension>
-    <polarity>mixed</polarity>
-    <severity>moderate</severity>
-    <score_impact>0.0</score_impact>
+    <polarity>strength</polarity>
+    <impact_level>C1</impact_level>
     <confidence>medium</confidence>
-    <rationale>The method combines known components in a useful way.</rationale>
   </review_impact>
 </qa_result>
-

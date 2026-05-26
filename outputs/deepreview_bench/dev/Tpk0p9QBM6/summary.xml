@@ -1,0 +1,309 @@
+<paper_summary>
+  <metadata>
+    <title>Computing Low-Entropy Couplings for Large-Support Distributions</title>
+    <authors>Anonymous authors</authors>
+    <venue>ICLR 2024</venue>
+    <submission_date>2024-05-29</submission_date>
+  </metadata>
+  <paper_map>
+    <section>
+      <section_id>s1</section_id>
+      <title>Introduction</title>
+      <summary>The section introduces minimum-entropy coupling for two marginal distributions and motivates low-entropy couplings for large-support distributions. It states that prior provable approximation algorithms are log-linear in support size, while existing iterative minimum-entropy coupling methods are limited to cases where one distribution has small support or factorizes. It lists three contributions: a partition-set formalism for IMEC, ARIMEC for arbitrary discrete distributions, and empirical applications to Markov coding games and steganography.</summary>
+      <key_items>
+        <item>
+          <type>problem</type>
+          <text>Computing a minimum-entropy coupling is NP-hard and approximation algorithms scale as O(N log N) in support size.</text>
+        </item>
+        <item>
+          <type>motivation</type>
+          <text>Deep generative models and other practical distributions can have intractably large supports.</text>
+        </item>
+        <item>
+          <type>claim</type>
+          <text>Existing IMEC algorithms cannot handle general large-support distributions because they require one distribution to have small support or a factorized structure.</text>
+        </item>
+        <item>
+          <type>claim</type>
+          <text>The paper claims to unify existing IMEC algorithms using sets of partitions.</text>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>ARIMEC is introduced as an IMEC instance using prefix tree partitions and efficient operations for large prefix trees.</text>
+        </item>
+        <item>
+          <type>result</type>
+          <text>The paper reports improved communication rates in Markov coding games and steganography by leveraging autoregressive prior information.</text>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s2</section_id>
+      <title>Background and Notation</title>
+      <summary>This section defines couplings, joint entropy, and minimum-entropy couplings. It reviews approximation algorithms for MEC and two existing iterative methods: TIMEC with a tabular posterior and FIMEC with a factored posterior. It also introduces notation for partitions and block functions used later in the unification.</summary>
+      <key_items>
+        <item>
+          <type>method_component</type>
+          <text>A coupling is a joint distribution with prescribed marginals, and an MEC minimizes joint entropy over all such couplings.</text>
+          <location_hint>Definitions 2.1-2.3</location_hint>
+        </item>
+        <item>
+          <type>baseline</type>
+          <text>Prior MEC approximation algorithms include approaches by Cicalese et al., Kocaoglu et al./Rossi, Li, and Compton et al.</text>
+          <location_hint>Section 2.2</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>TIMEC iteratively couples a posterior over X with the next autoregressive component of Y.</text>
+          <location_hint>Algorithm 1</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>TIMEC can be implemented in O(m max(M, |X|) log max(M, |X|)) time.</text>
+          <location_hint>Proposition 2.1</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>FIMEC assumes X has independent components and couples the maximum-posterior-entropy component with the next component of Y.</text>
+          <location_hint>Algorithm 2</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>FIMEC has runtime O(m max(M,N) log max(M,N) + nN + m log n + n log n) under the factorization assumption.</text>
+          <location_hint>Proposition 2.2</location_hint>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s3</section_id>
+      <title>A Unification of Iterative Minimum-Entropy Coupling</title>
+      <summary>This section presents a generic IMEC algorithm parameterized by a set of partitions over the support of X. At each iteration, the algorithm selects the partition with maximum posterior block entropy, couples its block variable with the next symbol of Y, and samples from the resulting conditional distribution. The section proves that the generic procedure induces a coupling and shows how TIMEC and FIMEC arise as special cases.</summary>
+      <key_items>
+        <item>
+          <type>method_component</type>
+          <text>Generic IMEC is specified by a partition set U and selects the partition maximizing posterior entropy over blocks.</text>
+          <location_hint>Algorithm 3</location_hint>
+        </item>
+        <item>
+          <type>claim</type>
+          <text>The selected partition is intended to offer the largest heuristic opportunity for joint entropy reduction.</text>
+          <location_hint>Section 3</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>IMEC induces a coupling of the two marginals.</text>
+          <location_hint>Proposition 3.1</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>If the trivial partition is in the partition set, IMEC approximately minimizes the next-step joint entropy subject to previous choices.</text>
+          <location_hint>Proposition 3.2</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>TIMEC is recovered by using the set of all partitions, for which the trivial partition is selected.</text>
+          <location_hint>Section 3.2</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>FIMEC is recovered by using partitions corresponding to individual factored components of X.</text>
+          <location_hint>Figure 1</location_hint>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s4</section_id>
+      <title>A General Approach to Iterative Minimum-Entropy Coupling</title>
+      <summary>This section defines ARIMEC as the instance of generic IMEC using the prefix tree partition set. It defines prefixes, prefix trees, and partitions induced by each prefix-tree node. It discusses runtime and practical efficiency mechanisms, including lazy posterior updates and entropy upper bounds for pruning subtrees.</summary>
+      <key_items>
+        <item>
+          <type>method_component</type>
+          <text>The prefix tree partition set contains one partition for each node in the prefix tree of X's support.</text>
+          <location_hint>Definition 4.4</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>ARIMEC is Algorithm 3 with the partition set chosen as the prefix tree partition set.</text>
+          <location_hint>Definition 4.5</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>Each prefix-tree partition groups extensions of each child, non-extensions of the node, and the singleton node if it is itself in the support.</text>
+          <location_hint>Figure 2</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>ARIMEC runtime is O(m max(M,N) log max(M,N) + mZN), where Z is the number of prefix-tree nodes checked for maximum entropy.</text>
+          <location_hint>Proposition 4.1</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>An entropy upper bound is used to prune subtrees or complements of subtrees when searching for the maximum-entropy partition.</text>
+          <location_hint>Proposition B.2</location_hint>
+        </item>
+        <item>
+          <type>stated_limitation</type>
+          <text>The runtime bound does not give a polynomial-time guarantee because a naive implementation has Z = N^n.</text>
+          <location_hint>Section 4.2</location_hint>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s5</section_id>
+      <title>Experiments</title>
+      <summary>The experiments evaluate ARIMEC in Markov coding games and two steganography settings. In Markov coding games, ARIMEC extends MEME to arbitrary message distributions and is compared with a uniform-token FIMEC baseline. In steganography, the paper measures joint entropy, decoding error, and information throughput using GPT-2-based covertext and message distributions.</summary>
+      <key_items>
+        <item>
+          <type>dataset</type>
+          <text>Markov coding games CodeCart and CodePong use message distributions from GPT-2 with top-50 sampling.</text>
+          <location_hint>Section 5.1</location_hint>
+        </item>
+        <item>
+          <type>baseline</type>
+          <text>The MCG baseline is a naive MEME variant assuming a uniform token distribution and using FIMEC.</text>
+          <location_hint>Section 5.1</location_hint>
+        </item>
+        <item>
+          <type>metric</type>
+          <text>MCG evaluation reports the trajectory decoding error rate with 95% bootstrap confidence intervals over 100 games.</text>
+          <location_hint>Figure 3</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>In CodeCart and CodePong, both FIMEC and ARIMEC maintain perfect expected return, and ARIMEC produces a substantially more efficient encoding.</text>
+          <location_hint>Figure 3</location_hint>
+        </item>
+        <item>
+          <type>metric</type>
+          <text>Information-theoretic steganography reports joint entropy and ciphertext decoding error over 100 GPT-2 covertext samples.</text>
+          <location_hint>Figure 4</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>In unencrypted steganography, ARIMEC with the correct prior outperforms uniform-token FIMEC in information throughput.</text>
+          <location_hint>Figure 5</location_hint>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s6</section_id>
+      <title>Conclusion and Future Work</title>
+      <summary>The conclusion restates the three main contributions: partition-set unification, ARIMEC for arbitrary large-support discrete distributions, and empirical demonstrations in Markov coding games and steganography. It states an intention to release a documented codebase. It identifies future application directions including unencrypted steganography and classical MEC applications with non-factorable large-support distributions.</summary>
+      <key_items>
+        <item>
+          <type>claim</type>
+          <text>ARIMEC is described as the first general approach for computing low-entropy couplings for large-support distributions that can be applied to arbitrary distributions.</text>
+          <location_hint>Section 6</location_hint>
+        </item>
+        <item>
+          <type>other</type>
+          <text>The authors state that they commit to releasing the codebase as a documented package.</text>
+          <location_hint>Section 6</location_hint>
+        </item>
+        <item>
+          <type>motivation</type>
+          <text>Unencrypted steganography is identified as a future application direction due to observed high throughput and lack of key exchange.</text>
+          <location_hint>Section 6</location_hint>
+        </item>
+        <item>
+          <type>motivation</type>
+          <text>ARIMEC is proposed as enabling large-support non-factorable distributions in applications such as entropic causal inference, random number generation, functional representations, and dimensionality reduction.</text>
+          <location_hint>Section 6</location_hint>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s7</section_id>
+      <title>Appendices</title>
+      <summary>The appendices provide inverse generative processes, proofs of runtime and coupling properties, posterior update and entropy-bound results, visualizations of FIMEC and ARIMEC, and expanded experimental setting definitions. They also formalize information-theoretic and unencrypted steganography settings and state coupling-based guarantees for undetectability and throughput. The appendix discussion lists assumptions and tradeoffs of unencrypted steganography.</summary>
+      <key_items>
+        <item>
+          <type>method_component</type>
+          <text>The appendix gives inverse X given Y generative processes for generic IMEC.</text>
+          <location_hint>Algorithm 6</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>The appendices prove runtime claims for TIMEC, FIMEC, and ARIMEC.</text>
+          <location_hint>Appendix B.1</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>Coupling-based unencrypted steganographic encoders are perfectly undetectable if and only if they are induced by a coupling.</text>
+          <location_hint>Theorem D.7</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>Among perfectly undetectable unencrypted steganographic encoders, minimum-entropy coupling maximizes mutual information.</text>
+          <location_hint>Theorem D.8</location_hint>
+        </item>
+        <item>
+          <type>stated_limitation</type>
+          <text>Unencrypted steganography assumes the message distribution is known to sender and receiver and independently samples messages over time.</text>
+          <location_hint>Appendix D.4</location_hint>
+        </item>
+        <item>
+          <type>stated_limitation</type>
+          <text>The unencrypted setting relies on security through obscurity and violates Kerckhoff's principle.</text>
+          <location_hint>Appendix D.4</location_hint>
+        </item>
+      </key_items>
+    </section>
+  </paper_map>
+  <global_index>
+    <claims>
+      <item section_ref="s1">Existing IMEC algorithms are limited to cases where one distribution has small support or is factorable.</item>
+      <item section_ref="s1">The paper claims to unify existing IMEC algorithms under a partition-set formalism.</item>
+      <item section_ref="s3">Generic IMEC induces a coupling of the two marginals.</item>
+      <item section_ref="s3">With the trivial partition included, IMEC greedily approximately minimizes the next-step joint entropy subject to previous choices.</item>
+      <item section_ref="s6">ARIMEC is described as the first general approach applicable to arbitrary large-support discrete distributions.</item>
+    </claims>
+    <method_components>
+      <item section_ref="s2">MEC definitions: coupling, joint entropy, and minimum-entropy coupling.</item>
+      <item section_ref="s2">TIMEC couples a tabular posterior over X with each autoregressive component of Y.</item>
+      <item section_ref="s2">FIMEC assumes independent components of X and couples the maximum-entropy component at each step.</item>
+      <item section_ref="s3">Generic IMEC is parameterized by a partition set and selects maximum-posterior-entropy partitions.</item>
+      <item section_ref="s4">ARIMEC uses the prefix tree partition set.</item>
+      <item section_ref="s4">ARIMEC uses lazy posterior updates and entropy-bound pruning for efficient maximum-entropy partition search.</item>
+      <item section_ref="s7">Inverse generative procedures support sampling X given Y.</item>
+    </method_components>
+    <datasets>
+      <item section_ref="s5">CodeCart Markov coding game with GPT-2 top-50 message distribution.</item>
+      <item section_ref="s5">CodePong Markov coding game with GPT-2 top-50 message distribution.</item>
+      <item section_ref="s5">Information-theoretic steganography uses 100 tokens sampled from GPT-2 as covertext.</item>
+      <item section_ref="s5">Unencrypted steganography uses GPT-2 covertext prompt "Here's an innocuous message:" and plaintext prompt "Here's a secret message:".</item>
+    </datasets>
+    <baselines>
+      <item section_ref="s2">Provable MEC approximation algorithms by Cicalese et al., Kocaoglu et al./Rossi, Li, and Compton et al.</item>
+      <item section_ref="s2">TIMEC.</item>
+      <item section_ref="s2">FIMEC.</item>
+      <item section_ref="s5">Naive MEME/FIMEC baseline assuming a uniform distribution over tokens.</item>
+    </baselines>
+    <ablations>
+      <item section_ref="s5">Markov coding game experiments compare policies trained with different MaxEntRL entropy bonus temperatures.</item>
+      <item section_ref="s5">Experiments compare ARIMEC with the correct autoregressive prior against FIMEC with a uniform-token assumption.</item>
+    </ablations>
+    <metrics>
+      <item section_ref="s5">Trajectory decoding error rate in Markov coding games.</item>
+      <item section_ref="s5">Expected return in Markov coding games.</item>
+      <item section_ref="s5">Joint entropy in information-theoretic steganography.</item>
+      <item section_ref="s5">Ciphertext decoding error in information-theoretic steganography.</item>
+      <item section_ref="s5">Information throughput in unencrypted steganography.</item>
+      <item section_ref="s5">95% bootstrap confidence intervals over 100 games or samples.</item>
+    </metrics>
+    <results>
+      <item section_ref="s2">TIMEC runtime: O(m max(M, |X|) log max(M, |X|)).</item>
+      <item section_ref="s2">FIMEC runtime: O(m max(M,N) log max(M,N) + nN + m log n + n log n).</item>
+      <item section_ref="s4">ARIMEC runtime: O(m max(M,N) log max(M,N) + mZN).</item>
+      <item section_ref="s5">In CodeCart and CodePong, both FIMEC and ARIMEC maintain perfect expected return, while ARIMEC gives substantially more efficient encoding.</item>
+      <item section_ref="s5">In information-theoretic steganography, FIMEC gives lower joint entropy than ARIMEC, while ARIMEC gives lower decoding error.</item>
+      <item section_ref="s5">In unencrypted steganography, ARIMEC outperforms uniform-token FIMEC in information throughput.</item>
+      <item section_ref="s7">Coupling-induced unencrypted steganography gives perfect undetectability, and MEC maximizes mutual information among perfectly undetectable procedures.</item>
+    </results>
+    <stated_limitations>
+      <item section_ref="s4">ARIMEC's stated runtime bound is not a polynomial-time guarantee because naive maximum-entropy partition search can require Z = N^n checks.</item>
+      <item section_ref="s7">Unencrypted steganography assumes the plaintext message distribution is known to sender and receiver and samples messages independently.</item>
+      <item section_ref="s7">Unencrypted steganography is stated to violate Kerckhoff's principle because there is no private key and it relies on security through obscurity.</item>
+    </stated_limitations>
+  </global_index>
+</paper_summary>

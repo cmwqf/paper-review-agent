@@ -1,0 +1,18 @@
+<dimension_review>
+  <dimension>Contribution</dimension>
+  <score>2</score>
+  <strengths>
+    <item>Proposes a coherent hybrid architecture that combines explicit Runge-Kutta-style recurrent updates with a shared GNN approximation of the governing dynamics.</item>
+    <item>The design is practically motivated for variable graph or spatial discretizations, coefficient-conditioned dynamics, and changing temporal step sizes.</item>
+    <item>The inference-time adjustment of RK order is an interesting and potentially useful feature, especially if it can improve accuracy without retraining.</item>
+    <item>Experiments report favorable Burgers' equation results, including low MAE and a small parameter count compared with the listed baselines.</item>
+  </strengths>
+  <weaknesses>
+    <item>The core technical idea appears to be mostly an engineering combination of known components: explicit RK integration, recurrent/residual computation, and graph neural message passing.</item>
+    <item>The paper does not sufficiently position GNRK against closely related learned-dynamics-plus-integrator work, such as Neural ODE, Graph Neural ODE, or graph-network physical simulator approaches.</item>
+    <item>The broad generalization claims are supported only in controlled synthetic settings: one Euclidean PDE family and three synthetic graph-coupled dynamical systems.</item>
+    <item>Empirical comparisons are incomplete for establishing contribution significance, since some baselines are not applicable across all settings and the graph-domain experiments rely more on ablations than strong external baselines.</item>
+  </weaknesses>
+  <evidence_summary>The paper presents GNRK as a Runge-Kutta recurrent structure with a shared GNN module approximating the PDE/ODE right-hand side. It claims generalization across initial conditions, coefficients, spatial and temporal discretizations, and RK order without retraining. The experiments evaluate 2D Burgers' equation under several controlled variations and graph-domain heat, Kuramoto, and Rössler systems. Reported Burgers' MAEs are favorable, and RK4 inference is reported to reduce errors relative to RK1 in graph-domain tests. However, the Q&amp;A analysis indicates that the paper's closest conceptual prior art is broader learned continuous-time graph dynamics and neural differential equation work, which is not clearly distinguished. The demonstrated settings remain relatively narrow and synthetic.</evidence_summary>
+  <rationale>Overall, the contribution is useful but not clearly major. GNRK is a sensible architecture that may have practical value for graph-based PDE/ODE surrogate modeling, especially through its RK-style recurrence and adjustable integration order. However, the novelty is only partly convincing because the method largely packages established ideas, and the related-work positioning does not adequately separate it from existing graph-based learned dynamics models with numerical integration. The empirical evidence supports promise but not broad impact: the main results are on controlled benchmarks, with uneven baseline coverage and limited evidence beyond synthetic systems. This warrants a fair contribution score rather than a good or excellent one.</rationale>
+</dimension_review>

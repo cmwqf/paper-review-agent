@@ -1,0 +1,20 @@
+<dimension_review>
+  <dimension>Contribution</dimension>
+  <score>3</score>
+  <strengths>
+    <item>The paper makes a meaningful contribution by combining diffusion-based next-keypose prediction with explicit 3D RGB-D scene representations for language-conditioned robot manipulation.</item>
+    <item>The method is positioned against strong 3D manipulation baselines such as PerAct, Act3D, and RVT, and against 2D diffusion-style variants, clarifying the value of the proposed synthesis.</item>
+    <item>The reported 12 percentage-point gain on the RLBench multi-task benchmark is substantial and suggests practical empirical value for multi-task manipulation.</item>
+    <item>Ablations indicate that both the 3D scene encoding and the 3D grounding/relative attention components contribute to performance, strengthening the contribution beyond a simple application of diffusion models.</item>
+    <item>The real-world experiments, although small, provide some evidence that the approach is not purely simulation-specific.</item>
+  </strengths>
+  <weaknesses>
+    <item>The contribution is best viewed as a strong synthesis of existing ideas—diffusion policies, 3D scene representations, language-conditioned manipulation, and keypose prediction—rather than a wholly new paradigm.</item>
+    <item>External retrieval found related or contemporaneous work using language-guided diffusion with 3D point clouds for robotic pose generation, which weakens the broad claim that diffusion had not been combined with 3D scene representations.</item>
+    <item>The impact is narrowed by practical limitations, including high inference latency, calibrated RGB-D requirements, and reliance on kinesthetic demonstrations.</item>
+    <item>The real-world validation is limited in scale, covering five tasks with mixed success rates and only 20 demonstrations per task.</item>
+    <item>The main benchmark impact is on quasi-static RLBench tasks, so the breadth of demonstrated applicability remains limited.</item>
+  </weaknesses>
+  <evidence_summary>The Q&amp;A analysis found that the paper’s specific formulation—language-conditioned diffusion over 3D end-effector keyposes with explicit RGB-D-lifted scene grounding—appears meaningfully novel relative to Diffusion Policy, PerAct, Act3D, RVT, and ChainedDiffuser, though it is not entirely unprecedented in the broader space of 3D-conditioned diffusion for robotics. Retrieved related work on language-conditioned affordance-pose detection in 3D point clouds weakens the broad novelty claim but does not fully match this paper’s multi-task keypose-policy setting. Empirically, the paper reports 77% average success on 18 RLBench tasks versus 65% for the strongest listed baseline, plus ablations showing improvements over 2D diffusion and no-relative-attention variants. The real-world experiments are encouraging but small, and the paper itself notes latency, sensing, demonstration, and quasi-static-task limitations.</evidence_summary>
+  <rationale>Overall, the contribution is good: the paper presents a meaningful and well-motivated integration of diffusion modeling with 3D scene-conditioned manipulation, supported by notable benchmark gains and useful ablations. However, the novelty is somewhat incremental at the conceptual level because the core ingredients were already established, and related 3D diffusion-based robotic pose methods existed or were contemporaneous. The empirical impact is significant within RLBench-style language-conditioned manipulation, but the demonstrated broader impact is constrained by latency, data and sensing assumptions, and limited real-world scale. This warrants a score of 3 rather than 4.</rationale>
+</dimension_review>

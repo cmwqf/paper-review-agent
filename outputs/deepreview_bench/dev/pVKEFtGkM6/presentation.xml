@@ -1,0 +1,18 @@
+<dimension_review>
+  <dimension>Presentation</dimension>
+  <score>3</score>
+  <strengths>
+    <item>The paper is generally well organized, with a clear progression from background and problem setup to empirical comparisons, mechanistic analysis of alignment effects, post-hoc calibration, related work, and appendices.</item>
+    <item>Section hierarchy, equation numbering, and ICLR-style formatting make the main argument mostly easy to follow.</item>
+    <item>Captions are generally informative and connected to the corresponding figures, and the appendices are logically divided into prompts, experimental details, robustness checks, synthetic-task results, calibration tables, and derivations.</item>
+    <item>The notation and mathematical presentation appear mostly consistent, with centered and numbered equations supporting the uncertainty decomposition and calibration methods.</item>
+  </strengths>
+  <weaknesses>
+    <item>Several figures are visually crowded or too small to inspect comfortably at normal page scale, including Fig. 1, Fig. 2, Fig. 4, Fig. 5, and Fig. 7; legends, tick labels, annotations, and subplot labels are often hard to read without zooming.</item>
+    <item>The layout is dense in places, with limited whitespace around figures and long paragraphs, making visual inspection more effortful.</item>
+    <item>Pages 5–7 reportedly contain extensive bright blue body text, which is visually distracting and may make ordinary prose appear like hyperlinks or emphasized text.</item>
+    <item>The appendix tables support verification but are compact and dense, requiring readers to cross-reference many datasets, model variants, settings, and abbreviations to audit numerical claims.</item>
+  </weaknesses>
+  <evidence_summary>The PDF inspection found that the paper follows a standard ICLR-style structure with readable text, section numbering, equation numbering, and generally informative captions. However, multiple main-text figures are crowded or too small, especially Fig. 1 on page 1, Fig. 2 on page 3, Fig. 4 on page 4, Fig. 5 on page 6, and Fig. 7 on page 7. The main text is sometimes dense, with squeezed figures and limited whitespace, and pages 5–7 contain distracting blue-colored prose. Appendix inspection indicated that Tables 2–3 are manageable, but later full-result tables are visually crowded and harder to verify at normal reading scale, despite the appendices being logically organized.</evidence_summary>
+  <rationale>The presentation is good overall: the paper is understandable, logically structured, and provides enough visual and appendix material for reviewers to follow and verify the main claims. The main limitations are not fundamental writing or organization failures, but rather inspection burdens caused by small/crowded figures, dense table layouts, and some distracting formatting. These issues prevent an excellent presentation score but are not severe enough to make the paper hard to understand overall.</rationale>
+</dimension_review>

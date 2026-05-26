@@ -1,0 +1,18 @@
+<dimension_review>
+  <dimension>Presentation</dimension>
+  <score>3</score>
+  <strengths>
+    <item>The paper is broadly readable and organized in a conventional ICLR style, with clear sectioning, consistent margins, page numbers, and generally legible main text.</item>
+    <item>The method and experimental sections appear logically structured: notation and baseline methods are introduced before APD, followed by setup, main results, and ablations.</item>
+    <item>Most captions are informative and connect directly to the relevant figures and tables, especially Figures 2–3 and Tables 2–3.</item>
+    <item>Equations and notation are generally legible and consistently formatted, with no major visual overflow issues observed.</item>
+  </strengths>
+  <weaknesses>
+    <item>Some figures and tables are visually dense. In particular, Figure 1(b) has very small axis, tick, legend, and model labels, and Table 1 is compressed into multiple stacked subtables that require effort to inspect.</item>
+    <item>Several captions, especially for Figures 1 and 2, are long paragraph-style captions, which makes quick visual scanning harder.</item>
+    <item>There are noticeable typography and spacing issues in the text and citations, such as missing spaces around citations or parentheses, which reduce polish.</item>
+    <item>Figure 3 is somewhat crowded due to text wrapping beside the figure, and some region labels inside the image are small.</item>
+  </weaknesses>
+  <evidence_summary>The PDF inspection found that pages 1–8 are generally easy to inspect, with a clean ICLR-style layout and readable main text. Page 2 Figure 1 has an understandable image panel but hard-to-read bar chart labels and a long dense caption. Page 5 Figures 2 and 3 are mostly clear, though Figure 3 is crowded and contains small labels. Page 7 Table 1 is dense and compressed, while page 8 Tables 2–3 are more legible. Equations on pages 4 and 6 are generally legible. The inspection also noted several spacing and citation formatting inconsistencies, including examples like “(FGSM)Goodfellow,” “PGD)Madry,” “1).Selective,” and “synergy(i.e.”</evidence_summary>
+  <rationale>The presentation is good overall: the paper is understandable, well organized, and mostly easy for reviewers to follow and verify. However, it is not excellent because several key visual elements are difficult to inspect at page scale, captions are sometimes overly dense, and typography/citation spacing issues reduce polish. These are meaningful but not severe enough to make the paper hard to understand, so a score of 3 is appropriate.</rationale>
+</dimension_review>

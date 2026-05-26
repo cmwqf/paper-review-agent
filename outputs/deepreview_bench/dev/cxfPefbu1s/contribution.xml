@@ -1,0 +1,18 @@
+<dimension_review>
+  <dimension>Contribution</dimension>
+  <score>3</score>
+  <strengths>
+    <item>Introduces a meaningful conceptual reframing of causal fairness around procedural fairness, emphasizing preservation of neutral data-generating components rather than only constraining outcome-level causal effects.</item>
+    <item>Identifies “disguised procedural unfairness” as a useful failure mode: fairness-constrained fitting can inadvertently alter neutral mechanisms while mitigating objectionable pathways.</item>
+    <item>Provides a concrete framework using local causal modules, reference points, value-instantiation rules, and topological aggregation to decouple objectionable components while leaving neutral modules unconstrained.</item>
+    <item>Connects the framework to Rawlsian fairness principles, including fair equality of opportunity and the difference principle, giving the work a distinctive conceptual positioning within causal fairness.</item>
+  </strengths>
+  <weaknesses>
+    <item>The core technical idea is moderately novel rather than fundamentally new, as prior causal fairness work already studies path-specific effects, counterfactual interventions, and manipulation or blocking of unfair causal pathways.</item>
+    <item>The technical contribution appears to be a structured adaptation of modular causal interventions rather than a substantially new causal formalism.</item>
+    <item>The empirical contribution is mostly illustrative, focusing on simulated examples and standard tabular fairness datasets such as UCI Adult and Folktables, rather than demonstrating broad practical impact.</item>
+    <item>The framework’s impact depends heavily on strong inputs such as a known causal graph, identified objectionable components, and appropriate reference-point choices, which may limit applicability in realistic settings.</item>
+  </weaknesses>
+  <evidence_summary>The paper argues that existing causal fairness approaches often focus on effects on outcomes while under-characterizing the data-generating process itself. It shows in a linear example that fairness constraints inspired by prior causal fairness methods can shift fitted parameters of neutral components. The proposed contribution is to learn local causal modules without fairness constraints, then apply reference-point substitutions along objectionable edges via a value-instantiation rule and aggregate the modules in topological order. Experiments on a simulated model, UCI Adult, and Folktables illustrate approval-rate effects and reference-point behavior. The Q&amp;A judgment characterizes the contribution as primarily conceptual, with a useful but lightweight technical instantiation and secondary empirical support.</evidence_summary>
+  <rationale>The paper makes a good contribution by introducing a clear and potentially influential procedural-fairness perspective on causal fairness, especially the idea that fairness interventions should avoid distorting neutral mechanisms. The reference-point and local-module framework is a concrete and useful implementation of this perspective. However, the novelty is not excellent because causal pathway interventions, path-specific counterfactual fairness, and mechanism-based causal reasoning are already established; the paper’s main originality lies in framing and modular application rather than a fundamentally new technical paradigm. The empirical evidence supports the conceptual argument but remains relatively narrow and illustrative. Overall, this is a meaningful and well-positioned contribution with some limitations in technical novelty and breadth of demonstrated impact.</rationale>
+</dimension_review>

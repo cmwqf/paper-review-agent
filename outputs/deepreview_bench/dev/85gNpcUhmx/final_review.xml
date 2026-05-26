@@ -1,0 +1,28 @@
+<final_review>
+  <final_score>5</final_score>
+  <summary>The paper proposes DACCA, an unsupervised domain adaptation framework for segmentation-based lane detection that combines teacher-student self-training, cross-domain contrastive learning with source/target positive sample memory modules, and domain-level feature aggregation. The problem is practically relevant and the reported empirical improvements across datasets and backbones are encouraging. However, the main technical contribution appears to be a lane-specific combination of established UDA ingredients rather than a clearly novel methodological advance. The experimental evidence is useful but not fully convincing due to missing statistical validation, incomplete isolation of the key components, and uncertainty about controlled baseline comparisons. Presentation is mostly understandable but suffers from substantial formatting and visual issues, including pervasive colored markup and small or crowded figures. Overall, the paper is close to the acceptance threshold but falls slightly below it.</summary>
+  <strengths>
+    <item>Addresses an important practical problem: unsupervised domain adaptation for lane detection under synthetic-to-real and cross-dataset shifts.</item>
+    <item>Proposes a coherent framework combining self-training, contrastive learning, memory-based domain-level lane features, and feature aggregation.</item>
+    <item>Reports consistent gains over source-only models and several UDA or lane-detection baselines across multiple datasets and backbones.</item>
+    <item>Includes several useful ablations, including component analysis, backbone generalization, contrastive-loss comparisons, context-aggregation comparisons, and hyperparameter studies.</item>
+  </strengths>
+  <weaknesses>
+    <item>Conceptual novelty is limited: most components closely resemble established ideas from UDA semantic segmentation, including pseudo-label self-training, prototype or memory-bank contrastive learning, and feature aggregation.</item>
+    <item>The contribution is fairly narrow, focused on segmentation-based lane detection, with extension to other lane-detection paradigms left as future work.</item>
+    <item>Experiments do not report multiple-seed averages, variance, confidence intervals, or other statistical reliability measures.</item>
+    <item>Baseline comparisons are not clearly shown to be fully controlled for backbone, resolution, schedule, splits, and evaluation implementation.</item>
+    <item>Ablations are partly cumulative and mostly centered on one backbone, making it difficult to isolate the independent effects of self-training, contrastive losses, PSMM, DFA, and unreliable-background handling.</item>
+    <item>The PDF presentation has notable issues, including pervasive red and blue markup, nonstandard title formatting, dense figures, small labels, and crowded visual pages.</item>
+  </weaknesses>
+  <requested_changes>
+    <item>Clarify the novelty relative to prior prototype-memory, contrastive UDA, and context-aggregation methods, emphasizing what is technically new beyond adapting these ideas to lane detection.</item>
+    <item>Add multiple-seed results or other statistical reliability analysis for the main comparisons and ablations.</item>
+    <item>Ensure and document that baseline comparisons use matched settings, including backbone, input resolution, training schedule, data splits, and evaluation protocol.</item>
+    <item>Provide stronger non-cumulative ablations that isolate self-training, source and target contrastive losses, PSMM design, DFA, and unreliable-background handling, ideally across stronger backbones as well as SCNN.</item>
+    <item>Include ablations of PSMM initialization, update strategy, memory removal, and alternative memory/prototype designs.</item>
+    <item>Clean the submission formatting by removing colored revision markup, normalizing the title style, enlarging figure labels, and making qualitative visualizations easier to inspect.</item>
+  </requested_changes>
+  <recommendation>Reject</recommendation>
+  <confidence_score>4</confidence_score>
+</final_review>

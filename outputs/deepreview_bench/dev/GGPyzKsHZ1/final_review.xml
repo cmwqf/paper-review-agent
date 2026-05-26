@@ -1,0 +1,27 @@
+<final_review>
+  <final_score>5</final_score>
+  <summary>The paper studies task-free continual self-supervised audio-video representation learning and proposes FLAVA, a masked audio-video autoencoding approach with localized cross-modal patch selection and a forget-robust comparison between current and memory-induced attention. The problem setting is relevant and the method is plausible, with experiments on VGGSound and AudioSet across retrieval, classification, efficiency, and ablation studies. However, the technical novelty is mostly an incremental integration of known ingredients, and the empirical support is weakened by lack of statistical validation, modest gains in several settings, and incomplete controls isolating the proposed mechanism from replay, DER++-style losses, AVM parameters, and memory-budget effects. Overall, the paper is interesting but falls marginally below the acceptance threshold.</summary>
+  <strengths>
+    <item>Addresses a relevant and underexplored setting: task-free continual audio-video representation learning under shifting data distributions.</item>
+    <item>Proposes a coherent method combining localized audio-video alignment, attention-based patch importance, forget-robust selection, and rehearsal-based continual learning.</item>
+    <item>Evaluates on multiple datasets and downstream tasks, including retrieval, audiovisual classification, efficiency, memory-size studies, and ablations.</item>
+    <item>The paper is generally well organized and understandable, with a clear progression from motivation to method and experiments.</item>
+  </strengths>
+  <weaknesses>
+    <item>The methodological contribution is moderate and largely combines familiar components from masked multimodal learning, attention-based selection, replay, and DER++-style continual learning.</item>
+    <item>Empirical gains are modest in several cases, including very small reported improvements on some AudioSet retrieval metrics.</item>
+    <item>The results appear to lack standard deviations, confidence intervals, multiple seeds, or significance testing, making small gains hard to interpret.</item>
+    <item>Ablations do not fully isolate the proposed forget-robust localized patch selection from confounds such as replay memory design, AVM parameters, token selection behavior, and the DER++-style objective.</item>
+    <item>The task-free claim is only partially supported because the data streams are constructed from class or hierarchy-based task partitions and evaluated with task-wise forgetting metrics.</item>
+    <item>Presentation is mostly clear but some figures and tables are crowded, and there are minor formatting and typographic issues.</item>
+  </weaknesses>
+  <requested_changes>
+    <item>Report results over multiple random seeds with standard deviations, confidence intervals, or significance tests, especially for small reported gains.</item>
+    <item>Add matched controls that keep the same backbone, memory budget, AVM machinery, compute budget, and DER++-style objective while disabling only the proposed FLAVA patch-selection components.</item>
+    <item>Clarify baseline fairness, including hyperparameter tuning protocols, compute budgets, memory budgets, and whether all baselines receive comparable replay and objective advantages.</item>
+    <item>Strengthen the task-free evaluation by clarifying what task information is unavailable during training and, if possible, evaluating on more naturally nonstationary streams not constructed solely from class-derived partitions.</item>
+    <item>Improve readability of crowded figures and dense tables, remove distracting highlighting, and fix minor typos such as “Foget-robust”.</item>
+  </requested_changes>
+  <recommendation>Reject</recommendation>
+  <confidence_score>4</confidence_score>
+</final_review>

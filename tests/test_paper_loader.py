@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 
 from reviewer.paper.loader import load_paper
 
@@ -38,3 +40,31 @@ def test_load_text_paper(tmp_path) -> None:
     paper = load_paper(path)
     assert paper["id"] == "paper"
     assert paper["text"] == "hello"
+
+
+def test_load_pdf_paper_extracts_page_text(tmp_path, monkeypatch) -> None:
+    """PDF files should load page-level extracted text."""
+    path = tmp_path / "paper.pdf"
+    path.write_bytes(b"%PDF fake")
+
+    class FakePage:
+        def __init__(self, text):
+            self.text = text
+
+        def extract_text(self):
+            return self.text
+
+    class FakePdfReader:
+        def __init__(self, pdf_path):
+            assert str(pdf_path) == str(path)
+            self.pages = [FakePage("page one"), FakePage("page two")]
+
+    monkeypatch.setitem(sys.modules, "pypdf", types.SimpleNamespace(PdfReader=FakePdfReader))
+
+    paper = load_paper(path)
+
+    assert paper["id"] == "paper"
+    assert paper["metadata"]["source"] == "pdf"
+    assert paper["metadata"]["page_count"] == 2
+    assert paper["pdf_pages"] == ["page one", "page two"]
+    assert "=== Page 1 ===\npage one" in paper["text"]

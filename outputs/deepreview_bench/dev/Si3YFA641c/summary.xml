@@ -1,0 +1,305 @@
+<paper_summary>
+  <metadata>
+    <title>R-EDL: Relaxing Nonessential Settings of Evidential Deep Learning</title>
+    <authors>Mengyuan Chen, Junyu Gao, Changsheng Xu</authors>
+    <venue>ICLR 2024</venue>
+    <submission_date>2023-09-16</submission_date>
+  </metadata>
+  <paper_map>
+    <section>
+      <section_id>s1</section_id>
+      <title>Abstract and Introduction</title>
+      <summary>The paper introduces R-EDL, a relaxed version of Evidential Deep Learning for single-forward-pass uncertainty estimation. It argues that traditional EDL fixes a prior weight and includes a variance-minimizing term that are not required by subjective logic, and proposes relaxing both settings to improve uncertainty estimation.</summary>
+      <key_items>
+        <item>
+          <type>problem</type>
+          <text>Modern supervised DNN classifiers are described as poorly calibrated and often over-confident, while many Bayesian and ensemble uncertainty methods require multiple forward passes.</text>
+        </item>
+        <item>
+          <type>claim</type>
+          <text>Traditional EDL retains nonessential settings in Dirichlet construction and optimization that can worsen over-confidence.</text>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>R-EDL treats the prior weight as an adjustable hyperparameter rather than fixing it to the number of classes.</text>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>R-EDL directly optimizes the expectation/projected probability of the Dirichlet distribution and omits the variance-minimized regularization term.</text>
+        </item>
+        <item>
+          <type>result</type>
+          <text>The paper reports experiments on confidence estimation and OOD detection under classical, few-shot, noisy, and video-modality settings.</text>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s2</section_id>
+      <title>Subjective Logic Theory</title>
+      <summary>This section defines subjective opinions, projected probability, and the relationship between subjective opinions and Dirichlet probability density functions. It states a theorem giving a bijection between subjective opinions and Dirichlet PDFs when the base rate and prior weight are given.</summary>
+      <key_items>
+        <item>
+          <type>method_component</type>
+          <text>A subjective opinion is defined as belief mass, uncertainty mass, and base rate satisfying additivity constraints.</text>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>Projected probability reallocates uncertainty mass according to the base rate: P_X(x)=b_X(x)+a_X(x)u_X.</text>
+        </item>
+        <item>
+          <type>claim</type>
+          <text>Given base rate and prior weight W, subjective logic provides a bijection between multinomial opinions and Dirichlet PDFs.</text>
+          <location_hint>Theorem 1</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>The Dirichlet concentration parameter satisfies alpha_X(x)=b_X(x)W/u_X+a_X(x)W.</text>
+          <location_hint>Equation 4</location_hint>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s3</section_id>
+      <title>R-EDL: Alleviating Over-confidence by Relaxing Nonessential Settings of EDL</title>
+      <summary>This section reviews traditional EDL and presents the two relaxations used by R-EDL. It analyzes the role of the prior weight in balancing evidence proportion and evidence magnitude, then defines the R-EDL objective that removes the variance-minimized term from the EDL loss.</summary>
+      <key_items>
+        <item>
+          <type>method_component</type>
+          <text>Traditional EDL computes evidence with a neural network and non-negative activation, sets alpha_X(x)=e_X(x)+1 under uniform base rate, and uses projected probability and uncertainty mass for inference.</text>
+          <location_hint>Section 3.1</location_hint>
+        </item>
+        <item>
+          <type>claim</type>
+          <text>Fixing prior weight W to the class number can produce counter-intuitive projected probabilities in large-class settings.</text>
+          <location_hint>Section 3.2</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>R-EDL generalizes the Dirichlet concentration parameter as alpha_X(x)=e_X(x)+lambda, where lambda=W/C is a hyperparameter.</text>
+          <location_hint>Equation 9</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>The R-EDL loss minimizes squared error between the one-hot label and projected probability P_X.</text>
+          <location_hint>Equation 11</location_hint>
+        </item>
+        <item>
+          <type>claim</type>
+          <text>The traditional EDL loss equals squared error on the Dirichlet expectation plus a variance-minimized regularization term.</text>
+          <location_hint>Equation 13</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>The method also adopts a KL-divergence based regularization following prior EDL works.</text>
+          <location_hint>Appendix A.2</location_hint>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s4</section_id>
+      <title>Related Work</title>
+      <summary>This section situates R-EDL among EDL extensions and other single-model uncertainty estimation methods. It discusses DER, I-EDL, DEAR, DUQ, SNGP, prior-network methods, Bayesian neural networks, MC Dropout, and efficient ensemble approaches.</summary>
+      <key_items>
+        <item>
+          <type>baseline</type>
+          <text>EDL-related methods discussed include traditional EDL, Deep Evidential Regression, Evidential Tuning Process, I-EDL, and DEAR.</text>
+        </item>
+        <item>
+          <type>baseline</type>
+          <text>Other uncertainty methods discussed include MC Dropout, DUQ, SNGP, Bayesian neural networks, efficient ensembles, KL-PN, RKL-PN, and Posterior Network.</text>
+        </item>
+        <item>
+          <type>claim</type>
+          <text>The paper states that R-EDL is the first method to relax nonessential settings of traditional EDL while adhering to subjective logic.</text>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s5</section_id>
+      <title>Experiments</title>
+      <summary>The experiments evaluate R-EDL on classification accuracy, confidence estimation, and OOD detection across classical image classification, few-shot learning, noisy data, and video open-set action recognition. The main comparisons are against Dirichlet-based uncertainty methods and selected single-forward-pass or Bayesian uncertainty baselines.</summary>
+      <key_items>
+        <item>
+          <type>baseline</type>
+          <text>Classical image baselines include EDL, I-EDL, KL-PN, RKL-PN, PostN, DUQ, and MC Dropout.</text>
+          <location_hint>Section 5.1</location_hint>
+        </item>
+        <item>
+          <type>dataset</type>
+          <text>Classical setting uses MNIST with KMNIST/FMNNIST as OOD data and CIFAR-10 with SVHN/CIFAR-100 as OOD data.</text>
+          <location_hint>Table 1</location_hint>
+        </item>
+        <item>
+          <type>metric</type>
+          <text>Metrics include classification accuracy and AUPR for confidence estimation and OOD detection, using max probability and uncertainty mass as confidence scores for Dirichlet-based methods.</text>
+          <location_hint>Section 5.2</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>In the classical setting, R-EDL reports 99.33% MNIST accuracy and 90.09% CIFAR-10 accuracy, and improves CIFAR-10 to SVHN OOD AUPR over EDL and I-EDL when measured by max probability.</text>
+          <location_hint>Table 1</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>In few-shot mini-ImageNet with CUB as OOD data, R-EDL reports strong AUPR scores across 5-way/10-way and 1/5/20-shot tasks, including 83.65 MP OOD AUPR for 5-way 5-shot.</text>
+          <location_hint>Table 2</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>In noisy CIFAR-10 experiments, R-EDL is reported to have better average classification/OOD performance trends across Gaussian noise levels.</text>
+          <location_hint>Figure 1(a)</location_hint>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s6</section_id>
+      <title>Ablation Study and Parameter Analysis</title>
+      <summary>This section evaluates the impact of the two R-EDL relaxations: treating lambda as a hyperparameter and removing the variance-minimized regularization term. It also analyzes sensitivity to lambda on CIFAR-10 classification and CIFAR-100 OOD detection.</summary>
+      <key_items>
+        <item>
+          <type>ablation</type>
+          <text>R-EDL with lambda fixed to 1 tests retaining the original traditional EDL prior-weight setting.</text>
+          <location_hint>Table 3</location_hint>
+        </item>
+        <item>
+          <type>ablation</type>
+          <text>R-EDL with L_var tests reintroducing the deprecated variance-minimized regularization term.</text>
+          <location_hint>Table 3</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>On CIFAR-10 to SVHN OOD detection, R-EDL reports 85.00 AUPR, compared with 83.24 for lambda=1 and 84.04 with L_var.</text>
+          <location_hint>Table 3</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>On 10-way 5-shot mini-ImageNet to CUB OOD detection, R-EDL reports 83.37 AUPR, compared with 82.89 for lambda=1 and 82.25 with L_var.</text>
+          <location_hint>Table 3</location_hint>
+        </item>
+        <item>
+          <type>metric</type>
+          <text>Parameter analysis varies lambda from 0.01 to 1.5 and reports CIFAR-10 accuracy and CIFAR-100 OOD AUPR.</text>
+          <location_hint>Figure 1(b)</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>For the CIFAR-10 setting, lambda is selected as 0.1 from [0.1:0.1:1.0] based on validation classification accuracy.</text>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s7</section_id>
+      <title>Conclusion</title>
+      <summary>The paper concludes that R-EDL relaxes two traditional EDL settings in model construction and optimization. It identifies future directions concerning the optimal prior-weight mechanism and richer optimization goals for Dirichlet PDFs.</summary>
+      <key_items>
+        <item>
+          <type>claim</type>
+          <text>The paper summarizes that prior weight controls the balance between evidence proportion and evidence magnitude in predictive scores.</text>
+        </item>
+        <item>
+          <type>claim</type>
+          <text>The paper summarizes that the variance-minimized term drives the Dirichlet PDF toward a Dirac-delta-like distribution and can heighten over-confidence risk.</text>
+        </item>
+        <item>
+          <type>stated_limitation</type>
+          <text>The mechanism determining the optimal prior weight value remains for further investigation.</text>
+        </item>
+        <item>
+          <type>stated_limitation</type>
+          <text>The R-EDL objective optimizes the expected value of the Dirichlet PDF and is described as somewhat coarse; future work could consider other statistical properties.</text>
+        </item>
+      </key_items>
+    </section>
+    <section>
+      <section_id>s8</section_id>
+      <title>Appendices</title>
+      <summary>The appendices provide proofs, derivations, dataset details, implementation details, additional results, visualizations, and the source code link. They include derivations for uncertainty measures such as expected entropy, mutual information, and differential entropy, and additional experiments on classical, few-shot, noisy, and video settings.</summary>
+      <key_items>
+        <item>
+          <type>method_component</type>
+          <text>Proof of the bijection between subjective opinions and Dirichlet PDFs is provided.</text>
+          <location_hint>Appendix A.1</location_hint>
+        </item>
+        <item>
+          <type>method_component</type>
+          <text>Derivations of EDL optimization objectives and KL regularization are provided.</text>
+          <location_hint>Appendix A.2</location_hint>
+        </item>
+        <item>
+          <type>metric</type>
+          <text>Expected entropy, mutual information, and differential entropy are derived as Dirichlet-based uncertainty measures.</text>
+          <location_hint>Appendix B</location_hint>
+        </item>
+        <item>
+          <type>dataset</type>
+          <text>Dataset details include MNIST, FMNIST, KMNIST, CIFAR-10, SVHN, CIFAR-100, mini-ImageNet, CUB, UCF-101, HMDB-51, and MiT-v2.</text>
+          <location_hint>Appendix C.1</location_hint>
+        </item>
+        <item>
+          <type>result</type>
+          <text>Video-modality results report R-EDL scores of 78.73 open maF1 and 77.94 open-set AUC for UCF-101 to HMDB-51, and 70.85 open maF1 and 82.26 open-set AUC for UCF-101 to MiT-v2.</text>
+          <location_hint>Table 12</location_hint>
+        </item>
+        <item>
+          <type>other</type>
+          <text>Source code is linked at https://github.com/MengyuanChen21/ICLR2024-REDL.</text>
+          <location_hint>Appendix E</location_hint>
+        </item>
+      </key_items>
+    </section>
+  </paper_map>
+  <global_index>
+    <claims>
+      <item section_ref="s1">Traditional EDL has nonessential settings in model construction and optimization that can exacerbate over-confidence.</item>
+      <item section_ref="s2">Subjective logic gives a bijection between subjective opinions and Dirichlet PDFs when base rate and prior weight are given.</item>
+      <item section_ref="s3">The prior weight governs the balance between using evidence proportion and evidence magnitude in projected probabilities.</item>
+      <item section_ref="s3">The variance-minimized term in traditional EDL encourages the Dirichlet PDF toward a Dirac delta function.</item>
+      <item section_ref="s4">R-EDL is presented as relaxing traditional EDL settings while remaining within subjective logic.</item>
+      <item section_ref="s7">R-EDL relaxations are claimed to alleviate over-confidence and improve uncertainty estimation.</item>
+    </claims>
+    <method_components>
+      <item section_ref="s2">Subjective opinion components: belief mass, uncertainty mass, and base rate.</item>
+      <item section_ref="s2">Projected probability: P_X(x)=b_X(x)+a_X(x)u_X.</item>
+      <item section_ref="s3">Evidence vector e_X=f(g(z)) with non-negative activation such as Softplus.</item>
+      <item section_ref="s3">Generalized Dirichlet concentration parameter alpha_X(x)=e_X(x)+lambda.</item>
+      <item section_ref="s3">R-EDL loss directly minimizes MSE between one-hot labels and projected probabilities.</item>
+      <item section_ref="s3">KL-divergence regularization suppresses evidence for non-target classes.</item>
+    </method_components>
+    <datasets>
+      <item section_ref="s5">MNIST as ID data with KMNIST and FMNIST as OOD data.</item>
+      <item section_ref="s5">CIFAR-10 as ID data with SVHN and CIFAR-100 as OOD data.</item>
+      <item section_ref="s5">mini-ImageNet few-shot episodes with CUB as OOD data.</item>
+      <item section_ref="s8">UCF-101 as ID data with HMDB-51 and MiT-v2 as OOD data for video open-set action recognition.</item>
+    </datasets>
+    <baselines>
+      <item section_ref="s5">EDL, I-EDL, KL-PN, RKL-PN, PostN, DUQ, and MC Dropout for image experiments.</item>
+      <item section_ref="s5">OpenMax, MC Dropout, BNN SVI, RPL, and DEAR for video-modality experiments.</item>
+      <item section_ref="s8">Temperature scaling is compared in additional classical-setting calibration results.</item>
+    </baselines>
+    <ablations>
+      <item section_ref="s6">R-EDL with lambda=1 restores the original prior-weight setting.</item>
+      <item section_ref="s6">R-EDL with L_var reintroduces the variance-minimized regularization term.</item>
+      <item section_ref="s6">Restoring both original settings corresponds to traditional EDL.</item>
+      <item section_ref="s6">Parameter analysis varies lambda from 0.01 to 1.5.</item>
+    </ablations>
+    <metrics>
+      <item section_ref="s5">Classification accuracy.</item>
+      <item section_ref="s5">AUPR for confidence estimation and OOD detection.</item>
+      <item section_ref="s5">Max probability and uncertainty mass as confidence scores for Dirichlet-based methods.</item>
+      <item section_ref="s8">AUROC, expected calibration error, Brier score, differential entropy, mutual information, and expected entropy in appendices.</item>
+      <item section_ref="s8">Open maF1 and open-set AUC for video open-set action recognition.</item>
+    </metrics>
+    <results>
+      <item section_ref="s5">R-EDL reports 99.33% MNIST classification accuracy and 90.09% CIFAR-10 classification accuracy in the classical setting.</item>
+      <item section_ref="s5">R-EDL reports improved CIFAR-10 to SVHN OOD AUPR compared with EDL and I-EDL when measured by max probability.</item>
+      <item section_ref="s5">R-EDL reports 83.65 MP OOD AUPR on 5-way 5-shot mini-ImageNet to CUB.</item>
+      <item section_ref="s6">Ablations show lower OOD AUPR when lambda is fixed to 1 or L_var is reintroduced.</item>
+      <item section_ref="s8">Video results report R-EDL outperforming listed baselines on UCF-101 to HMDB-51 and MiT-v2 in Table 12.</item>
+    </results>
+    <stated_limitations>
+      <item section_ref="s7">The mechanism dictating the optimal prior weight value is left for further investigation.</item>
+      <item section_ref="s7">The current objective optimizes the Dirichlet expected value and is described as somewhat coarse.</item>
+      <item section_ref="s7">Future work could explore objectives using other statistical properties of Dirichlet PDFs.</item>
+    </stated_limitations>
+  </global_index>
+</paper_summary>

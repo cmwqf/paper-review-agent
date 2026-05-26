@@ -15,9 +15,9 @@ def build_llm(config: dict, model_key: str) -> LLMClient:
 
 def build_vlm(config: dict, model_key: str) -> VLMClient:
     """Build a VLM client by key from config['models']."""
-    return VLMClient(get_model_config(config, model_key))
+    return VLMClient(get_model_config(config, model_key), global_config=config)
 
 
 def build_reranker(config: dict, model_key: str) -> RerankerClient:
     """Build a reranker client by key from config['models']."""
-    return RerankerClient(get_model_config(config, model_key))
+    return RerankerClient(get_model_config(config, model_key), global_config=config)

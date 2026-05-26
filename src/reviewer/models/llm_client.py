@@ -132,7 +132,17 @@ class LLMClient:
             if isinstance(first, dict):
                 message = first.get("message")
                 if isinstance(message, dict) and message.get("content") is not None:
-                    return str(message["content"])
+                    content = message["content"]
+                    if isinstance(content, str):
+                        return content
+                    if isinstance(content, list):
+                        text_parts = [
+                            str(item.get("text"))
+                            for item in content
+                            if isinstance(item, dict) and item.get("text") is not None
+                        ]
+                        return "".join(text_parts)
+                    return str(content)
                 if first.get("text") is not None:
                     return str(first["text"])
 
@@ -150,6 +160,26 @@ class LLMClient:
 
         raise RuntimeError(f"Unable to extract text from model response: {data}")
 
+    def _response_debug(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Return compact response metadata useful for diagnosing empty outputs."""
+        debug: dict[str, Any] = {}
+        for key in ("id", "model", "object", "created", "usage"):
+            if key in data:
+                debug[key] = data[key]
+        choices = data.get("choices")
+        if isinstance(choices, list) and choices:
+            first = choices[0]
+            if isinstance(first, dict):
+                debug["finish_reason"] = first.get("finish_reason")
+                message = first.get("message")
+                if isinstance(message, dict):
+                    debug["message_keys"] = sorted(message.keys())
+                    if message.get("refusal"):
+                        debug["refusal"] = message.get("refusal")
+                    if message.get("reasoning"):
+                        debug["reasoning_present"] = True
+        return debug
+
     def generate(self, messages: list[dict[str, Any]], **kwargs: Any) -> str:
         """Call the configured model and return the assistant text."""
         timeout = float(kwargs.pop("timeout_seconds", self.model_config.get("timeout_seconds", 60)))
@@ -157,7 +187,7 @@ class LLMClient:
         payload = self._payload(messages, kwargs)
 
         last_error: Exception | None = None
-        for _ in range(max_retries):
+        for attempt in range(1, max_retries + 1):
             try:
                 response = self.session.post(
                     self.endpoint,
@@ -166,9 +196,71 @@ class LLMClient:
                     timeout=timeout,
                     proxies=self._proxies(),
                 )
-                response.raise_for_status()
-                return self._extract_text(response.json())
+                try:
+                    response.raise_for_status()
+                except Exception:
+                    LOGGER.error(
+                        "Model HTTP error on attempt %s/%s: model=%s endpoint=%s status=%s body=%s",
+                        attempt,
+                        max_retries,
+                        self.model,
+                        self.endpoint,
+                        getattr(response, "status_code", "unknown"),
+                        getattr(response, "text", ""),
+                    )
+                    raise
+                try:
+                    data = response.json()
+                except Exception:
+                    LOGGER.error(
+                        "Model response JSON parse failed on attempt %s/%s: model=%s endpoint=%s body=%s",
+                        attempt,
+                        max_retries,
+                        self.model,
+                        self.endpoint,
+                        getattr(response, "text", ""),
+                    )
+                    raise
+                LOGGER.info(
+                    "Model raw response on attempt %s/%s: model=%s endpoint=%s raw_response=%r",
+                    attempt,
+                    max_retries,
+                    self.model,
+                    self.endpoint,
+                    data,
+                )
+                try:
+                    output = self._extract_text(data)
+                except Exception:
+                    LOGGER.error(
+                        "Unable to extract text from model response on attempt %s/%s: model=%s endpoint=%s raw_response=%r",
+                        attempt,
+                        max_retries,
+                        self.model,
+                        self.endpoint,
+                        data,
+                    )
+                    raise
+                if not output.strip():
+                    LOGGER.error(
+                        "Model returned empty assistant content on attempt %s/%s: model=%s endpoint=%s raw_response=%r",
+                        attempt,
+                        max_retries,
+                        self.model,
+                        self.endpoint,
+                        data,
+                    )
+                    raise RuntimeError(f"Model returned empty assistant content: {self._response_debug(data)}")
+                return output
             except Exception as exc:
+                LOGGER.warning(
+                    "Model call attempt %s/%s failed: model=%s endpoint=%s error=%r",
+                    attempt,
+                    max_retries,
+                    self.model,
+                    self.endpoint,
+                    exc,
+                )
                 last_error = exc
         assert last_error is not None
         raise last_error

@@ -1,0 +1,31 @@
+<final_review>
+  <final_score>5</final_score>
+  <summary>The paper introduces “chunking” as a task-shift-free subproblem of continual learning, empirically argues that sequential non-revisited chunks account for a substantial part of the gap between offline and continual learning, and proposes per-chunk weight averaging as a simple mitigation. The framing is clear and potentially useful, and the empirical observations are interesting for the continual learning community. However, the conceptual and methodological novelty is limited because the setting overlaps strongly with existing i.i.d. streaming, online learning, and batched-online optimization, while the method is largely an adaptation of known weight-averaging ideas. More importantly, the evidence for the strongest claims is suggestive rather than fully rigorous: the key gap-decomposition results are narrow, statistical reporting is incomplete, and several possible protocol and optimization confounds are not fully isolated. Overall, this is a well-presented and useful diagnostic study, but it falls marginally below the acceptance threshold in its current form.</summary>
+  <strengths>
+    <item>Clearly frames chunking as a controlled continual learning subproblem that removes explicit task or distribution shift.</item>
+    <item>Provides useful empirical evidence that forgetting can occur even when chunks are drawn from the same distribution and each chunk is fit well.</item>
+    <item>Compares against several standard continual learning baselines across CIFAR-10, CIFAR-100, and Tiny ImageNet.</item>
+    <item>Reports that standard continual learning methods often do not substantially outperform plain SGD in the chunking setting, which is a valuable diagnostic observation.</item>
+    <item>Proposes a simple per-chunk weight averaging intervention that yields meaningful reported gains in chunking and often in full continual learning experiments.</item>
+    <item>The presentation is generally clear, well organized, and follows a coherent progression from problem definition to analysis, method, and applications.</item>
+  </strengths>
+  <weaknesses>
+    <item>The chunking formulation is closely related to prior work in i.i.d. streaming, online learning, and batched-online optimization, limiting conceptual novelty.</item>
+    <item>Per-chunk weight averaging is an incremental adaptation of established Polyak/Ruppert averaging, EMA, stochastic weight averaging, and checkpoint/model averaging ideas.</item>
+    <item>The claim that chunking explains roughly half of the offline-to-continual-learning performance gap is supported only in selected settings and is not systematically validated across methods, splits, and seeds.</item>
+    <item>Statistical support for several central results is incomplete, with key curves and gains apparently lacking clear error bars, confidence intervals, significance tests, or seed counts.</item>
+    <item>The attribution of degradation specifically to chunking is potentially confounded by differences in optimization updates, data exposure, replay-buffer behavior, task protocols, and hyperparameter tuning.</item>
+    <item>The linear-case analysis provides intuition but only a heuristic bridge to deep neural-network weight averaging.</item>
+    <item>Some figures are dense and visually hard to inspect, with small labels, color-dependent lines, crowded captions, and minor typographical issues.</item>
+  </weaknesses>
+  <requested_changes>
+    <item>Provide stronger statistical reporting for the core chunking and weight-averaging experiments, including seed counts, error bars or confidence intervals, and significance testing where appropriate.</item>
+    <item>Broaden the offline-to-chunking-to-continual-learning gap decomposition across multiple continual learning methods, datasets, task splits, and random seeds.</item>
+    <item>Control more carefully for optimization and protocol confounds, including number of updates, number of data exposures, replay-buffer usage, task-label availability, and validation/tuning procedures.</item>
+    <item>Clarify the relationship to prior online learning, streaming learning, Polyak/Ruppert averaging, EMA, stochastic weight averaging, and checkpoint/model averaging, and sharpen what is novel relative to these literatures.</item>
+    <item>Strengthen or appropriately qualify the theoretical motivation connecting linear Bayesian regression and least-squares averaging to deep neural-network behavior.</item>
+    <item>Improve figure readability by increasing font sizes, using markers or line styles in addition to color, reducing crowding, and fixing minor caption typos.</item>
+  </requested_changes>
+  <recommendation>Reject</recommendation>
+  <confidence_score>4</confidence_score>
+</final_review>

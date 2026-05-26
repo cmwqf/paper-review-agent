@@ -1,0 +1,18 @@
+<dimension_review>
+  <dimension>Contribution</dimension>
+  <score>2</score>
+  <strengths>
+    <item>The paper identifies and empirically characterizes a practically relevant training-time failure mode in DCCA-based methods, where downstream performance can degrade substantially as training proceeds.</item>
+    <item>The proposed diagnostic of increasing correlation between transformed real data and unrelated/noise data provides a useful framing of DCCA collapse as spurious model-induced correlation.</item>
+    <item>NR-DCCA introduces a concrete regularization objective that is meaningfully different from standard DCCA ridge/covariance stabilization: it penalizes changes in real-data/noise correlation through the view encoders.</item>
+    <item>The contribution is supported by experiments on synthetic data and several multi-view benchmarks, and the paper shows that the same idea can be applied to DGCCA.</item>
+  </strengths>
+  <weaknesses>
+    <item>The novelty claim is overstated: degeneracy, ill-conditioning, and collapse-like issues in correlation-maximization and representation-learning objectives are broadly known, and the paper does not sufficiently position itself against this prior work.</item>
+    <item>The technical novelty is moderate rather than strong. The proposed neural-network “full-rank” notion is largely defined through the new penalty, and the paper does not convincingly establish it as a fundamentally new regularization principle rather than a variant of existing noise, sensitivity, rank-preservation, or orthogonality-inspired regularization.</item>
+    <item>The demonstrated impact is relatively narrow, mainly covering DCCA/DGCCA-style correlation-maximization methods rather than broader multi-view or self-supervised representation learning.</item>
+    <item>The paper itself acknowledges unresolved questions about what the noise regularization actually controls and how it differs from orthogonalization or weight decay, weakening the conceptual contribution.</item>
+  </weaknesses>
+  <evidence_summary>The Q&amp;A trajectory indicates that the paper’s DCCA-specific collapse framing and spurious model-induced correlation diagnostic may be useful, but the broader phenomenon is not clearly novel relative to known degeneracy and regularization issues in CCA/DCCA and representation learning. The proposed NR-DCCA objective is distinctive at the level of loss design, using Gaussian noise and preserving data-noise correlation through each encoder, but its deeper technical novelty over existing regularization families is only partially substantiated. The method is evaluated on synthetic data, PolyMnist, CUB, Caltech101, and extended to DGCCA, but the evidence remains centered on CCA-family methods; broader applications such as contrastive or generative self-supervised learning are left as future work.</evidence_summary>
+  <rationale>Overall, the paper offers a fair contribution: it addresses a meaningful and under-discussed practical issue for DCCA-based methods and proposes a plausible, empirically useful regularizer. However, the contribution is not clearly broad or foundational, and the positioning relative to prior work on CCA/DCCA degeneracy, noise regularization, rank constraints, and representation collapse is insufficiently convincing. Because the work appears useful but incremental/narrow and its novelty claims are only partly supported, a score of 2 is appropriate.</rationale>
+</dimension_review>

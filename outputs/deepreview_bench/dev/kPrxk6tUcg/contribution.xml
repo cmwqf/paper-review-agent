@@ -1,0 +1,18 @@
+<dimension_review>
+  <dimension>Contribution</dimension>
+  <score>3</score>
+  <strengths>
+    <item>Introduces a simple and useful extension of autoencoder matrix completion by adding a shared element-wise neural network that learns an adaptive output activation.</item>
+    <item>Combines the architectural idea with theoretical analysis, including generalization bounds under both MCAR and MNAR missingness settings.</item>
+    <item>Provides broad empirical evaluation across synthetic matrix completion, MovieLens, Douban, Flixster, ranking metrics, runtime, and additional UCI imputation experiments.</item>
+    <item>The method is positioned as a parameter-efficient nonlinear decoder variant, and results suggest consistent improvements over standard AEMC/AutoRec-style baselines in the reported settings.</item>
+  </strengths>
+  <weaknesses>
+    <item>The central modeling idea is moderately novel rather than fundamentally new, since it builds on established autoencoder collaborative filtering, nonlinear decoders, and adaptive activation functions.</item>
+    <item>The element-wise network can be interpreted as a constrained/shared nonlinear decoder or adaptive activation, limiting the conceptual originality of the contribution.</item>
+    <item>The impact is somewhat narrowed by architectural limitations, including difficulty adapting to new users and the exclusion of cold-start settings.</item>
+    <item>The reported improvements are noted to be less significant on square or nearly square rating matrices, suggesting the practical advantage may depend on the data regime.</item>
+  </weaknesses>
+  <evidence_summary>The paper proposes AEMC-NE, which composes a main autoencoder matrix-completion model with a shared element-wise neural network to learn the output activation function. It provides MCAR and MNAR generalization bounds, including an appendix extension for estimated propensities. Experiments cover synthetic MCAR/MNAR data, MovieLens-100k/1M/10M, Douban, Flixster, and additional appendix studies. The Q&amp;A assessment judged the central architectural idea to be an incremental but useful variant, with stronger contribution coming from the combination of architecture, theory, and experiments.</evidence_summary>
+  <rationale>The contribution is good: the paper offers a meaningful and well-supported extension to autoencoder-based matrix completion, and the combination of learned output activation, missingness-aware theory, and broad experiments is likely useful to the collaborative filtering and missing-data communities. However, the novelty is not excellent because the core idea is closely related to prior nonlinear decoder and adaptive activation approaches, and its scope is limited by practical constraints such as no cold-start handling. Overall, this merits a score of 3 rather than 4.</rationale>
+</dimension_review>

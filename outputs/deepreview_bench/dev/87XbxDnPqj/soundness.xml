@@ -1,0 +1,20 @@
+<dimension_review>
+  <dimension>Soundness</dimension>
+  <score>2</score>
+  <strengths>
+    <item>The paper provides formal convergence theorems for an idealized nonlinear Gaussian sensing model, with detailed proof ingredients including first-step localization, local pseudoconvexity, smoothness, and contraction arguments.</item>
+    <item>The regularized extension is technically aligned with standard compressed sensing geometry through descent cones, Gaussian width, and a sample complexity parameter comparable to statistical dimension.</item>
+    <item>The authors state several important limitations, including the use of Gaussian measurements instead of ray-structured CT operators, noiseless theory, signal-norm-dependent rates, and lack of realistic Poisson noise modeling.</item>
+    <item>The experiments include both synthetic 3D phantom data and a real cone-beam CT skull scan, providing suggestive evidence that direct nonlinear reconstruction can reduce visible artifacts in high-attenuation settings.</item>
+  </strengths>
+  <weaknesses>
+    <item>The main theoretical guarantees apply to i.i.d. Gaussian measurement vectors with a ReLU-modified Beer-Lambert nonlinearity, not to the sparse, nonnegative, highly structured ray measurements used in actual CT. This substantially weakens the support for claims framed as tomographic reconstruction guarantees.</item>
+    <item>Theoretical assumptions are restrictive: the analysis is noiseless, uses a least-squares objective not matched to photon-counting/Poisson CT noise, has exponential dependence on the signal norm, and in the constrained regularized theorem assumes knowledge of the true regularizer level R(x).</item>
+    <item>The empirical validation is limited. It appears to use one modified phantom family and one real skull scan, with PSNR for synthetic data and mostly visual comparison for real data.</item>
+    <item>Baselines are incomplete for strong CT claims. The experiments do not appear to compare against well-tuned iterative CT methods such as TV-regularized MBIR/FISTA-style approaches, dedicated metal-artifact-reduction methods, or modern learned reconstruction baselines.</item>
+    <item>Ablations are missing or insufficient to isolate the benefit of the nonlinear Beer-Lambert modeling from other factors such as optimizer choice, dense grid implementation, TV regularization, initialization, or hyperparameter tuning.</item>
+    <item>No statistical evidence across multiple phantoms, scans, noise levels, or acquisition configurations is reported, making the practical artifact-reduction claims only weakly supported.</item>
+  </weaknesses>
+  <evidence_summary>The Q&amp;A indicates that the proofs are most credible as results for an idealized nonlinear Gaussian sensing problem, but they do not establish global geometric convergence for actual CT ray geometry. The paper itself acknowledges the Gaussian replacement and provides only empirical correlation evidence for the projection-based CT loss. The experiments compare nonlinear reconstruction mainly against logarithmically linearized reconstruction on a modified Shepp-Logan phantom and against commercial linearized reconstruction plus FDK on one real skull scan. Quantitative evaluation is limited to synthetic PSNR, while real-data conclusions rely largely on visual artifact reduction without ground truth, statistical replication, or strong current CT baselines.</evidence_summary>
+  <rationale>The paper has meaningful theoretical content and the internal Gaussian-model analysis appears plausibly rigorous, so the soundness is not poor. However, the central claims are presented in the context of nonlinear tomographic reconstruction, while the strongest guarantees rely on assumptions that differ materially from CT physics and acquisition geometry. The experimental evidence is suggestive but not sufficiently controlled or comprehensive to compensate for this theory-practice gap. Overall, the evidence provides fair but incomplete support for the claims, with notable missing baselines, ablations, noise modeling, and statistical validation.</rationale>
+</dimension_review>

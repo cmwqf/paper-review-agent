@@ -1,0 +1,168 @@
+{
+  "Contribution": [
+    {
+      "question": "What prior work is most closely related to GNRK's core idea of combining a graph neural network with an explicit Runge-Kutta-style recurrent integrator for PDE/ODE surrogate modeling, and how clearly does the paper distinguish its novelty from those methods?",
+      "answer": "The closest related work is not just the paper's listed PDE baselines such as GNO and GraphPDE, but the broader family of Neural ODE / graph neural differential equation / graph-network physics simulators: methods that learn a graph-based right-hand-side or update rule and roll it forward with a numerical time integrator. GNRK's core design—shared GNN approximating the governing function inside an explicit RK-style recurrent update—is essentially a graph-parameterized learned dynamics model plus an unrolled explicit integrator. The paper does make its own contribution claim clear at a high level: it says GNRK reconstructs an explicit Runge-Kutta method as a recurrent neural structure, shares a GNN module across RK stages, and can change RK order or timestep at inference. However, it does not clearly distinguish this from prior Neural ODE / Graph Neural ODE / learned simulator work, nor does it deeply explain why its RK recurrence is novel rather than a straightforward explicit integrator wrapped around a GNN RHS. Its empirical comparisons focus on PINN, FNO, GNO, and GraphPDE, which only partly cover the closest conceptual prior art. Thus, the novelty positioning is underdeveloped: the idea is plausible and useful, but the paper does not convincingly separate it from existing learned-dynamics-plus-integrator approaches.",
+      "evidence": [
+        "paper: The paper's introduction claims that GNRK \"reconstructs the RK method as a recurrent structure with residual connections\" and approximates the governing function using a GNN.",
+        "paper: Section 2 formulates the target dynamics as ∂s/∂t = f(s; C), reviews explicit Runge-Kutta updates, and defines GNRK as an RK^m recurrent structure with shared f_θ implemented by a graph neural network.",
+        "paper: The experiments compare mainly against PINN, FNO, GNO, and GraphPDE. These baselines cover neural PDE solvers and graph neural operators, but the paper map does not indicate a detailed related-work discussion of Neural ODEs, Graph Neural ODEs, or graph-network physical simulators using numerical integration.",
+        "retrieval: No external scholarly retrieval results were available in the tool observations, so the assessment of closely related prior work beyond the paper's own baselines is based on reviewer knowledge rather than retrieved-paper evidence.",
+        "inference: Because GNRK learns a graph-based RHS and applies an explicit RK-style rollout, the most conceptually relevant prior-work category is learned continuous-time dynamics / Neural ODE-style models with graph neural parameterizations, not only operator-learning baselines such as FNO/GNO. The paper's novelty distinction is therefore incomplete."
+      ],
+      "retrieved_papers": [],
+      "review_impact": {
+        "dimension": "Contribution",
+        "polarity": "weakness",
+        "impact_level": "C2",
+        "confidence": "medium"
+      }
+    },
+    {
+      "question": "Are the paper's claimed advantages—generalization across initial conditions, PDE coefficients, spatial/temporal discretizations, and adjustable RK order without retraining—supported as broadly impactful contributions, or are they demonstrated only in narrow/synthetic settings?",
+      "answer": "The claimed advantages are only partially supported and are demonstrated in relatively narrow, synthetic settings rather than established as broadly impactful contributions. The paper’s own experimental scope covers one Euclidean PDE benchmark—2D Burgers’ equation—and three synthetic graph-coupled dynamical systems: heat diffusion, Kuramoto oscillators, and coupled Rössler attractors. These experiments do probe several axes of variation, including initial conditions, viscosity/coefficient changes, nonuniform grids, graph sizes/topologies, time steps, and using RK4 at inference after RK1-style training. However, the demonstrations remain controlled and synthetic, with limited equation diversity, no real-world PDE data, no noisy/partial observations, and no evidence that the approach transfers across fundamentally different PDE families without retraining. Thus, the contribution is plausible and interesting as a design idea, especially the RK-recurrent GNN structure and inference-time RK-order adjustment, but the empirical evidence does not fully support the paper’s broad framing of generalization across PDE settings.",
+      "evidence": [
+        "paper: The paper claims that GNRK is robust to changes in initial conditions, PDE coefficients, spatial discretization, temporal discretization, and RK order, and that accuracy can be improved by changing RK order through recurrent depth without retraining.",
+        "paper: The Euclidean-domain experiments are limited to 2D Burgers’ equation, with four constructed datasets varying initial conditions, viscosity, nonuniform grid size, and temporal discretization/RK precision. Reported GNRK MAEs are 1.04e-3, 1.13e-3, 4.56e-3, and 1.44e-3 across these datasets.",
+        "paper: The graph-domain experiments use three synthetic coupled ODE systems—heat diffusion, Kuramoto, and coupled Rössler—on random regular, Erdős-Rényi, and Barabási-Albert graphs. The paper reports that RK4 inference reduces error relative to RK1 and that topology has little effect.",
+        "paper: The conclusion itself identifies unsolved extensions such as adaptive spatiotemporal discretization and solving equations from noisy partial observations, indicating that the demonstrated setting is not yet broad enough to cover many realistic PDE-solving scenarios.",
+        "inference: For contribution assessment, demonstrating variation within one PDE family and a few synthetic graph dynamical systems supports the method’s promise but not the full breadth of the claimed generalization. The “without retraining” RK-order claim is a notable contribution if valid, but the evidence appears confined to controlled RK1/RK4 comparisons rather than diverse deployment conditions."
+      ],
+      "retrieved_papers": [],
+      "review_impact": {
+        "dimension": "Contribution",
+        "polarity": "weakness",
+        "impact_level": "C2",
+        "confidence": "medium"
+      }
+    },
+    {
+      "question": "How much of GNRK's contribution is a genuinely new technical idea versus an engineering combination of known components, and do the empirical results show enough improvement over appropriate baselines to make the contribution significant?",
+      "answer": "GNRK appears to be more of an engineering synthesis than a fundamentally new technical idea. The paper's core method is to express an explicit Runge-Kutta scheme as a recurrent residual architecture and use a shared GNN module to approximate the governing dynamics. That is a reasonable and potentially useful design, especially for variable graph/spatial discretizations and adjustable RK order, but the novelty mainly lies in packaging known components—Runge-Kutta time stepping, residual/recurrent computation, and graph neural message passing—rather than introducing a clearly new numerical or learning principle. Empirically, the reported Burgers' results are favorable: GNRK reports MAEs of 1.04e-3, 1.13e-3, 4.56e-3, and 1.44e-3 across four datasets, with far fewer parameters than listed baselines. However, the significance of the improvement is only partially convincing because baseline applicability is uneven: FNO/GNO are not always suitable for changing grids or temporal discretizations, GraphPDE is the main broadly applicable neural baseline, and the graph-domain experiments appear to rely more on self-ablation of RK1 vs RK4 and topology tests than on strong external baselines. Thus, the contribution is useful but not clearly major: the empirical gains support the engineering design, but do not fully establish a substantial new contribution over the broader neural-operator/GNN/PDE-solver literature.",
+      "evidence": [
+        "paper: The paper describes GNRK as reconstructing the Runge-Kutta method as a recurrent structure with residual connections, using a shared GNN module f_theta to approximate the governing function. This indicates that the main technical mechanism is a combination of explicit RK integration and GNN-based local dynamics modeling.",
+        "paper: The claimed generalization mechanisms are tied to known representational choices: PDE coefficients are provided as node, edge, or global features; spatial discretizations are represented as graphs; and temporal step size/RK order are handled through the recurrent RK-like structure.",
+        "paper: For the Euclidean Burgers' experiments, the paper reports GNRK MAEs of 1.04e-3, 1.13e-3, 4.56e-3, and 1.44e-3 on Datasets I-IV, respectively, and reports only 10,882 trainable parameters, lower than the listed baselines.",
+        "paper: The baselines include PINN, FNO, GNO, and GraphPDE, but the paper notes that FNO and GNO are only reported where compatible, while GraphPDE is the graph-based baseline applicable across the Burgers' datasets. This weakens the claim that improvements are uniformly demonstrated against appropriate competitors.",
+        "paper: For graph-domain systems, the paper reports that changing from RK1 to RK4 can reduce MAE by about an order of magnitude and that topology has little effect, but the summarized evidence emphasizes ablations rather than comparisons to strong graph neural simulator or neural ODE baselines.",
+        "retrieval: No external scholarly retrieval results were provided in the tool observations, so this assessment cannot cite specific prior papers beyond the paper's own framing and baselines. This lowers confidence in the novelty judgment.",
+        "inference: Because the paper's own method description decomposes GNRK into standard RK recurrence plus a standard GNN message-passing approximator, the distinctive contribution is best characterized as an integration and adaptation of existing ideas rather than a clearly new algorithmic principle. The empirical results are promising but not broad or controlled enough to make this a strong contribution claim."
+      ],
+      "retrieved_papers": [],
+      "review_impact": {
+        "dimension": "Contribution",
+        "polarity": "weakness",
+        "impact_level": "C3",
+        "confidence": "medium"
+      }
+    }
+  ],
+  "Soundness": [
+    {
+      "question": "Are the baseline comparisons methodologically fair and sufficiently strong, especially given that FNO/GNO are reportedly only run with 100 training samples and may not apply to all discretization settings? Please assess whether the paper explains baseline adaptations, tuning, data budgets, and comparable evaluation settings.",
+      "answer": "The baseline comparison is a notable soundness weakness. The paper does compare GNRK against relevant families of methods—PINN, FNO, GNO, and GraphPDE—but the comparison is only partially methodologically fair and not sufficiently explained. In particular, the reported Burgers' comparisons indicate that FNO and GNO are run with only 100 training samples and are not evaluated across all discretization/generalization settings. This is problematic because GNRK's main claims concern robustness to changing initial conditions, PDE coefficients, spatial discretization, and temporal discretization; baselines that are either data-limited or omitted from the harder settings provide weak evidence for superiority. The paper also appears to give detailed configurations for GNRK and the datasets, but does not clearly establish that each baseline was adapted, tuned, and trained under comparable data budgets and evaluation protocols. GraphPDE is the most relevant baseline for graph/nonuniform settings and is reportedly applied across all four Burgers' datasets, but the broader neural-operator comparison is weakened if FNO/GNO are only evaluated where convenient or with smaller/unclear data budgets. Overall, the baselines are relevant but the paper does not sufficiently justify that the comparisons are fair, equally tuned, or equally applicable to the claimed discretization-invariant regime.",
+      "evidence": [
+        "paper: The experiment section for the Euclidean spatial domain reports comparisons on 2D Burgers' equation against PINN, FNO, GNO, and GraphPDE, using MAE, parameter count, wall-clock time, and GPU memory.",
+        "paper: The paper summary indicates that Table 1 reports FNO and GNO using 100 training samples for the reported comparisons, while GNRK is evaluated on four Burgers' datasets varying initial conditions, viscosity, spatial discretization, and temporal discretization/RK precision.",
+        "paper: The summary also states that FNO is used only on compatible uniform-grid/fixed-time settings, GNO where applicable, and GraphPDE is the graph-based baseline applicable to all four Burgers' datasets.",
+        "paper: Appendix-level material reportedly gives dataset and optimization configurations for the authors' experiments, including nonuniform-grid transformations and graph-domain settings, but the provided map does not indicate comparable detail about baseline adaptation or hyperparameter tuning.",
+        "inference: Because the central claim is generalization across coefficients, spatial meshes, temporal discretizations, and RK order without retraining, baselines should either be adapted to those same settings or the limitations of their applicability should be explicitly controlled for. Running FNO/GNO on only 100 samples and/or only compatible settings makes the comparison less conclusive."
+      ],
+      "retrieved_papers": [],
+      "review_impact": {
+        "dimension": "Soundness",
+        "polarity": "weakness",
+        "impact_level": "C2",
+        "confidence": "medium"
+      }
+    },
+    {
+      "question": "Does the paper provide adequate technical justification and empirical controls for the claim that increasing the RK recurrent depth/order at test time improves precision without retraining, especially when the learned GNN approximates the time derivative rather than the true governing function exactly?",
+      "answer": "No. The paper provides a plausible architectural motivation—GNRK shares a learned GNN module inside an RK-like recurrent structure, so the recurrent depth/order can be changed at inference—but it does not adequately justify that increasing RK order should improve accuracy when the learned module only approximates the derivative. Classical RK order guarantees apply to integration of the true governing function, or at least an accurately evaluated RHS; they do not directly transfer to a biased learned surrogate f_theta trained only through one-step MSE. Empirically, the paper includes relevant tests, such as Burgers Dataset IV and graph-domain RK1-versus-RK4 comparisons, and reports that RK4 evaluation improves MAE relative to RK1. However, the controls are limited: the paper does not isolate numerical integration error from learned-model approximation error, does not analyze whether f_theta is accurate at intermediate RK stage states, does not report error-vs-order curves across multiple orders or step sizes, and does not show statistical robustness of the claimed improvement. Therefore the claim that precision can be improved without retraining by simply increasing test-time RK depth is only partially supported and remains methodologically under-justified.",
+      "evidence": [
+        "paper: The method section defines GNRK as a Runge-Kutta-style recurrent structure with residual connections, using a shared GNN module f_theta to approximate the governing differential equation, and trains it with a one-step MSE loss.",
+        "paper: The generalization and conclusion claims state that temporal step sizes and RK order can be modified through the recurrent structure, enabling predictions with unseen Δt or higher precision without retraining.",
+        "paper: The empirical support includes Burgers Dataset IV, described as using RK1 training data and RK4 test data, and graph-domain experiments where RK1 prediction errors are reported to be roughly an order of magnitude larger than RK4-tuned predictions.",
+        "inference: The RK-order argument is sound for a known RHS but is not automatically valid for a learned f_theta. Higher-order RK evaluates the RHS at intermediate states; if f_theta was trained only on one-step endpoint supervision and not explicitly validated on these intermediate-stage distributions, increasing recurrent depth may reduce discretization error while increasing surrogate-model or distribution-shift error.",
+        "inference: The empirical design does not appear to include key controls such as evaluating derivative approximation quality, comparing multiple RK orders under identical trained weights and time steps, separating data-generation precision from inference-order effects, or reporting uncertainty/statistical significance for the RK-depth improvement."
+      ],
+      "retrieved_papers": [],
+      "review_impact": {
+        "dimension": "Soundness",
+        "polarity": "weakness",
+        "impact_level": "C2",
+        "confidence": "medium"
+      }
+    },
+    {
+      "question": "Do the ablations adequately isolate the claimed contributions of the RK recurrent structure and the graph neural representation? For example, does the paper compare against variants such as a plain GNN one-step predictor without RK recurrence, non-shared stage networks, different RK orders during training/inference, or alternative spatial encodings?",
+      "answer": "No. The ablations only partially probe the RK component and do not adequately isolate either of the two central claimed contributions. The paper reports RK1-vs-RK4 precision comparisons and topology comparisons, and Dataset IV tests training on RK1 data with RK4-style evaluation. These support the claim that changing the recurrent RK depth/order can affect rollout accuracy. However, they do not cleanly separate the RK recurrent structure from the learned GNN dynamics model: there is no plain one-step GNN predictor without RK recurrence, no comparison to using distinct/non-shared stage networks instead of the shared f_theta across RK stages, and no systematic training/inference matrix over RK orders. Similarly, the graph representation is evaluated mostly through comparisons to external baselines and topology changes, but not through ablations of alternative spatial encodings such as coordinates versus relative edge positions, graph construction choices, or non-graph encodings under otherwise matched architecture and training. This matters for soundness because the main architectural claims are causal--that the RK recurrence gives controllable precision and that the graph representation gives spatial/generalization robustness--but the experimental design does not sufficiently isolate those causes from overall model capacity, training setup, dataset generation, or baseline differences.",
+      "evidence": [
+        "paper: The method section claims GNRK reproduces an explicit Runge-Kutta method as a recurrent structure of depth m with residual connections and a shared GNN module f_theta used across substeps.",
+        "paper: The experiments include a temporal-discretization/RK-precision setting where training uses RK1 and testing/evaluation uses RK4, and graph-domain experiments report an RK1 versus RK4 precision comparison with about 10x lower error after RK4 tuning.",
+        "paper: The graph-domain experiments include a topology comparison across random regular, Erdos-Renyi, and Barabasi-Albert graphs, and the Burgers experiments compare GNRK against PINN, FNO, GNO, and GraphPDE.",
+        "inference: These experiments test some consequences of the proposed design, but they are not controlled architectural ablations. They do not show whether the gains come specifically from RK recurrence rather than a generic recurrent/one-step GNN rollout, from parameter sharing across RK stages, or from the particular graph feature encoding."
+      ],
+      "retrieved_papers": [],
+      "review_impact": {
+        "dimension": "Soundness",
+        "polarity": "weakness",
+        "impact_level": "C2",
+        "confidence": "medium"
+      }
+    },
+    {
+      "question": "Does the paper provide sufficient statistical evidence and evaluation detail to support the reported accuracy and robustness claims, such as multiple random seeds, confidence intervals/error bars, train/test splits over initial conditions/coefficient ranges/meshes, rollout horizons, and tests for error accumulation?",
+      "answer": "No. The paper provides useful experimental coverage across several variation axes, but the statistical evidence and evaluation protocol details appear insufficient for the strength of the claimed accuracy and robustness. The paper reports MAE results for Burgers' datasets varying initial conditions, viscosity, spatial grids, and temporal/RK precision, and graph-domain experiments varying graph systems and topologies. However, the available evidence indicates mostly point estimates: e.g., GNRK MAEs are reported as single values in Table 1, while uncertainty is only clearly shown for wall-clock time, not prediction accuracy. The provided searches for terms related to random seeds, confidence intervals, error bars, train/test splits, rollout horizon, and MAE found no matches, suggesting these statistical/protocol details are not prominent or may be absent. The paper also trains with one-step MSE and rolls out trajectories, but the summary does not indicate a dedicated analysis of long-horizon error accumulation or degradation over rollout length. This matters because the paper makes broad robustness claims over initial conditions, PDE coefficients, meshes, temporal discretizations, and RK order; without repeated runs, uncertainty estimates, explicit split design, and rollout-stability analysis, the reported accuracy and robustness claims are under-supported.",
+      "evidence": [
+        "paper: The paper reports Burgers' prediction performance using MAE values in Table 1, including GNRK MAEs of 1.04e-3, 1.13e-3, 4.56e-3, and 1.44e-3 on Datasets I-IV, respectively.",
+        "paper: The experiments cover several intended robustness axes: Dataset I varies initial conditions, Dataset II varies viscosity, Dataset III varies nonuniform grid size, Dataset IV varies temporal discretization/RK precision, and graph-domain experiments vary graph sizes, coefficients, topology, and RK1 versus RK4 evaluation.",
+        "paper: The training objective is one-step Mean Squared Error, followed by rollout prediction for trajectories, but the summarized experimental evidence does not identify a separate long-horizon error accumulation analysis.",
+        "paper: The only clearly reported uncertainty in the summary is wall-clock time, e.g. 7.32±0.10 s, not accuracy confidence intervals or error bars.",
+        "inference: Tool observations report no matches for searches including “random seed confidence interval error bar train test split rollout horizon MAE” and “Training set test set samples temporal steps rollout prediction mean absolute error,” supporting the concern that key statistical and protocol details are not clearly documented."
+      ],
+      "retrieved_papers": [],
+      "review_impact": {
+        "dimension": "Soundness",
+        "polarity": "weakness",
+        "impact_level": "C3",
+        "confidence": "high"
+      }
+    }
+  ],
+  "Presentation": [
+    {
+      "question": "Inspect the PDF pages for presentation evidence: readability, figures, tables, captions, layout, and formatting.",
+      "answer": "VLM page observations:\n- **Overall / ICLR visual inspectability:** The paper is generally easy to scan in ICLR style: consistent margins, readable body font, clear section hierarchy, and numbered equations/figures/tables. Main issues are small multi-panel figures and distracting cyan/blue text.\n\n- **Pages 1–2:** Text is legible and layout is clean. However, several full sentences appear in bright cyan/blue within the abstract/introduction; if these are not intended hyperlinks, they look like editing artifacts and distract from the presentation.\n\n- **Page 3, Figure 1:** The schematic is legible, though relatively small. Caption is informative and clearly explains panels (a)/(b). The figure/caption is placed in a narrow right-side block, making the caption dense but still readable.\n\n- **Page 4, Figure 2:** Architecture diagram is clear and visually useful. Labels inside blocks are mostly readable. Caption is informative and well connected to the diagram.\n\n- **Page 5:** No figures/tables. Typography and equations are readable. The bullet list has generous vertical spacing but is acceptable.\n\n- **Page 6, Figure 3:** Heatmap panels are visually understandable, but small labels, colorbars, and u/v annotations are hard to read at page scale. Caption is informative and explains true/prediction/error, but the visual would benefit from larger panel labels and colorbar ticks.\n\n- **Page 7, Table 1:** Table is mostly legible, with clear columns and bold best values. Some entries are visually crowded, and cyan/blue rows/caption text are distracting. Caption is informative, but long and includes detailed notes that could be visually simplified.\n\n- **Page 7, Figure 4:** The four-panel plot is quite small; axis labels, legend, and tick labels are difficult to read. Caption is informative and connected, but the figure should be enlarged or moved to a wider layout.\n\n- **Page 8, Figure 5:** The figure is dense with many subplots; overall structure is understandable, but individual tick labels, colorbars, and subplot annotations are very small. Caption is detailed and informative, but long; readability would improve with larger panels or splitting into multiple figures.\n\n- **Equations:** Equations are generally well formatted, centered, and numbered consistently. Some inline math-heavy paragraphs are dense but visually acceptable.\n\n- **Formatting concerns:** Repeated cyan/blue text on multiple pages looks inconsistent with standard paper typography unless intentionally used for hyperlinks. Several figures rely on very small labels/colorbars, which affects legibility during quick review.",
+      "evidence": [
+        "pdf_image:vlm_pages"
+      ],
+      "retrieved_papers": [],
+      "review_impact": {
+        "dimension": "Presentation",
+        "polarity": "neutral",
+        "impact_level": "C1",
+        "confidence": "medium"
+      }
+    },
+    {
+      "question": "Please inspect the paper text (especially Sections 2–3 and the experiment sections) for organization, notation/terminology clarity, and whether the explanations around equations, datasets, and claims are easy to follow. Note any ambiguous notation, undefined terms, or places where dense writing makes verification harder.",
+      "answer": "The paper is generally organized in a sensible sequence—problem formulation and RK/GNN method in Section 2, claimed generalization mechanisms in Section 3, then Euclidean and graph-domain experiments—but the presentation has several clarity weaknesses that make verification harder. The main method idea is understandable, but notation is often compressed and sometimes ambiguous. For example, Eq. 1 writes the PDE as ∂s(x,t)/∂t = f(s; C), but the text then discusses spatial domains, boundary conditions, local neighborhoods, node/edge/global coefficients, and graph inputs; the notation does not clearly distinguish whether f depends on spatial derivatives, coordinates, graph structure, boundary conditions, or only local states. In the RK derivation, the authors explicitly say they “abuse the set notation” for S_i and W_i; subsequently expressions such as S_i + a W_i Δt are not mathematically precise because addition/scalar multiplication over unordered neighbor sets is not defined. There are also minor consistency issues such as bold/non-bold w/W and x, and the term “constant coefficients C” conflicts with later experiments and claims where coefficients vary across samples or appear as node, edge, or global features.",
+      "evidence": [
+        "paper: Section 2 introduces the target dynamics as “∂s(x,t)/∂t = f(s;C)” and says the system evolves according to governing equation f with “constant coefficients C,” while also defining spatial domain Ω, boundary conditions, and time domain T. This is concise but underspecified for PDE notation because spatial derivatives and graph/spatial dependence are hidden inside f.",
+        "paper: The spatial discretization discussion states that updates use neighboring points N(i), and later the RK notation defines S_i ≡ {s_j | j ∈ {i} ∪ N(i)} and W_i^l ≡ {w_j^l | j ∈ {i} ∪ N(i)}, explicitly noting an “abuse [of] the set notation.” This helps partly, but the subsequent RK expressions involving S_i plus weighted W_i terms remain notation-heavy and not fully formal.",
+        "paper: The architecture paragraph explains that f_θ approximates f(s;C), is shared across m RK substeps, and uses Butcher tableau coefficients and Δt in residual connections. This gives a useful high-level explanation, but it compresses several implementation details—how graph features, coefficients, Δt, and RK stage values are passed into f_θ—into a short paragraph.",
+        "paper: The introduction makes a very broad presentation-level claim that GNRK is “the first model that can solve a PDE regardless of the initial conditions, PDE coefficients, and the spatiotemporal mesh” and can predict with higher precision than training data by modifying structure without retraining. Such phrasing is easy to overread and is not carefully qualified in the claim itself.",
+        "inference: The experiment structure is fairly easy to navigate at a high level: Burgers’ equation is separated from graph-domain ODE systems, and the paper reports datasets designed to vary initial conditions, coefficients, spatial discretization, temporal discretization, RK precision, and topology. However, many dataset-generation details are deferred to appendices, so checking exactly what was varied, what the model received as input, and whether comparisons are matched requires cross-referencing multiple sections.",
+        "inference: Overall, the paper’s terminology is understandable to readers already familiar with RK methods, GNNs, and neural PDE solvers, but the exposition is dense. The largest presentation issue is not the macro-organization, but the lack of precise definitions for central objects and the compression of strong generalization claims into short prose."
+      ],
+      "retrieved_papers": [],
+      "review_impact": {
+        "dimension": "Presentation",
+        "polarity": "weakness",
+        "impact_level": "C2",
+        "confidence": "medium"
+      }
+    }
+  ]
+}

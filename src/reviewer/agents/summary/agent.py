@@ -36,4 +36,11 @@ class SummaryAgent(BaseAgent):
             },
         ]
         raw_output = client.generate(messages)
+        self.trace_events = [
+            {
+                "agent": self.name,
+                "event": "model_output",
+                "raw_output": raw_output,
+            }
+        ]
         return validate_xml_root(raw_output, "paper_summary")

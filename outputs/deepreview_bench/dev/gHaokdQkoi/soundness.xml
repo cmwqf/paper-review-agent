@@ -1,0 +1,19 @@
+<dimension_review>
+  <dimension>Soundness</dimension>
+  <score>2</score>
+  <strengths>
+    <item>The method is technically plausible: it combines an explicit Runge-Kutta-style recurrent update with a shared GNN module intended to approximate the governing dynamics on Euclidean or graph domains.</item>
+    <item>The experiments cover several relevant axes of the paper's claims, including varying initial conditions, PDE coefficients, spatial discretizations, temporal discretizations, graph sizes, and graph topologies.</item>
+    <item>The paper includes comparisons to relevant model families such as PINN, FNO, GNO, and GraphPDE, and reports accuracy, parameter count, runtime, and memory for the Burgers' experiments.</item>
+    <item>The RK1-versus-RK4 experiments provide some empirical evidence that changing the recurrent RK structure can affect prediction accuracy.</item>
+  </strengths>
+  <weaknesses>
+    <item>The core claim that increasing RK order at test time improves precision without retraining is under-justified. Classical RK guarantees do not directly apply when the right-hand side is a learned GNN trained only through one-step prediction loss.</item>
+    <item>The ablations do not adequately isolate the contributions of the RK recurrent structure or the graph representation. Missing controls include a plain GNN one-step predictor, non-shared stage networks, systematic training/inference RK-order comparisons, and alternative spatial encodings.</item>
+    <item>Baseline comparisons are only partially fair and insufficiently documented. FNO and GNO appear to be run only in limited settings and with 100 training samples, while the paper does not clearly establish comparable tuning, data budgets, or adaptations across all claimed generalization regimes.</item>
+    <item>The statistical evidence is weak for broad robustness claims: reported accuracy results appear mostly as point estimates, with no clear confidence intervals, random-seed analysis, or accuracy error bars.</item>
+    <item>The paper trains with one-step MSE but makes rollout and robustness claims without a clear dedicated analysis of long-horizon error accumulation or rollout stability.</item>
+  </weaknesses>
+  <evidence_summary>The paper proposes GNRK, a Runge-Kutta-inspired recurrent architecture using a shared GNN to approximate PDE or coupled-ODE dynamics. It evaluates on 2D Burgers' datasets varying initial conditions, viscosity, spatial grid, and temporal/RK precision, and on graph-domain heat, Kuramoto, and Rössler systems with varied graph structures. Reported results show low MAE for GNRK and improved RK4 over RK1 in some settings. However, the Q&amp;A analysis found that the baseline comparisons are not fully controlled, the RK-order precision claim is not theoretically or empirically isolated from learned-model error, the ablations are incomplete, and the paper lacks strong statistical reporting such as multiple seeds or confidence intervals for accuracy.</evidence_summary>
+  <rationale>The paper provides some support for the proposed method through plausible modeling choices and experiments across multiple PDE/ODE settings, so the soundness is not poor. However, the central claims are stronger than the evidence. In particular, changing RK order without retraining is not rigorously justified for a learned derivative model, and the experiments do not sufficiently isolate whether gains come from the RK recurrence, graph encoding, model capacity, or data-generation setup. The baseline and statistical protocols also leave substantial uncertainty. Overall, the evidence gives partial but incomplete support for the claims, corresponding to fair soundness.</rationale>
+</dimension_review>

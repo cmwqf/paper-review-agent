@@ -1,0 +1,18 @@
+<dimension_review>
+  <dimension>Presentation</dimension>
+  <score>3</score>
+  <strengths>
+    <item>The paper appears well organized in a standard ICLR format, with clear sectioning from motivation and problem formulation through theory, experiments, related work, discussion, and appendices.</item>
+    <item>Mathematical notation and equations are generally sharp, consistently numbered, and visually well typeset.</item>
+    <item>The figure captions are informative: Figure 1 explains the plotted correlation quantity, Figure 2 explains the synthetic comparison and row ordering, and Figure 3 identifies the real-data reconstructions and artifact comparison.</item>
+    <item>The experimental figures on page 8 are arranged clearly enough to support visual comparison between nonlinear and linearized/FDK reconstructions.</item>
+  </strengths>
+  <weaknesses>
+    <item>The paper is text-heavy and theorem-dense in the middle sections, especially pages 4–6, which makes it harder to skim and quickly verify the main theoretical claims.</item>
+    <item>Figure 1 on page 4 is somewhat small, with axis labels, legend text, and tick labels hard to read at page scale.</item>
+    <item>Figures 2 and 3 are mostly legible, but panel labels, PSNR values, and some colorbar tick labels are small.</item>
+    <item>Some layout choices feel crowded, including the wrapped Figure 1 block on page 4 and the continuation of regular text after Figure 3 near the bottom of page 8.</item>
+  </weaknesses>
+  <evidence_summary>The PDF inspection found a standard ICLR-style layout with consistent typography and clear section headings. No tables were observed. Page 4 contains Figure 1, whose caption is informative but whose plot text is small and cramped by the upper-right wrapped placement. Pages 4–6 contain dense theorem statements and complex equations that are correctly formatted but visually difficult to skim. Page 8 contains Figures 2 and 3; both are visually understandable and have clear captions, though labels and colorbar text are somewhat small and the page is somewhat crowded.</evidence_summary>
+  <rationale>The presentation is good overall: the paper is readable, well structured, and visually acceptable, with clear captions and generally polished mathematical formatting. However, notable readability issues remain due to dense theorem blocks and small figure text, especially in Figure 1 and some labels in the experimental figures. These issues do not make the paper hard to understand, but they reduce ease of inspection and verification, so a score of 3 is appropriate rather than 4.</rationale>
+</dimension_review>

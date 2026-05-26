@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from reviewer.paper.text_extractor import extract_pdf_pages
+
 
 def paper_from_deepreview_row(row: dict[str, Any], source_path: str | Path, index: int) -> dict[str, Any]:
     """Normalize one DeepReview-13K JSONL row into the internal paper format."""
@@ -75,6 +77,31 @@ def load_text(path: str | Path) -> dict[str, Any]:
     }
 
 
+def load_pdf(path: str | Path) -> dict[str, Any]:
+    """Load a PDF paper by extracting page-level text."""
+    paper_path = Path(path)
+    pages = extract_pdf_pages(paper_path)
+    paper_id = paper_path.stem
+    text = "\n\n".join(
+        f"=== Page {page_index} ===\n{page_text}"
+        for page_index, page_text in enumerate(pages, start=1)
+    )
+    return {
+        "id": paper_id,
+        "title": paper_id,
+        "text": text,
+        "pdf_pages": pages,
+        "metadata": {
+            "id": paper_id,
+            "title": paper_id,
+            "source": "pdf",
+            "source_path": str(paper_path),
+            "page_count": len(pages),
+        },
+        "raw": {},
+    }
+
+
 def load_paper(path: str | Path, *, index: int = 0) -> dict[str, Any]:
     """Load a paper path into a normalized paper dictionary."""
     paper_path = Path(path)
@@ -85,4 +112,6 @@ def load_paper(path: str | Path, *, index: int = 0) -> dict[str, Any]:
         return load_json(paper_path)
     if suffix in {".txt", ".md", ".tex"}:
         return load_text(paper_path)
+    if suffix == ".pdf":
+        return load_pdf(paper_path)
     raise ValueError(f"Unsupported paper input type: {paper_path}")
