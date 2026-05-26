@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
-from reviewer.models.llm_client import LLMClient, is_gpt_model, resolve_chat_endpoint
+from reviewer.models.llm_client import LLMClient, ModelHTTPError, is_gpt_model, resolve_chat_endpoint
 
 
 class FakeResponse:
     """Small fake response object for testing response parsing."""
 
-    def __init__(self, data=None) -> None:
+    def __init__(self, data=None, status_code: int = 200, text: str | None = None) -> None:
         self.data = data or {"choices": [{"message": {"content": "<xml>ok</xml>"}}]}
+        self.status_code = status_code
+        self.text = text if text is not None else ""
 
     def raise_for_status(self) -> None:
         """Pretend the HTTP request succeeded."""
+        if self.status_code >= 400:
+            raise RuntimeError(f"{self.status_code} HTTP error")
 
     def json(self) -> dict:
         """Return an OpenAI-style response body."""
@@ -202,3 +206,35 @@ def test_llm_client_logs_raw_success_response(caplog) -> None:
     assert client.generate([{"role": "user", "content": "hello"}]) == "<xml>ok</xml>"
     assert "Model raw response" in caplog.text
     assert "chatcmpl-ok" in caplog.text
+
+
+def test_llm_client_http_error_includes_provider_error_and_fails_fast() -> None:
+    """HTTP errors should surface provider error code/message in caller-visible exceptions."""
+    error_body = {
+        "error": {
+            "message": "You exceeded your current quota, please check your plan and billing details.",
+            "type": "insufficient_quota",
+            "code": "insufficient_quota",
+        }
+    }
+    session = FakeSession([FakeResponse(error_body, status_code=429)])
+    client = LLMClient(
+        {
+            "model": "local-model",
+            "base_url": "http://localhost:8000/v1",
+            "api_key_env": None,
+            "max_retries": 3,
+        },
+        session=session,
+    )
+
+    try:
+        client.generate([{"role": "user", "content": "hello"}])
+    except ModelHTTPError as exc:
+        assert "HTTP 429" in str(exc)
+        assert "insufficient_quota" in str(exc)
+        assert "current quota" in str(exc)
+    else:
+        raise AssertionError("Expected HTTP error to fail.")
+
+    assert session.calls == 1

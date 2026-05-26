@@ -14,6 +14,36 @@ from reviewer.settings import ConfigError, resolve_all_proxy, resolve_api_key, r
 LOGGER = logging.getLogger(__name__)
 
 
+class ModelHTTPError(RuntimeError):
+    """HTTP error from an OpenAI-compatible model endpoint with response details."""
+
+    def __init__(
+        self,
+        *,
+        status_code: int | str,
+        message: str,
+        error_type: str | None = None,
+        error_code: str | None = None,
+        body: str = "",
+    ) -> None:
+        self.status_code = status_code
+        self.error_type = error_type
+        self.error_code = error_code
+        self.body = body
+        parts = [f"HTTP {status_code}"]
+        if error_code:
+            parts.append(str(error_code))
+        if error_type and error_type != error_code:
+            parts.append(str(error_type))
+        parts.append(message)
+        super().__init__(": ".join(parts))
+
+    @property
+    def is_non_retryable(self) -> bool:
+        """Return whether retrying this error is unlikely to help."""
+        return self.error_code == "insufficient_quota" or self.error_type == "insufficient_quota"
+
+
 def resolve_chat_endpoint(base_url: str) -> str:
     """Resolve a model base URL to a chat-completions endpoint.
 
@@ -180,6 +210,31 @@ class LLMClient:
                         debug["reasoning_present"] = True
         return debug
 
+    def _model_http_error(self, response: requests.Response) -> ModelHTTPError:
+        """Create a detailed model HTTP error from an unsuccessful response."""
+        status_code = getattr(response, "status_code", "unknown")
+        body = getattr(response, "text", "") or ""
+        message = body.strip() or "Model endpoint returned an HTTP error."
+        error_type = None
+        error_code = None
+        try:
+            data = response.json()
+        except Exception:
+            data = None
+        if isinstance(data, dict):
+            error = data.get("error")
+            if isinstance(error, dict):
+                message = str(error.get("message") or message)
+                error_type = str(error.get("type")) if error.get("type") else None
+                error_code = str(error.get("code")) if error.get("code") else None
+        return ModelHTTPError(
+            status_code=status_code,
+            message=message,
+            error_type=error_type,
+            error_code=error_code,
+            body=body,
+        )
+
     def generate(self, messages: list[dict[str, Any]], **kwargs: Any) -> str:
         """Call the configured model and return the assistant text."""
         timeout = float(kwargs.pop("timeout_seconds", self.model_config.get("timeout_seconds", 60)))
@@ -199,16 +254,17 @@ class LLMClient:
                 try:
                     response.raise_for_status()
                 except Exception:
+                    http_error = self._model_http_error(response)
                     LOGGER.error(
-                        "Model HTTP error on attempt %s/%s: model=%s endpoint=%s status=%s body=%s",
+                        "Model HTTP error on attempt %s/%s: model=%s endpoint=%s error=%s body=%s",
                         attempt,
                         max_retries,
                         self.model,
                         self.endpoint,
-                        getattr(response, "status_code", "unknown"),
+                        http_error,
                         getattr(response, "text", ""),
                     )
-                    raise
+                    raise http_error
                 try:
                     data = response.json()
                 except Exception:
@@ -262,5 +318,7 @@ class LLMClient:
                     exc,
                 )
                 last_error = exc
+                if isinstance(exc, ModelHTTPError) and exc.is_non_retryable:
+                    break
         assert last_error is not None
         raise last_error
