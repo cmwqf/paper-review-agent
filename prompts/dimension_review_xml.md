@@ -12,6 +12,18 @@ Use the ICLR dimension rating scale used by DeepReview-Bench:
 - 2: fair
 - 1: poor
 
+The Q&A trajectory may include review-impact labels from the Answer Agent:
+
+- C1: core review point that may significantly affect this dimension score or
+  the final recommendation
+- C2: important review point that should usually appear in this dimension review
+- C3: minor review point
+
+Use these labels as priority signals, not as a mechanical formula. C1 and C2
+points should normally be reflected in strengths, weaknesses, evidence_summary,
+or rationale. A C1 weakness should strongly affect the dimension score unless
+the Q&A trajectory gives clear counterevidence.
+
 Use this structure:
 
 ```xml

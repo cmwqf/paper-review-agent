@@ -13,6 +13,9 @@ already available in the current observations.
 
 Use `search_file` and `read_file` to verify the paper's own contribution claims,
 claimed differences from prior work, stated limitations, and empirical scope.
+For `search_file`, prefer paper-local terms such as section names, method names,
+metric names, dataset names, or exact phrases from the paper map. Longer
+prior-work queries usually belong in `search_scholar`.
 
 Do not infer novelty from the title alone. If retrieval is unavailable or empty,
 say so explicitly in the evidence and lower confidence.

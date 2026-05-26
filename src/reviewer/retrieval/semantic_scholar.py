@@ -23,9 +23,10 @@ class SemanticScholarClient:
         endpoint = provider_config.get(
             "endpoint", "https://api.semanticscholar.org/graph/v1/paper/search"
         )
-        fields = provider_config.get(
-            "fields",
-            [
+        fields = (
+            provider_config.get("fields")
+            or self.config.get("retrieval", {}).get("search", {}).get("fields")
+            or [
                 "title",
                 "abstract",
                 "year",
@@ -35,7 +36,7 @@ class SemanticScholarClient:
                 "publicationDate",
                 "externalIds",
                 "url",
-            ],
+            ]
         )
         timeout = float(provider_config.get("timeout_seconds", 30))
         headers = {}

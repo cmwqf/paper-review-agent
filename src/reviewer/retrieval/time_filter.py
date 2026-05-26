@@ -16,6 +16,14 @@ def filter_before_submission(
     return [
         paper
         for paper in papers
-        if paper.publication_date is None or paper.publication_date <= submission_date
+        if _is_not_after_submission(paper, submission_date)
     ]
 
+
+def _is_not_after_submission(paper: RetrievedPaper, submission_date: date) -> bool:
+    """Use full publication date when available, otherwise fall back to year."""
+    if paper.publication_date is not None:
+        return paper.publication_date <= submission_date
+    if paper.year is not None:
+        return int(paper.year) <= submission_date.year
+    return True

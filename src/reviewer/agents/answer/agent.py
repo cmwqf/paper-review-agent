@@ -102,6 +102,7 @@ class AnswerAgent(BaseAgent):
                     qa_xml = extract_xml_document(raw_output, "qa_result")
                     if qa_xml != raw_output.strip() or raw_output.strip().startswith("<qa_result"):
                         result = parse_qa_result_xml(qa_xml)
+                        _attach_retrieved_paper_details(result, retrieved_papers)
                         result.trace_events = trace_events
                         return result
                     action = _parse_action(raw_output)
@@ -151,6 +152,7 @@ class AnswerAgent(BaseAgent):
             observations=observations,
             retrieved_papers=retrieved_papers,
         )
+        _attach_retrieved_paper_details(result, retrieved_papers)
         result.trace_events = trace_events
         return result
 
@@ -161,18 +163,36 @@ def _answer_system_prompt(config: dict, dimension: str) -> str:
     dimension_prompt = _load_dimension_answer_prompt(config, dimension)
     qa_contract = load_prompt("prompts/qa_answer_xml.md", config=config)
     action_contract = """
-For tool-use steps, return exactly one `<tool_call>` XML document:
+For tool-use steps, return exactly one `<tool_call>` XML document. A response
+with more than one `<tool_call>` is invalid. A response that contains both
+`<tool_call>` and `<qa_result>` is invalid.
 
 <tool_call>
   <tool_name>search_file | read_file | read_pdf | search_scholar</tool_name>
-  <keyword>keyword for search_file</keyword>
+  <keyword>keyword or short phrase for search_file</keyword>
   <start_line>1-based start line for read_file</start_line>
   <num_lines>number of lines for read_file, max 50</num_lines>
   <start_page>1-based start page for read_pdf</start_page>
   <num_pages>number of pages for read_pdf</num_pages>
-  <query>query for search_scholar</query>
+  <query>concise scholarly query for search_scholar</query>
   <rationale>why this action is needed</rationale>
 </tool_call>
+
+Tool-use policy:
+
+- Use `search_file` to locate relevant paper lines when you do not already know
+  the exact line range. It works best with short paper-local keywords or exact
+  phrases, such as method names, metric names, dataset names, section names, or
+  distinctive terms from the paper map. Avoid using a long natural-language
+  query when a shorter keyword would likely find the relevant text.
+- Use `read_file` only for a specific bounded line range. It is not a
+  full-paper reading tool and cannot read the whole paper in one call.
+- Use `search_scholar` when external prior-work evidence is needed. It works
+  best with a concise scholarly search query: a research topic, method family,
+  or key claim. Avoid copying the full review question when a shorter topic
+  phrase would capture the main prior-work comparison.
+- Use `read_pdf` for page-level layout, figures, tables, equations, or visual
+  presentation evidence.
 
 When you have enough evidence, return `<qa_result>` directly.
 
@@ -213,10 +233,7 @@ def _build_action_context(
 ) -> str:
     """Build the model-visible state for one Answer Agent step."""
     observed = "\n\n".join(observations[-8:]) if observations else "No observations yet."
-    retrieved = "\n".join(
-        f"- {paper.get('title')} ({paper.get('year')}): {paper.get('url')}"
-        for paper in retrieved_papers[:8]
-    )
+    retrieved = "\n\n".join(_format_retrieved_paper(paper) for paper in retrieved_papers[:8])
     if not retrieved:
         retrieved = "No retrieved papers yet."
     metadata = paper.get("metadata", {})
@@ -276,14 +293,57 @@ def _run_action(
         if action_name == "search_scholar":
             query = action.get("query") or question
             papers = RetrievalTool(config).search(query, paper.get("metadata", {}))
-            rendered = "\n".join(
-                f"- {item.get('title')} ({item.get('year')}), citations={item.get('citation_count')}, url={item.get('url')}"
-                for item in papers[:8]
-            )
+            rendered = "\n\n".join(_format_retrieved_paper(item) for item in papers[:8])
             return f"search_scholar({query!r})\n{rendered or 'No retrieved papers.'}", papers
     except Exception as exc:
         return f"{action_name} failed: {exc}", []
     return f"Unsupported action: {action_name}", []
+
+
+def _format_retrieved_paper(paper: dict) -> str:
+    """Render a retrieved paper with the abstract visible to the Answer Agent."""
+    title = paper.get("title") or ""
+    year = paper.get("year") or ""
+    citations = paper.get("citation_count")
+    abstract = paper.get("abstract") or "No abstract returned."
+    citation_text = f", citations={citations}" if citations is not None else ""
+    return (
+        f"- Title: {title}\n"
+        f"  Year: {year}{citation_text}\n"
+        f"  Abstract: {abstract}"
+    )
+
+
+def _attach_retrieved_paper_details(result: QAResult, retrieved_papers: list[dict]) -> None:
+    """Preserve tool-returned abstracts in the structured QA artifact."""
+    if not retrieved_papers:
+        return
+    by_title = {
+        str(paper.get("title", "")).strip().lower(): paper
+        for paper in retrieved_papers
+        if paper.get("title")
+    }
+    by_url = {
+        str(paper.get("url", "")).strip(): paper
+        for paper in retrieved_papers
+        if paper.get("url")
+    }
+    if not result.retrieved_papers:
+        result.retrieved_papers = retrieved_papers[:8]
+        return
+    enriched = []
+    for paper in result.retrieved_papers:
+        source = (
+            by_url.get(str(paper.get("url", "")).strip())
+            or by_title.get(str(paper.get("title", "")).strip().lower())
+        )
+        if source:
+            merged = dict(source)
+            merged.update({key: value for key, value in paper.items() if value not in (None, "")})
+            enriched.append(merged)
+        else:
+            enriched.append(paper)
+    result.retrieved_papers = enriched
 
 
 def _write_forced_answer(

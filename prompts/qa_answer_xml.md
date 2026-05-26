@@ -27,8 +27,8 @@ Use this structure:
   <retrieved_papers>
     <paper>
       <title>...</title>
+      <abstract>...</abstract>
       <year>...</year>
-      <url>...</url>
       <relevance>...</relevance>
     </paper>
   </retrieved_papers>
@@ -43,14 +43,19 @@ Use this structure:
 
 Impact levels:
 
-- C1: minor review point
-- C2: important review point that should usually appear in the dimension review
-- C3: core review point that may significantly affect the dimension score or
+- C1: core review point that may significantly affect the dimension score or
   final recommendation
+- C2: important review point that should usually appear in the dimension review
+- C3: minor review point
 
 Always choose either strength or weakness. Do not use neutral or mixed. If the
 available evidence is incomplete, still make the best reviewer-style judgment
 and explain the uncertainty in the answer text.
+
+Do not use C2 as a safe default. Choose C1 only for decisive strengths or
+weaknesses that could change the score or recommendation. Choose C3 for local,
+secondary, speculative, or low-confidence points. Choose C2 only when the point
+is clearly important but not decisive.
 
 Do not treat retrieved papers as evidence unless they are provided to you.
 Separate paper evidence, retrieval evidence, and inference.

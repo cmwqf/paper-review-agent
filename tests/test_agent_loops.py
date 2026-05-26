@@ -133,6 +133,71 @@ def test_answer_agent_can_read_pdf_before_answering(monkeypatch) -> None:
     assert "Page 2:\npage two" in client.calls[1][1]["content"]
 
 
+def test_answer_agent_exposes_retrieval_abstracts(monkeypatch) -> None:
+    """Scholar search observations and QA artifacts should keep abstracts."""
+    client = FakeClient(
+        [
+            """
+            <tool_call>
+              <tool_name>search_scholar</tool_name>
+              <query>calibration language models</query>
+              <rationale>Need prior work.</rationale>
+            </tool_call>
+            """,
+            """
+            <qa_result>
+              <question>Is this novel?</question>
+              <answer>The retrieved work is relevant.</answer>
+              <evidence><item source="retrieval">Prior work found.</item></evidence>
+              <retrieved_papers>
+                <paper>
+                  <title>Calibration for Language Models</title>
+                  <year>2023</year>
+                  <url>https://example.test/paper</url>
+                  <relevance>Relevant prior work.</relevance>
+                </paper>
+              </retrieved_papers>
+              <review_impact>
+                <dimension>Contribution</dimension>
+                <polarity>weakness</polarity>
+                <impact_level>C2</impact_level>
+                <confidence>medium</confidence>
+              </review_impact>
+            </qa_result>
+            """,
+        ]
+    )
+    retrieved = [
+        {
+            "title": "Calibration for Language Models",
+            "abstract": "This paper studies calibration behavior in language models.",
+            "year": 2023,
+            "url": "https://example.test/paper",
+            "citation_count": 7,
+        }
+    ]
+    monkeypatch.setattr("reviewer.agents.answer.agent.build_llm", lambda config, model_key: client)
+    monkeypatch.setattr(
+        "reviewer.agents.answer.agent.RetrievalTool.search",
+        lambda self, query, paper_metadata: retrieved,
+    )
+
+    result = AnswerAgent({"qa": {"max_answer_steps": 3}}).run(
+        "Is this novel?",
+        "Contribution",
+        {"text": "Intro", "metadata": {"title": "Paper"}},
+        SUMMARY_XML,
+    )
+
+    assert "Abstract: This paper studies calibration behavior" in client.calls[1][1]["content"]
+    assert "URL:" not in client.calls[1][1]["content"]
+    assert result.retrieved_papers[0]["abstract"] == retrieved[0]["abstract"]
+    observation_event = next(
+        event for event in result.trace_events if event["event"] == "tool_observation"
+    )
+    assert observation_event["retrieved_papers"][0]["abstract"] == retrieved[0]["abstract"]
+
+
 def test_answer_agent_handles_multiple_xml_documents(monkeypatch) -> None:
     """If the model emits tool_call and qa_result together, AnswerAgent should run the tool first."""
     client = FakeClient(

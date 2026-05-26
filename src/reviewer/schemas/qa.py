@@ -60,6 +60,7 @@ def parse_qa_result_xml(xml_text: str) -> QAResult:
             retrieved_papers.append(
                 {
                     "title": _text(paper_el, "title"),
+                    "abstract": _text(paper_el, "abstract"),
                     "year": _text(paper_el, "year"),
                     "url": _text(paper_el, "url"),
                     "relevance": _text(paper_el, "relevance"),
@@ -75,7 +76,7 @@ def parse_qa_result_xml(xml_text: str) -> QAResult:
         review_impact=ReviewImpact(
             dimension=_text(impact_el, "dimension"),
             polarity=_text(impact_el, "polarity", "weakness"),
-            impact_level=_text(impact_el, "impact_level", "C1"),
+            impact_level=_text(impact_el, "impact_level", "C3"),
             confidence=_text(impact_el, "confidence", "low"),
         ),
     )
