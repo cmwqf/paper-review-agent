@@ -116,7 +116,15 @@ class DimensionAgent(BaseAgent):
                     "rationale": action["rationale"],
                 }
             )
-            qa_results.append(AnswerAgent(self.config).run(question, self.dimension.value, paper, summary))
+            qa_results.append(
+                AnswerAgent(self.config).run(
+                    question,
+                    self.dimension.value,
+                    paper,
+                    summary,
+                    prior_qa_results=qa_results,
+                )
+            )
             feedback = ""
 
         review_xml = _write_dimension_review(

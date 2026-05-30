@@ -91,6 +91,57 @@ def test_answer_agent_can_search_file_before_answering(monkeypatch) -> None:
     assert "For Soundness questions" in client.calls[0][0]["content"]
 
 
+def test_answer_agent_sees_prior_qa_for_impact_calibration(monkeypatch) -> None:
+    """Prior Q&A should be visible when the AnswerAgent assigns impact level."""
+    client = FakeClient(
+        [
+            """
+            <qa_result>
+              <question>Are baselines sufficient?</question>
+              <answer>The answer compares against prior QA.</answer>
+              <evidence><item source="paper">Evidence.</item></evidence>
+              <retrieved_papers></retrieved_papers>
+              <review_impact>
+                <dimension>Soundness</dimension>
+                <polarity>weakness</polarity>
+                <impact_level>C2</impact_level>
+                <confidence>medium</confidence>
+              </review_impact>
+            </qa_result>
+            """,
+        ]
+    )
+    prior = [
+        QAResult(
+            question="Is the main claim supported?",
+            answer="The main claim has a decisive flaw.",
+            evidence=["paper: detailed evidence should not be rendered here"],
+            review_impact=ReviewImpact(
+                dimension="Soundness",
+                polarity="weakness",
+                impact_level="C1",
+                confidence="high",
+            ),
+        )
+    ]
+    monkeypatch.setattr("reviewer.agents.answer.agent.build_llm", lambda config, model_key: client)
+
+    AnswerAgent({"qa": {"max_answer_steps": 1}}).run(
+        "Are baselines sufficient?",
+        "Soundness",
+        {"text": "Intro", "metadata": {"title": "Paper"}},
+        SUMMARY_XML,
+        prior_qa_results=prior,
+    )
+
+    prompt = client.calls[0][1]["content"]
+    assert "Prior Q&A in this dimension for impact calibration" in prompt
+    assert "Q1: Is the main claim supported?" in prompt
+    assert "Answer: The main claim has a decisive flaw." in prompt
+    assert "Prior impact: weakness, C1, confidence=high" in prompt
+    assert "detailed evidence should not be rendered here" not in prompt
+
+
 def test_answer_agent_can_read_pdf_before_answering(monkeypatch) -> None:
     """AnswerAgent should expose read_pdf as a tool action."""
     client = FakeClient(
@@ -198,8 +249,8 @@ def test_answer_agent_exposes_retrieval_abstracts(monkeypatch) -> None:
     assert observation_event["retrieved_papers"][0]["abstract"] == retrieved[0]["abstract"]
 
 
-def test_answer_agent_handles_multiple_xml_documents(monkeypatch) -> None:
-    """If the model emits tool_call and qa_result together, AnswerAgent should run the tool first."""
+def test_answer_agent_retries_after_mixed_tool_and_answer(monkeypatch) -> None:
+    """If the model emits tool_call and qa_result together, AnswerAgent should retry."""
     client = FakeClient(
         [
             """
@@ -220,6 +271,13 @@ def test_answer_agent_handles_multiple_xml_documents(monkeypatch) -> None:
                 <confidence>medium</confidence>
               </review_impact>
             </qa_result>
+            """,
+            """
+            <tool_call>
+              <tool_name>search_file</tool_name>
+              <keyword>baseline</keyword>
+              <rationale>Need paper evidence.</rationale>
+            </tool_call>
             """,
             """
             <qa_result>
@@ -247,10 +305,59 @@ def test_answer_agent_handles_multiple_xml_documents(monkeypatch) -> None:
     )
 
     assert result.answer == "The answer follows the actual tool observation."
-    assert len(client.calls) == 2
-    assert "search_file('baseline')" in client.calls[1][1]["content"]
-    assert any(event["event"] == "mixed_output_tool_call_prioritized" for event in result.trace_events)
+    assert len(client.calls) == 3
+    assert "Previous output format error" in client.calls[1][1]["content"]
+    assert "both <tool_call> and <qa_result>" in client.calls[1][1]["content"]
+    assert "search_file('baseline')" in client.calls[2][1]["content"]
+    assert any(event["event"] == "output_contract_violation" for event in result.trace_events)
     assert any(event["event"] == "tool_observation" for event in result.trace_events)
+
+
+def test_answer_agent_retries_after_multiple_tool_calls(monkeypatch) -> None:
+    """Multiple tool calls in one response should be rejected, not partially executed."""
+    client = FakeClient(
+        [
+            """
+            <tool_call>
+              <tool_name>search_file</tool_name>
+              <keyword>baseline</keyword>
+              <rationale>Need paper evidence.</rationale>
+            </tool_call>
+            <tool_call>
+              <tool_name>read_file</tool_name>
+              <start_line>1</start_line>
+              <num_lines>2</num_lines>
+              <rationale>Read the located evidence.</rationale>
+            </tool_call>
+            """,
+            """
+            <qa_result>
+              <question>Are baselines sufficient?</question>
+              <answer>The retry returned one document.</answer>
+              <evidence><item source="paper">Evidence.</item></evidence>
+              <retrieved_papers></retrieved_papers>
+              <review_impact>
+                <dimension>Soundness</dimension>
+                <polarity>weakness</polarity>
+                <impact_level>C2</impact_level>
+                <confidence>medium</confidence>
+              </review_impact>
+            </qa_result>
+            """,
+        ]
+    )
+    monkeypatch.setattr("reviewer.agents.answer.agent.build_llm", lambda config, model_key: client)
+
+    result = AnswerAgent({"qa": {"max_answer_steps": 3}}).run(
+        "Are baselines sufficient?",
+        "Soundness",
+        {"text": "Intro\nStrong baseline is used.", "metadata": {"title": "Paper"}},
+        SUMMARY_XML,
+    )
+
+    assert result.answer == "The retry returned one document."
+    assert "multiple <tool_call>" in client.calls[1][1]["content"]
+    assert not any(event["event"] == "tool_observation" for event in result.trace_events)
 
 
 def test_answer_agent_retries_after_unparseable_xml(monkeypatch) -> None:
@@ -317,7 +424,7 @@ def test_dimension_agent_asks_question_then_writes_review(monkeypatch) -> None:
     monkeypatch.setattr("reviewer.agents.dimension_base.build_llm", lambda config, model_key: client)
     monkeypatch.setattr(
         "reviewer.agents.dimension_base.AnswerAgent.run",
-        lambda self, question, dimension, paper, paper_summary: QAResult(
+        lambda self, question, dimension, paper, paper_summary, **kwargs: QAResult(
             question=question,
             answer="One baseline is mentioned.",
             evidence=["paper: baseline line"],
@@ -391,7 +498,7 @@ def test_dimension_agent_enforces_min_qa_turns(monkeypatch) -> None:
     asked_questions = []
     monkeypatch.setattr("reviewer.agents.dimension_base.build_llm", lambda config, model_key: client)
 
-    def fake_answer(self, question, dimension, paper, paper_summary):
+    def fake_answer(self, question, dimension, paper, paper_summary, **kwargs):
         asked_questions.append(question)
         return QAResult(
             question=question,
@@ -468,7 +575,7 @@ def test_dimension_agent_prompt_includes_configured_qa_limits(monkeypatch) -> No
     monkeypatch.setattr("reviewer.agents.dimension_base.build_llm", lambda config, model_key: client)
     monkeypatch.setattr(
         "reviewer.agents.dimension_base.AnswerAgent.run",
-        lambda self, question, dimension, paper, paper_summary: QAResult(
+        lambda self, question, dimension, paper, paper_summary, **kwargs: QAResult(
             question=question,
             answer="Evidence collected.",
             evidence=["paper: evidence"],
@@ -549,7 +656,7 @@ def test_dimension_agent_enforces_strength_and_weakness_qa(monkeypatch) -> None:
     asked_questions = []
     monkeypatch.setattr("reviewer.agents.dimension_base.build_llm", lambda config, model_key: client)
 
-    def fake_answer(self, question, dimension, paper, paper_summary):
+    def fake_answer(self, question, dimension, paper, paper_summary, **kwargs):
         asked_questions.append(question)
         polarity = "strength" if "strongest" in question else "weakness"
         return QAResult(

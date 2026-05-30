@@ -37,7 +37,14 @@ class AnswerAgent(BaseAgent):
 
     name = "answer"
 
-    def run(self, question: str, dimension: str, paper: dict, paper_summary: dict | str) -> QAResult:
+    def run(
+        self,
+        question: str,
+        dimension: str,
+        paper: dict,
+        paper_summary: dict | str,
+        prior_qa_results: list[QAResult] | None = None,
+    ) -> QAResult:
         """Answer one review question with evidence and review impact.
 
         The agent repeatedly asks the LLM for one tool call. Tool observations
@@ -51,6 +58,8 @@ class AnswerAgent(BaseAgent):
         observations: list[str] = []
         retrieved_papers: list[dict] = []
         trace_events: list[dict] = []
+        format_feedback = ""
+        prior_qa_results = prior_qa_results or []
         max_steps = int(self.config.get("qa", {}).get("max_answer_steps", 6))
         paper_map = _render_paper_summary(paper_summary)
         system_prompt = _answer_system_prompt(self.config, dimension)
@@ -67,10 +76,13 @@ class AnswerAgent(BaseAgent):
                         paper_map=paper_map,
                         observations=observations,
                         retrieved_papers=retrieved_papers,
+                        prior_qa_results=prior_qa_results,
+                        format_feedback=format_feedback,
                     ),
                 },
             ]
             raw_output = client.generate(messages)
+            format_feedback = ""
             trace_events.append(
                 {
                     "agent": "answer",
@@ -81,6 +93,20 @@ class AnswerAgent(BaseAgent):
                     "raw_output": raw_output,
                 }
             )
+            violation = _output_contract_violation(raw_output)
+            if violation:
+                format_feedback = violation
+                trace_events.append(
+                    {
+                        "agent": "answer",
+                        "event": "output_contract_violation",
+                        "step": step_index + 1,
+                        "dimension": dimension,
+                        "question": question,
+                        "feedback": violation,
+                    }
+                )
+                continue
             try:
                 action_xml = extract_xml_document(raw_output, "tool_call")
                 has_tool_call = (
@@ -88,16 +114,6 @@ class AnswerAgent(BaseAgent):
                 )
                 if has_tool_call:
                     action = _parse_action(action_xml)
-                    if "<qa_result" in raw_output:
-                        trace_events.append(
-                            {
-                                "agent": "answer",
-                                "event": "mixed_output_tool_call_prioritized",
-                                "step": step_index + 1,
-                                "dimension": dimension,
-                                "question": question,
-                            }
-                        )
                 else:
                     qa_xml = extract_xml_document(raw_output, "qa_result")
                     if qa_xml != raw_output.strip() or raw_output.strip().startswith("<qa_result"):
@@ -230,21 +246,62 @@ def _build_action_context(
     paper_map: str,
     observations: list[str],
     retrieved_papers: list[dict],
+    prior_qa_results: list[QAResult] | None = None,
+    format_feedback: str = "",
 ) -> str:
     """Build the model-visible state for one Answer Agent step."""
     observed = "\n\n".join(observations[-8:]) if observations else "No observations yet."
     retrieved = "\n\n".join(_format_retrieved_paper(paper) for paper in retrieved_papers[:8])
     if not retrieved:
         retrieved = "No retrieved papers yet."
+    prior_qa = _format_prior_qa_results(prior_qa_results or [])
     metadata = paper.get("metadata", {})
+    feedback = f"\n\nPrevious output format error:\n{format_feedback}\n" if format_feedback else ""
     return (
         f"Review dimension: {dimension}\n"
         f"Question: {question}\n\n"
         f"Paper metadata:\n{metadata}\n\n"
+        f"Prior Q&A in this dimension for impact calibration:\n{prior_qa}\n\n"
         f"Paper summary / map:\n{paper_map}\n\n"
         f"Tool observations:\n{observed}\n\n"
         f"Retrieved papers:\n{retrieved}\n"
+        f"{feedback}"
     )
+
+
+def _format_prior_qa_results(qa_results: list[QAResult]) -> str:
+    """Render compact prior Q&A so impact labels are calibrated across the dimension."""
+    if not qa_results:
+        return "No prior Q&A results yet."
+    lines = []
+    for index, result in enumerate(qa_results[-8:], 1):
+        impact = result.review_impact
+        lines.append(
+            f"Q{index}: {result.question}\n"
+            f"Answer: {result.answer}\n"
+            f"Prior impact: {impact.polarity}, {impact.impact_level}, confidence={impact.confidence}"
+        )
+    return "\n\n".join(lines)
+
+
+def _output_contract_violation(raw_output: str) -> str:
+    """Return retry feedback when a model emits more than one XML document."""
+    tool_call_count = raw_output.count("<tool_call")
+    qa_result_count = raw_output.count("<qa_result")
+    if tool_call_count > 1:
+        return (
+            "Invalid output: you returned multiple <tool_call> documents. "
+            "Return exactly one XML document: either one <tool_call> or one <qa_result>, never more."
+        )
+    if tool_call_count and qa_result_count:
+        return (
+            "Invalid output: you returned both <tool_call> and <qa_result>. "
+            "Return exactly one XML document. If more evidence is needed, return one <tool_call>; "
+            "otherwise return one <qa_result>."
+        )
+    if qa_result_count > 1:
+        return "Invalid output: you returned multiple <qa_result> documents. Return exactly one."
+    return ""
 
 
 def _parse_action(raw_output: str) -> dict[str, str]:
