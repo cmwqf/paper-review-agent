@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from reviewer.agents.contribution.agent import ContributionAgent
 from reviewer.agents.final.agent import FinalReviewAgent
 from reviewer.agents.presentation.agent import PresentationAgent
@@ -16,12 +18,18 @@ class ReviewWorkflow:
     def __init__(self, config: dict):
         self.config = config
 
-    def run(self, paper: dict) -> ReviewWorkflowState:
+    def run(
+        self,
+        paper: dict,
+        artifact_callback: Callable[[ReviewWorkflowState], None] | None = None,
+    ) -> ReviewWorkflowState:
         """Execute Summary -> dimensions -> Final Review for one paper."""
         state = ReviewWorkflowState(paper=paper)
         summary_agent = SummaryAgent(self.config)
         state.summary_xml = summary_agent.run(paper)
         state.traces["summary"] = getattr(summary_agent, "trace_events", [])
+        if artifact_callback:
+            artifact_callback(state)
 
         dimension_agents = [
             ContributionAgent(self.config),
@@ -39,6 +47,8 @@ class ReviewWorkflow:
             for result in qa_results:
                 answer_events.extend(getattr(result, "trace_events", []))
             state.traces[f"{agent.dimension.value}.answer_agent"] = answer_events
+            if artifact_callback:
+                artifact_callback(state)
 
         final_agent = FinalReviewAgent(self.config)
         state.final_review_xml = final_agent.run(
@@ -46,4 +56,6 @@ class ReviewWorkflow:
             state.dimension_reviews,
         )
         state.traces["final_review"] = getattr(final_agent, "trace_events", [])
+        if artifact_callback:
+            artifact_callback(state)
         return state

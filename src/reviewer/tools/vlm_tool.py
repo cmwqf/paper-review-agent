@@ -29,7 +29,7 @@ class VLMTool:
                     "content": (
                         "You inspect academic paper page images for presentation quality. "
                         "Focus on visual readability, figures, tables, captions, equations, "
-                        "layout, and formatting. Do not judge novelty or technical soundness."
+                        "layout, and formatting. Keep novelty and technical soundness separate."
                     ),
                 },
                 {"role": "user", "content": prompt},

@@ -89,6 +89,7 @@ def test_answer_agent_can_search_file_before_answering(monkeypatch) -> None:
     assert result.review_impact.dimension == "Soundness"
     assert "search_file" in client.calls[1][1]["content"]
     assert "For Soundness questions" in client.calls[0][0]["content"]
+    assert "Active review rubric profile: ICLR" in client.calls[0][0]["content"]
 
 
 def test_answer_agent_sees_prior_qa_for_impact_calibration(monkeypatch) -> None:
@@ -142,23 +143,65 @@ def test_answer_agent_sees_prior_qa_for_impact_calibration(monkeypatch) -> None:
     assert "detailed evidence should not be rendered here" not in prompt
 
 
-def test_answer_agent_can_read_pdf_before_answering(monkeypatch) -> None:
-    """AnswerAgent should expose read_pdf as a tool action."""
+def test_answer_agent_can_inspect_visual_before_answering(monkeypatch, tmp_path) -> None:
+    """AnswerAgent should expose inspect_visual as the unified visual tool."""
     client = FakeClient(
         [
             """
             <tool_call>
-              <tool_name>read_pdf</tool_name>
-              <start_page>2</start_page>
-              <num_pages>1</num_pages>
-              <rationale>Need page-level presentation evidence.</rationale>
+              <tool_name>inspect_visual</tool_name>
+              <target>Figure 2</target>
+              <focus>Check labels and caption readability.</focus>
+              <rationale>Need focused visual evidence.</rationale>
             </tool_call>
             """,
             """
             <qa_result>
               <question>Are figures readable?</question>
-              <answer>The page text suggests the figures are discussed clearly.</answer>
-              <evidence><item source="pdf">Page 2 evidence.</item></evidence>
+              <answer>The visual inspection reports readable labels.</answer>
+              <evidence><item source="pdf_image">Page 4 visual evidence.</item></evidence>
+              <retrieved_papers></retrieved_papers>
+              <review_impact>
+                <dimension>Presentation</dimension>
+                <polarity>strength</polarity>
+                <impact_level>C1</impact_level>
+                <confidence>medium</confidence>
+              </review_impact>
+            </qa_result>
+            """,
+        ]
+    )
+    calls = []
+    monkeypatch.setattr("reviewer.agents.answer.agent.build_llm", lambda config, model_key: client)
+
+    def fake_inspect(self, paper, target="", focus=""):
+        calls.append((paper, target, focus))
+        return "Figure 2 labels are readable."
+
+    monkeypatch.setattr("reviewer.agents.answer.agent.VisualInspectionTool.inspect", fake_inspect)
+
+    result = AnswerAgent({"qa": {"max_answer_steps": 3}}).run(
+        "Are figures readable?",
+        "Presentation",
+        {"metadata": {"title": "Paper", "source_path": str(tmp_path / "paper.pdf")}},
+        SUMMARY_XML,
+    )
+
+    assert result.review_impact.dimension == "Presentation"
+    assert calls[0][1:] == ("Figure 2", "Check labels and caption readability.")
+    assert "inspect_visual(target='Figure 2'" in client.calls[1][1]["content"]
+    assert "Figure 2 labels are readable." in client.calls[1][1]["content"]
+
+
+def test_answer_agent_shows_visual_asset_index(monkeypatch, tmp_path) -> None:
+    """AnswerAgent should expose compact figure labels/pages for inspect_visual."""
+    client = FakeClient(
+        [
+            """
+            <qa_result>
+              <question>Are figures readable?</question>
+              <answer>The visual index is visible.</answer>
+              <evidence><item source="paper">Figure index.</item></evidence>
               <retrieved_papers></retrieved_papers>
               <review_impact>
                 <dimension>Presentation</dimension>
@@ -170,18 +213,29 @@ def test_answer_agent_can_read_pdf_before_answering(monkeypatch) -> None:
             """,
         ]
     )
+    figure_path = tmp_path / "_page_4_Figure_2.jpeg"
     monkeypatch.setattr("reviewer.agents.answer.agent.build_llm", lambda config, model_key: client)
 
-    result = AnswerAgent({"qa": {"max_answer_steps": 3}}).run(
+    AnswerAgent({"qa": {"max_answer_steps": 1}}).run(
         "Are figures readable?",
         "Presentation",
-        {"pdf_pages": ["page one", "page two"], "metadata": {"title": "Paper"}},
+        {
+            "metadata": {"title": "Paper"},
+            "figures": [
+                {
+                    "label": "Figure 2",
+                    "pdf_page": 5,
+                    "path": str(figure_path),
+                }
+            ],
+        },
         SUMMARY_XML,
     )
 
-    assert result.review_impact.dimension == "Presentation"
-    assert "read_pdf(start_page=2, num_pages=1)" in client.calls[1][1]["content"]
-    assert "Page 2:\npage two" in client.calls[1][1]["content"]
+    prompt = client.calls[0][1]["content"]
+    assert "Available visual assets for inspect_visual" in prompt
+    assert "- Figure 2, PDF page 5" in prompt
+    assert str(figure_path) not in prompt
 
 
 def test_answer_agent_exposes_retrieval_abstracts(monkeypatch) -> None:
@@ -607,6 +661,7 @@ def test_dimension_agent_prompt_includes_configured_qa_limits(monkeypatch) -> No
     assert "at least 3 Q&A" in system_prompt
     assert "up to 10 question" in system_prompt
     assert "Do not return `write_review` or `<dimension_review>`" in system_prompt
+    assert "Active review rubric profile: ICLR" in system_prompt
 
 
 def test_dimension_agent_enforces_strength_and_weakness_qa(monkeypatch) -> None:
@@ -686,15 +741,15 @@ def test_dimension_agent_enforces_strength_and_weakness_qa(monkeypatch) -> None:
     assert "ask a question that can identify a weakness" in client.calls[3][1]["content"]
 
 
-def test_presentation_agent_uses_vlm_not_pdf_text(monkeypatch, tmp_path) -> None:
-    """PresentationAgent should ground presentation in VLM page observations."""
+def test_presentation_agent_does_not_preload_visual_evidence(monkeypatch, tmp_path) -> None:
+    """PresentationAgent should let AnswerAgent request visual evidence on demand."""
     client = FakeClient(
         [
             """
             <dimension_action>
               <action>write_review</action>
               <question></question>
-              <rationale>PDF evidence is enough.</rationale>
+              <rationale>No initial evidence was required.</rationale>
             </dimension_action>
             """,
             """
@@ -702,22 +757,14 @@ def test_presentation_agent_uses_vlm_not_pdf_text(monkeypatch, tmp_path) -> None
               <dimension>Presentation</dimension>
               <score>3</score>
               <strengths><item>Readable structure.</item></strengths>
-              <weaknesses><item>Some figure references need detail.</item></weaknesses>
-              <evidence_summary>PDF pages were inspected.</evidence_summary>
-              <rationale>Presentation is mostly clear.</rationale>
+              <weaknesses></weaknesses>
+              <evidence_summary>Review used available evidence.</evidence_summary>
+              <rationale>Presentation is clear enough.</rationale>
             </dimension_review>
             """,
         ]
     )
     monkeypatch.setattr("reviewer.agents.dimension_base.build_llm", lambda config, model_key: client)
-    monkeypatch.setattr(
-        "reviewer.agents.presentation.agent.render_pdf_pages",
-        lambda source_path, output_dir, max_pages, dpi: ["page_1.png"],
-    )
-    monkeypatch.setattr(
-        "reviewer.agents.presentation.agent.VLMTool.inspect_pages",
-        lambda self, page_images, questions: "VLM: Figure 1 is visible and captioned.",
-    )
     pdf_path = tmp_path / "paper.pdf"
     pdf_path.write_bytes(b"fake")
 
@@ -725,69 +772,13 @@ def test_presentation_agent_uses_vlm_not_pdf_text(monkeypatch, tmp_path) -> None
         {
             "id": "paper",
             "text": "paper",
-            "pdf_pages": ["Figure 1 is visible and captioned."],
             "metadata": {"title": "Paper", "source_path": str(pdf_path)},
         },
         SUMMARY_XML,
     )
 
-    assert "Inspect the PDF pages for presentation evidence" in client.calls[1][1]["content"]
-    assert "VLM: Figure 1 is visible and captioned." in client.calls[1][1]["content"]
-    assert "Extracted PDF text" not in client.calls[1][1]["content"]
-
-
-def test_presentation_agent_injects_vlm_observation(monkeypatch, tmp_path) -> None:
-    """PresentationAgent should add VLM page observations when enabled."""
-    client = FakeClient(
-        [
-            """
-            <dimension_action>
-              <action>write_review</action>
-              <question></question>
-              <rationale>PDF and VLM evidence is enough.</rationale>
-            </dimension_action>
-            """,
-            """
-            <dimension_review>
-              <dimension>Presentation</dimension>
-              <score>3</score>
-              <strengths><item>Readable figures.</item></strengths>
-              <weaknesses></weaknesses>
-              <evidence_summary>VLM inspected pages.</evidence_summary>
-              <rationale>Presentation is clear.</rationale>
-            </dimension_review>
-            """,
-        ]
-    )
-    monkeypatch.setattr("reviewer.agents.dimension_base.build_llm", lambda config, model_key: client)
-    monkeypatch.setattr(
-        "reviewer.agents.presentation.agent.render_pdf_pages",
-        lambda source_path, output_dir, max_pages, dpi: ["page_1.png"],
-    )
-    monkeypatch.setattr(
-        "reviewer.agents.presentation.agent.VLMTool.inspect_pages",
-        lambda self, page_images, questions: "VLM: table text is legible.",
-    )
-    pdf_path = tmp_path / "paper.pdf"
-    pdf_path.write_bytes(b"fake")
-
-    PresentationAgent(
-        {
-            "agents": {"presentation": {"use_vlm": True, "require_balanced_qa": False}},
-            "paper": {"presentation_pdf_pages": 1},
-        }
-    ).run(
-        {
-            "id": "paper",
-            "text": "paper",
-            "pdf_pages": ["Figure 1 is visible."],
-            "metadata": {"title": "Paper", "source_path": str(pdf_path)},
-        },
-        SUMMARY_XML,
-    )
-
-    assert "VLM page observations" in client.calls[1][1]["content"]
-    assert "VLM: table text is legible." in client.calls[1][1]["content"]
+    assert "VLM page observations" not in client.calls[1][1]["content"]
+    assert "Inspect the PDF pages for presentation evidence" not in client.calls[1][1]["content"]
 
 
 def test_presentation_agent_requires_pdf_by_default(monkeypatch) -> None:
@@ -832,3 +823,4 @@ def test_final_review_agent_returns_final_review_xml(monkeypatch) -> None:
 
     assert "<recommendation>Reject</recommendation>" in output
     assert "<confidence_score>4</confidence_score>" in output
+    assert "Active review rubric profile: ICLR" in client.calls[0][0]["content"]

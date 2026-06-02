@@ -7,7 +7,26 @@ from pathlib import Path
 
 def render_pdf_pages(pdf_path: str | Path, output_dir: str | Path, max_pages: int, dpi: int = 160) -> list[str]:
     """Render up to max_pages PDF pages to PNG images."""
-    if max_pages < 1:
+    return render_pdf_page_range(
+        pdf_path,
+        output_dir,
+        start_page=1,
+        num_pages=max_pages,
+        dpi=dpi,
+    )
+
+
+def render_pdf_page_range(
+    pdf_path: str | Path,
+    output_dir: str | Path,
+    start_page: int,
+    num_pages: int,
+    dpi: int = 160,
+) -> list[str]:
+    """Render a bounded 1-based PDF page range to PNG images."""
+    if start_page < 1:
+        raise ValueError("start_page must be >= 1.")
+    if num_pages < 1:
         return []
     try:
         import fitz
@@ -21,7 +40,11 @@ def render_pdf_pages(pdf_path: str | Path, output_dir: str | Path, max_pages: in
     zoom = dpi / 72.0
     matrix = fitz.Matrix(zoom, zoom)
     try:
-        for page_index in range(min(max_pages, pdf.page_count)):
+        if start_page > pdf.page_count:
+            raise ValueError(f"start_page {start_page} exceeds PDF page count {pdf.page_count}.")
+        start_index = start_page - 1
+        end_index = min(pdf.page_count, start_index + num_pages)
+        for page_index in range(start_index, end_index):
             page = pdf.load_page(page_index)
             pixmap = page.get_pixmap(matrix=matrix, alpha=False)
             image_path = output_path / f"page_{page_index + 1}.png"

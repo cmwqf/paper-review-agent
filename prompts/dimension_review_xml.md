@@ -5,7 +5,7 @@ Purpose: XML output contract for one dimension review.
 Return exactly one `<dimension_review>` XML document with dimension, score,
 strengths, weaknesses, evidence_summary, and rationale.
 
-Use the ICLR dimension rating scale used by DeepReview-Bench:
+Use the 1-4 dimension rating scale:
 
 - 4: excellent
 - 3: good
@@ -41,5 +41,10 @@ Use this structure:
 </dimension_review>
 ```
 
-Base the review on the paper summary and the Q&A trajectory. Do not introduce
-new unsupported evidence at this stage.
+Base the review on the paper summary and the Q&A trajectory. Use evidence that
+has already appeared in the paper map or Q&A results.
+
+For Presentation specifically, write strengths and weaknesses from confirmed
+evidence in paper text, PDF/page evidence, VLM observations, captions, tables,
+figures, or Q&A answers. If visual inspection was unavailable, mention that as
+an evidence limitation in `evidence_summary`.

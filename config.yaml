@@ -4,6 +4,9 @@
 project:
   output_dir: outputs
 
+review:
+  rubric_profile: ICLR
+
 bench:
   root: ../DeepReview-Bench
   output_dir: outputs/deepreview_bench
@@ -30,7 +33,7 @@ models:
     temperature: 0.2
     max_tokens: 32768
     top_p: 1.0
-    timeout_seconds: 60
+    timeout_seconds: 180
     max_retries: 3
 
   profiles:
@@ -87,7 +90,6 @@ agents:
     max_qa_turns: 10
     require_balanced_qa: true
     use_vlm: true
-    require_vlm: false
     require_pdf: true
 
   final:
@@ -128,9 +130,7 @@ xml:
 paper:
   max_text_chars: 120000
   max_pdf_read_pages: 3
-  presentation_pdf_pages: 3
-  max_vlm_pages: 8
-  page_image_dpi: 160
+  page_image_dpi: 220
 
 logging:
   level: INFO

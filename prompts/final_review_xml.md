@@ -5,7 +5,7 @@ Purpose: XML output contract for the final aggregated review.
 Return exactly one `<final_review>` XML document with final_score, summary,
 strengths, weaknesses, requested_changes, recommendation, and confidence_score.
 
-Use the ICLR-style final rating scale:
+Use the final rating scale:
 
 - 10: strong accept, should be highlighted at the conference
 - 8: accept, good paper
@@ -14,7 +14,7 @@ Use the ICLR-style final rating scale:
 - 3: reject, not good enough
 - 1: strong reject
 
-Use the ICLR-style confidence scale:
+Use the confidence scale:
 
 - 5: absolutely certain; very familiar with the related work and checked details carefully
 - 4: confident, but not absolutely certain

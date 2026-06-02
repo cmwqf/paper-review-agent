@@ -5,8 +5,8 @@ Purpose: Prompt for the Contribution Agent, focused on novelty and impact.
 Assess the paper's novelty, positioning, and potential impact. Decide whether
 to ask another Q&A question or write the Contribution review.
 
-Use the ICLR Contribution criterion. Judge how significant and original the
-paper's contributions are relative to prior work:
+Use the Contribution criterion. Judge how significant and original the paper's
+contributions are relative to prior work:
 
 - 4: excellent contribution; clearly novel, important, and likely impactful
 - 3: good contribution; meaningful novelty or impact, with some limitations

@@ -70,6 +70,46 @@ bench:
 PYTHONPATH=src python -m reviewer.cli --split dev
 ```
 
+每次新运行都会创建一个新的 GMT 时间戳目录，例如：
+
+```text
+outputs/deepreview_bench/runs/20260602_153012_GMT_dev_default/
+```
+
+单篇 paper 输出保存在：
+
+```text
+outputs/deepreview_bench/runs/<run_name>/papers/<paper_id>/
+```
+
+run 根目录还会保存：
+
+```text
+run_manifest.json
+run_config.yaml
+results.jsonl
+errors.jsonl
+logs/reviewer.log
+```
+
+每篇 paper 目录内会边生成边落盘，例如：
+
+```text
+summary.xml
+summary.md
+contribution.xml
+soundness.xml
+presentation.xml
+qa_trajectory.json
+qa_trajectory.md
+final_review.xml
+status.json
+logs/trace.json
+logs/trace.md
+```
+
+`status.json` 会记录这篇 paper 已完成到哪个阶段，以及整篇是否完成。
+
 运行 lite：
 
 ```bash
@@ -98,12 +138,26 @@ PYTHONPATH=src python -m reviewer.cli --split dev --limit 2
 # 从 split 的某个 offset 开始跑。
 PYTHONPATH=src python -m reviewer.cli --split lite --start 20 --limit 10
 
-# 忽略 results.jsonl 的 resume 状态，重新跑所选范围。
-PYTHONPATH=src python -m reviewer.cli --split dev --fresh
+# 继续已有 run。会根据每篇 paper 目录里的 status.json 和落盘文件续跑。
+PYTHONPATH=src python -m reviewer.cli \
+  --resume outputs/deepreview_bench/runs/20260602_153012_GMT_dev_default
+
+# 在已有 run 里重新跑所选范围。
+PYTHONPATH=src python -m reviewer.cli \
+  --resume outputs/deepreview_bench/runs/20260602_153012_GMT_dev_default \
+  --fresh
 
 # 覆盖 config.yaml 中的 bench.concurrency。
 PYTHONPATH=src python -m reviewer.cli --split dev --concurrency 4
 ```
+
+续跑规则：
+
+- 已完整生成 `summary.xml`、三个维度 XML、`qa_trajectory.json` 中三个维度记录、`final_review.xml` 的 paper 会跳过。
+- 如果某篇 paper 只完成了一部分，会从已有阶段继续补缺失阶段。
+- 如果某个维度 XML 或该维度 Q&A 记录缺失，会重跑该维度。
+- 如果补跑了任一维度，会重新生成 `final_review.xml`，避免最终评分基于旧维度结果。
+- `--fresh` 会忽略这些已有落盘文件，对所选范围重新跑。
 
 只复用已有 Q&A，重跑每个维度最后总结和最终总结：
 
@@ -111,11 +165,18 @@ PYTHONPATH=src python -m reviewer.cli --split dev --concurrency 4
 PYTHONPATH=src python -m reviewer.cli \
   --agent deepseek_v4_pro \
   --split dev \
-  --reuse-from outputs/deepreview_bench/dev \
+  --reuse-from outputs/deepreview_bench/runs/20260602_153012_GMT_dev_default \
   --fresh
 ```
 
 这个模式会从 `--reuse-from` 指定的旧输出目录中读取：
+
+```text
+<old_run>/papers/<paper_id>/summary.xml
+<old_run>/papers/<paper_id>/qa_trajectory.json
+```
+
+也兼容旧布局：
 
 ```text
 <old_output>/<paper_id>/summary.xml
@@ -136,32 +197,62 @@ PYTHONPATH=src python -m reviewer.cli \
 如果模型输出的 XML 不合法，Reviewer 会把解析错误反馈给模型并重新生成，
 直到 XML 合法或达到 `xml.max_generation_attempts` 上限。
 
-输出目录规则：
+输出目录命名规则：
 
 ```text
-不传 --agent: outputs/deepreview_bench/<split>
-传 --agent:   outputs/deepreview_bench/<split>_<agent>
+outputs/deepreview_bench/runs/YYYYMMDD_HHMMSS_GMT_<split>_<agent>/
 ```
 
-例如：
+例如默认模型：
 
-```bash
-PYTHONPATH=src python -m reviewer.cli --agent deepseek_v4_pro --split dev
-# 输出到 outputs/deepreview_bench/dev_deepseek_v4_pro
+```text
+outputs/deepreview_bench/runs/20260602_153012_GMT_dev_default/
+```
+
+例如 deepseek profile：
+
+```text
+outputs/deepreview_bench/runs/20260602_153045_GMT_dev_deepseek_v4_pro/
 ```
 
 ### 评估输出
 
-从仓库根目录 `/root/autodl-tmp/review_agent` 运行：
+`get_metric.py` 在 Reviewer repo 内，可以一次评估多个 run，并输出“每个
+run 一行、每个指标一列”的对比表。
+
+方式一：直接在脚本顶部填写 `RUN_DIRS`：
+
+```python
+RUN_DIRS = [
+    "outputs/deepreview_bench/runs/20260602_153012_GMT_dev_default",
+    "outputs/deepreview_bench/runs/20260602_153045_GMT_dev_deepseek_v4_pro",
+]
+```
+
+然后运行：
 
 ```bash
-cd /root/autodl-tmp/review_agent
-python get_metric.py Reviewer/outputs/deepreview_bench/dev_deepseek_v4_pro \
-  --split-file DeepReview-Bench/splits/deepreview13k_test_dev.jsonl \
-  --save-json Reviewer/outputs/deepreview_bench/dev_deepseek_v4_pro.metrics.json \
-  --save-md Reviewer/outputs/deepreview_bench/dev_deepseek_v4_pro.metrics.md \
-  --save-details Reviewer/outputs/deepreview_bench/dev_deepseek_v4_pro.metrics.details.jsonl
+cd /root/autodl-tmp/review_agent/Reviewer
+python get_metric.py \
+  --save-md outputs/deepreview_bench/runs/compare.metrics.md \
+  --save-csv outputs/deepreview_bench/runs/compare.metrics.csv \
+  --save-json outputs/deepreview_bench/runs/compare.metrics.json
 ```
+
+方式二：命令行直接传多个 run：
+
+```bash
+cd /root/autodl-tmp/review_agent/Reviewer
+python get_metric.py \
+  outputs/deepreview_bench/runs/20260602_153012_GMT_dev_default \
+  outputs/deepreview_bench/runs/20260602_153045_GMT_dev_deepseek_v4_pro \
+  --save-md outputs/deepreview_bench/runs/compare.metrics.md \
+  --save-csv outputs/deepreview_bench/runs/compare.metrics.csv
+```
+
+传 run 根目录或 `papers/` 子目录都可以。脚本会优先从
+`run_manifest.json` 推断 split 文件；如果没有 manifest，再从 run 名推断。
+也可以显式传 `--split-file ../DeepReview-Bench/splits/deepreview13k_test_dev.jsonl`。
 
 指标脚本会输出：
 
@@ -174,6 +265,35 @@ python get_metric.py Reviewer/outputs/deepreview_bench/dev_deepseek_v4_pro \
 
 `config.yaml` 是项目的主配置文件，负责模型路由、agent、检索、论文读取、
 日志和输出路径。
+
+### 评审 Rubric Profile
+
+当前 benchmark 按 ICLR 风格评测，因此默认配置为：
+
+```yaml
+review:
+  rubric_profile: ICLR
+```
+
+运行时会把 `prompts/rubrics/iclr.md` 注入到 Contribution、Soundness、
+Presentation、Answer Agent 和 Final Review 的 prompt 中。这个文件包含当前
+会议的维度定义、1-4 维度分数说明、final score 说明和 confidence 说明。
+
+如果之后要适配其他会议，新增一个文件，例如：
+
+```text
+prompts/rubrics/neurips.md
+```
+
+然后把配置改成：
+
+```yaml
+review:
+  rubric_profile: NeurIPS
+```
+
+框架本身仍然使用通用的 Contribution / Soundness / Presentation agent；
+具体会议要求通过 rubric profile 注入。
 
 ### 模型默认配置和 Agent 配置
 
@@ -258,6 +378,29 @@ models:
 DEEPSEEK_BASE_URL=https://your-deepseek-compatible-host/v1
 DEEPSEEK_API_KEY=your_deepseek_key
 ```
+
+### Presentation 的 PDF/VLM 设置
+
+Presentation 现在默认不再把前几页 PDF 图片一次性喂给模型，而是允许
+Answer Agent 在 Q&A 过程中主动调用 `inspect_visual`，指定一个目标
+（例如 `Figure 2`、`Table 1` 或 `page 4`）。工具内部会决定给 VLM 哪张图：
+图片内容优先使用 `figures/` 中提取好的 figure asset；表格格式、页面排版、
+caption 拥挤等问题使用单页 PDF 渲染图。每次最多给 VLM 一张 PDF page。
+
+相关配置：
+
+```yaml
+agents:
+  presentation:
+    use_vlm: true        # 允许使用 inspect_visual 视觉工具
+    require_pdf: true    # 没有 PDF 证据时是否直接失败
+
+paper:
+  page_image_dpi: 220        # 渲染给 VLM 的页面图片 DPI
+```
+
+Presentation 不会在开头批量预加载 PDF 页面。视觉证据统一由 Answer Agent
+在 Q&A 中按需调用 `inspect_visual` 获取。
 
 ### 配置多个内部模型
 

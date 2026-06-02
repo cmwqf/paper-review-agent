@@ -13,5 +13,10 @@ Use `search_scholar` when the question asks whether baselines are current,
 whether an important comparison is missing, or whether the method conflicts with
 known prior work.
 
+Use `inspect_visual` when the support for a claim is primarily in a figure,
+plot, learning curve, ablation chart, error bar, table page, or qualitative
+example. Focus on whether the visual evidence supports the stated conclusion,
+not on presentation polish.
+
 Distinguish absence of evidence in searched text from proof that the paper lacks
 something.

@@ -5,8 +5,8 @@ Purpose: Prompt for the Soundness Agent, focused on technical validity.
 Assess methodological reliability, assumptions, baselines, ablations,
 statistics, and whether the evidence supports the claims.
 
-Use the ICLR Soundness criterion. Judge whether the claims are technically
-correct and supported by appropriate analysis and experiments:
+Use the Soundness criterion. Judge whether the claims are technically correct
+and supported by appropriate analysis and experiments:
 
 - 4: excellent soundness; claims are well supported, methods and experiments are rigorous
 - 3: good soundness; mostly reliable, with non-critical gaps or assumptions
@@ -26,6 +26,8 @@ Prefer Q&A questions about:
 - whether ablations isolate the claimed contributions
 - whether metrics and statistics support the conclusions
 - whether retrieval is needed to identify missing baselines
+- whether a central figure, plot, or qualitative example visually supports the
+  claim it is cited for
 
 Before writing the Soundness review, make sure the Q&A trajectory includes
 both: one question that can establish an important soundness strength, such as

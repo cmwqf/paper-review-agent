@@ -7,7 +7,8 @@ external retrieval evidence, or both before writing the final QAResult.
 Planned loop:
 
 1. Observe question, dimension, paper map, and compact prior context.
-2. Choose a tool_call: search_file, read_file, search_scholar, or write qa_result.
+2. Choose a tool_call: search_file, read_file, inspect_visual, search_scholar,
+   or write qa_result.
 3. Use tools to gather evidence.
 4. Write `<qa_result>` with answer, evidence summary, trace refs, and review impact.
 
@@ -26,10 +27,10 @@ from reviewer.schemas.qa import QAResult, parse_qa_result_xml
 from reviewer.schemas.summary import SummarySchema, render_summary_for_agent
 from reviewer.tools.paper_read_tool import PaperReadTool
 from reviewer.tools.paper_search_tool import PaperSearchTool
-from reviewer.tools.pdf_read_tool import PaperPDFReadTool
 from reviewer.tools.retrieval_tool import RetrievalTool
+from reviewer.tools.visual_inspection_tool import VisualInspectionTool
 from reviewer.tools.xml_validator import extract_xml_document, validate_xml_root
-from reviewer.utils.prompts import load_prompt
+from reviewer.utils.prompts import load_prompt, load_rubric_prompt
 
 
 class AnswerAgent(BaseAgent):
@@ -176,6 +177,7 @@ class AnswerAgent(BaseAgent):
 def _answer_system_prompt(config: dict, dimension: str) -> str:
     """Build the Answer Agent system prompt with the action XML contract."""
     prompt = load_prompt("prompts/answer_agent.md", config=config)
+    rubric_prompt = load_rubric_prompt(config)
     dimension_prompt = _load_dimension_answer_prompt(config, dimension)
     qa_contract = load_prompt("prompts/qa_answer_xml.md", config=config)
     action_contract = """
@@ -184,12 +186,12 @@ with more than one `<tool_call>` is invalid. A response that contains both
 `<tool_call>` and `<qa_result>` is invalid.
 
 <tool_call>
-  <tool_name>search_file | read_file | read_pdf | search_scholar</tool_name>
+  <tool_name>search_file | read_file | inspect_visual | search_scholar</tool_name>
   <keyword>keyword or short phrase for search_file</keyword>
   <start_line>1-based start line for read_file</start_line>
   <num_lines>number of lines for read_file, max 50</num_lines>
-  <start_page>1-based start page for read_pdf</start_page>
-  <num_pages>number of pages for read_pdf</num_pages>
+  <target>one visual target for inspect_visual, such as Figure 2, Table 1, or page 4</target>
+  <focus>optional focus for inspect_visual, such as axes/legend readability or page layout</focus>
   <query>concise scholarly query for search_scholar</query>
   <rationale>why this action is needed</rationale>
 </tool_call>
@@ -207,8 +209,10 @@ Tool-use policy:
   best with a concise scholarly search query: a research topic, method family,
   or key claim. Avoid copying the full review question when a shorter topic
   phrase would capture the main prior-work comparison.
-- Use `read_pdf` for page-level layout, figures, tables, equations, or visual
-  presentation evidence.
+- Use `inspect_visual` for visual evidence about one specific figure, table, or
+  PDF page. The tool routes Figure/Picture targets to extracted figure assets
+  when available, and routes Table/page-layout targets to exactly one rendered
+  PDF page. For table contents, use `search_file` and `read_file` instead.
 
 When you have enough evidence, return `<qa_result>` directly.
 
@@ -217,7 +221,7 @@ Return exactly one XML document and nothing else. Never return multiple
 the same response. If several tools seem useful, choose only the single
 highest-value next tool.
 """
-    return f"{prompt}\n\n{dimension_prompt}\n\n{action_contract}\n\n{qa_contract}"
+    return f"{rubric_prompt}\n\n{prompt}\n\n{dimension_prompt}\n\n{action_contract}\n\n{qa_contract}"
 
 
 def _load_dimension_answer_prompt(config: dict, dimension: str) -> str:
@@ -255,6 +259,7 @@ def _build_action_context(
     if not retrieved:
         retrieved = "No retrieved papers yet."
     prior_qa = _format_prior_qa_results(prior_qa_results or [])
+    visual_assets = _format_visual_assets(paper)
     metadata = paper.get("metadata", {})
     feedback = f"\n\nPrevious output format error:\n{format_feedback}\n" if format_feedback else ""
     return (
@@ -263,6 +268,7 @@ def _build_action_context(
         f"Paper metadata:\n{metadata}\n\n"
         f"Prior Q&A in this dimension for impact calibration:\n{prior_qa}\n\n"
         f"Paper summary / map:\n{paper_map}\n\n"
+        f"Available visual assets for inspect_visual:\n{visual_assets}\n\n"
         f"Tool observations:\n{observed}\n\n"
         f"Retrieved papers:\n{retrieved}\n"
         f"{feedback}"
@@ -282,6 +288,24 @@ def _format_prior_qa_results(qa_results: list[QAResult]) -> str:
             f"Prior impact: {impact.polarity}, {impact.impact_level}, confidence={impact.confidence}"
         )
     return "\n\n".join(lines)
+
+
+def _format_visual_assets(paper: dict) -> str:
+    """Render a compact list of available extracted figure assets."""
+    assets = paper.get("figures") or []
+    if not isinstance(assets, list) or not assets:
+        return "No extracted figure assets are listed. inspect_visual can still inspect Table N or page N via PDF page rendering."
+    lines = []
+    for asset in assets[:40]:
+        label = str(asset.get("label") or "").strip()
+        page = asset.get("pdf_page")
+        if not label:
+            continue
+        page_text = f", PDF page {page}" if page else ""
+        lines.append(f"- {label}{page_text}")
+    if len(assets) > 40:
+        lines.append(f"- ... {len(assets) - 40} more figure assets omitted")
+    return "\n".join(lines) if lines else "No extracted figure assets are listed."
 
 
 def _output_contract_violation(raw_output: str) -> str:
@@ -313,8 +337,8 @@ def _parse_action(raw_output: str) -> dict[str, str]:
         "keyword": _child_text(root, "keyword"),
         "start_line": _child_text(root, "start_line"),
         "num_lines": _child_text(root, "num_lines"),
-        "start_page": _child_text(root, "start_page"),
-        "num_pages": _child_text(root, "num_pages"),
+        "target": _child_text(root, "target"),
+        "focus": _child_text(root, "focus"),
         "query": _child_text(root, "query"),
         "rationale": _child_text(root, "rationale"),
     }
@@ -338,15 +362,11 @@ def _run_action(
             num_lines = int(action.get("num_lines") or "30")
             observation = PaperReadTool(config).read(paper, start_line=start_line, num_lines=num_lines)
             return f"read_file(start_line={start_line}, num_lines={num_lines})\n{observation}", []
-        if action_name == "read_pdf":
-            start_page = int(action.get("start_page") or "1")
-            num_pages = int(action.get("num_pages") or "1")
-            observation = PaperPDFReadTool(config).read(
-                paper,
-                start_page=start_page,
-                num_pages=num_pages,
-            )
-            return f"read_pdf(start_page={start_page}, num_pages={num_pages})\n{observation}", []
+        if action_name == "inspect_visual":
+            target = action.get("target") or question
+            focus = action.get("focus") or ""
+            observation = VisualInspectionTool(config).inspect(paper, target=target, focus=focus)
+            return f"inspect_visual(target={target!r}, focus={focus!r})\n{observation}", []
         if action_name == "search_scholar":
             query = action.get("query") or question
             papers = RetrievalTool(config).search(query, paper.get("metadata", {}))

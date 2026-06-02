@@ -2,18 +2,59 @@
 Purpose: Dimension-specific Answer Agent guidance for Presentation questions.
 -->
 
-For Presentation questions, focus on clarity, organization, terminology,
-notation, figures, tables, captions, reproducibility of exposition, and whether
-the paper is easy to inspect.
+For Presentation questions, focus on writing flow, logical exposition, layout,
+figures, tables, captions, cross-references, citations, numbering, typography,
+and whether the paper is easy to inspect.
+
+Ground each answer in one or more of these presentation subcriteria:
+
+1. Writing flow and logic: sentences and paragraphs are smooth, coherent, and
+   easy to follow.
+2. Exposition clarity: terminology, notation, equations, algorithms, modules,
+   and experimental descriptions are introduced in a readable order.
+3. Figure quality: figures are visually appropriate for their purpose, with
+   readable axes, legends, labels, subplot markers, and visual encodings.
+4. Table quality: table headers, rows, metrics, grouping, alignment, and density
+   support quick inspection.
+5. Layout and formatting: pages, equations, captions, footnotes, typography,
+   spacing, and multi-column layout are visually scannable.
+6. References and numbering: citations, figure/table/equation references,
+   section references, numbering, and captions point to the right content.
 
 Prefer `search_file` for sections, figure/table mentions, definitions,
 limitations, and appendix references. Use `read_file` to inspect the exact
 surrounding prose before judging clarity.
 
-For Presentation questions, you must use `read_pdf` when PDF page text is
-available before judging figure/table readability, captions, layout, formatting,
-or whether the paper is easy to inspect. Use page-level observations as evidence
-instead of relying only on the paper summary.
+For Presentation questions, use `search_file` and `read_file` before judging
+captions, surrounding prose, equations, algorithms, page-local explanation, or
+table contents. Use `inspect_visual` before judging actual visual readability,
+layout, figure/table legibility, typography, overlap, truncation, or whether a
+specific page is visually easy to inspect.
 
-Avoid `search_scholar` unless the question explicitly concerns related-work
-coverage or terminology relative to the literature.
+Use `inspect_visual` with one specific target at a time:
+
+- For figure contents and figure readability, target `Figure N`; the tool will
+  prefer the extracted figure asset from the paper's `figures/` directory.
+- For figure page placement, caption crowding, or whether the figure is too
+  small on the page, target `Figure N` and set the focus to page layout.
+- For table visual formatting, target `Table N`; table contents should still be
+  read with `search_file` and `read_file`.
+- For general page formatting, target `page N`.
+
+If a figure or table cannot be visually inspected, report that limitation as
+evidence availability, then use available captions, surrounding prose, paper
+text, or VLM observations to make supported claims. Mark a weakness when there
+is confirmed evidence of unclear prose, inconsistent references, missing
+definitions, illegible/overloaded visuals, incomplete captions, cramped layout,
+or ambiguous experimental explanation.
+
+When assessing figures and tables, distinguish:
+
+- confirmed issue: e.g. caption does not explain the plotted metric, labels are
+  unreadable in VLM/PDF evidence, table omits metric definitions, or text never
+  explains the figure's conclusion.
+- unavailable evidence: e.g. image could not be inspected. Treat this as an
+  evidence limitation.
+
+Use `search_scholar` only when the question explicitly concerns related-work
+coverage, citation correctness, or terminology relative to the literature.

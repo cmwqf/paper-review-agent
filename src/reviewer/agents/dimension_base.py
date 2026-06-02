@@ -11,7 +11,7 @@ from reviewer.models.factory import build_llm
 from reviewer.schemas.qa import QAResult
 from reviewer.schemas.summary import parse_summary_xml, render_summary_for_agent
 from reviewer.tools.xml_validator import extract_xml_document, validate_xml_root
-from reviewer.utils.prompts import load_prompt
+from reviewer.utils.prompts import load_prompt, load_rubric_prompt
 from reviewer.utils.xml_retry import generate_valid_xml
 
 
@@ -147,6 +147,7 @@ def _dimension_system_prompt(config: dict, agent_name: str) -> str:
     """Build the dimension agent system prompt with the action/review XML contracts."""
     prompt_path = f"prompts/{agent_name}_agent.md"
     prompt = load_prompt(prompt_path, config=config)
+    rubric_prompt = load_rubric_prompt(config)
     review_contract = load_prompt("prompts/dimension_review_xml.md", config=config)
     agent_config = config.get("agents", {}).get(agent_name, {})
     min_turns = int(agent_config.get("min_qa_turns", 0))
@@ -177,7 +178,7 @@ coverage. After the minimum and polarity coverage are reached, prefer writing
 the review once the remaining uncertainty is unlikely to change the dimension
 score.
 """
-    return f"{prompt}\n\n{action_contract}\n\n{review_contract}"
+    return f"{rubric_prompt}\n\n{prompt}\n\n{action_contract}\n\n{review_contract}"
 
 
 def _dimension_context(
@@ -282,6 +283,7 @@ def _write_dimension_review(
 ) -> str:
     """Ask the dimension model to write the final dimension review XML."""
     review_contract = load_prompt("prompts/dimension_review_xml.md", config=config)
+    rubric_prompt = load_rubric_prompt(config)
     qa_text = "\n\n".join(_render_qa_result(result, index) for index, result in enumerate(qa_results, 1))
     max_attempts = int(config.get("xml", {}).get("max_generation_attempts", 5))
     return generate_valid_xml(
@@ -293,8 +295,9 @@ def _write_dimension_review(
                 "role": "system",
                 "content": (
                     f"Write the final {dimension} dimension review now. "
-                    "Use only the paper map and Q&A trajectory.\n\n"
-                    f"{review_contract}"
+                        "Use only the paper map and Q&A trajectory.\n\n"
+                        f"{rubric_prompt}\n\n"
+                        f"{review_contract}"
                 ),
             },
             {

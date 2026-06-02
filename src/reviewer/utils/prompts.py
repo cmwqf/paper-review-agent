@@ -44,3 +44,18 @@ def load_prompts(paths: list[str | Path], *, config: dict | None = None) -> list
 def join_prompts(paths: list[str | Path], *, config: dict | None = None) -> str:
     """Load and join multiple prompt files with blank lines."""
     return "\n\n".join(load_prompts(paths, config=config))
+
+
+def load_rubric_prompt(config: dict | None = None) -> str:
+    """Load the active review rubric profile prompt."""
+    profile = str((config or {}).get("review", {}).get("rubric_profile") or "ICLR").strip()
+    if not profile:
+        profile = "generic"
+    prompt_path = get_repo_root(config) / "prompts" / "rubrics" / f"{profile.lower()}.md"
+    if not prompt_path.exists():
+        return (
+            f"Active review rubric profile: {profile}\n\n"
+            "Use the generic Contribution, Soundness, Presentation, final-score, "
+            "and confidence guidance in the agent prompts."
+        )
+    return prompt_path.read_text(encoding="utf-8")

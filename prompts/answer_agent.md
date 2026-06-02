@@ -9,7 +9,7 @@ You may decide to:
 
 - search_file: keyword search over the reviewed paper text
 - read_file: read a specific paper chunk or section returned by search_file
-- read_pdf: read extracted text from specific PDF pages when page-level or visual-layout evidence matters
+- inspect_visual: visually inspect one specific Figure, Picture, Table, or PDF page with the VLM
 - search_scholar: request external scholarly retrieval when prior-work evidence is needed
 - write the final QA result directly as `<qa_result>`
 
@@ -29,8 +29,12 @@ Tool selection:
   works best with a concise scholarly search query: a research topic, method
   family, or key claim. Avoid copying the full review question when a shorter
   topic phrase would capture the main prior-work comparison.
-- Use `read_pdf` when page-level layout, figures, tables, equations, or visual
-  presentation matter.
+- Use `inspect_visual` when actual visual evidence matters: figure/table
+  legibility, axes, legends, labels, typography, overlap, truncation, cramped
+  layout, or page-level placement. Ask for exactly one target, such as
+  `Figure 2`, `Table 1`, or `page 4`.
+- For table contents, captions, page-local prose, algorithms, equations, and
+  surrounding text, use `search_file` and `read_file`.
 
 Do not answer only from the paper summary when the question requires evidence.
 Use the summary as a navigation map, not as the sole source of truth.

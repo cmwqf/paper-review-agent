@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +28,7 @@ def load_bench_paper(row: dict[str, Any], bench_root: str | Path) -> dict[str, A
     metadata_path = paper_dir / "metadata.json"
     markdown_path = paper_dir / "paper.md"
     pdf_path = paper_dir / "paper.pdf"
+    figures_dir = paper_dir / "figures"
     review_path = paper_dir / "review.json"
     if not metadata_path.exists():
         raise FileNotFoundError(f"Missing metadata.json for {paper_id}: {metadata_path}")
@@ -49,6 +51,7 @@ def load_bench_paper(row: dict[str, Any], bench_root: str | Path) -> dict[str, A
             "markdown_path": str(markdown_path),
             "metadata_path": str(metadata_path),
             "review_path": str(review_path) if review_path.exists() else None,
+            "figures_dir": str(figures_dir) if figures_dir.exists() else None,
             "submission_date": metadata.get("date") or row.get("date"),
             "date": metadata.get("date") or row.get("date"),
             "venue": metadata.get("venue") or row.get("venue"),
@@ -58,6 +61,7 @@ def load_bench_paper(row: dict[str, Any], bench_root: str | Path) -> dict[str, A
             "split_source_file": row.get("source_file"),
             "split_source_index": row.get("source_index"),
         },
+        "figures": _load_figure_assets(figures_dir),
         "raw": {},
     }
     paper["raw"] = {
@@ -65,3 +69,38 @@ def load_bench_paper(row: dict[str, Any], bench_root: str | Path) -> dict[str, A
         "metadata": metadata,
     }
     return paper
+
+
+def _load_figure_assets(figures_dir: Path) -> list[dict[str, Any]]:
+    """Load extracted DeepReview-Bench figure assets."""
+    if not figures_dir.exists():
+        return []
+    assets: list[dict[str, Any]] = []
+    for image_path in sorted(figures_dir.glob("*.jpeg")):
+        parsed = _parse_figure_asset_name(image_path)
+        if parsed:
+            assets.append(parsed)
+    return assets
+
+
+def _parse_figure_asset_name(image_path: Path) -> dict[str, Any] | None:
+    """Parse filenames like _page_4_Figure_2.jpeg into a figure asset record."""
+    match = re.match(
+        r"^_page_(?P<page_index>\d+)_(?P<kind>Figure|Picture)_(?P<number>[A-Za-z0-9.]+)\.jpeg$",
+        image_path.name,
+    )
+    if not match:
+        return None
+    page_index = int(match.group("page_index"))
+    kind = match.group("kind")
+    number = match.group("number")
+    label = f"{kind} {number}"
+    return {
+        "label": label,
+        "kind": kind,
+        "number": number,
+        "path": str(image_path),
+        "filename": image_path.name,
+        "page_index": page_index,
+        "pdf_page": page_index + 1,
+    }

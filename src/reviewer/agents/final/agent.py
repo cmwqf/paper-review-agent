@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from reviewer.agents.base import BaseAgent
 from reviewer.models.factory import build_llm
-from reviewer.utils.prompts import load_prompt
+from reviewer.utils.prompts import load_prompt, load_rubric_prompt
 from reviewer.utils.xml_retry import generate_valid_xml
 
 
@@ -18,6 +18,7 @@ class FinalReviewAgent(BaseAgent):
         model_key = self.config.get("agents", {}).get("final", {}).get("model", "final_review")
         client = build_llm(self.config, model_key)
         prompt = load_prompt("prompts/final_review_xml.md", config=self.config)
+        rubric_prompt = load_rubric_prompt(self.config)
         self.trace_events = []
         max_attempts = int(self.config.get("xml", {}).get("max_generation_attempts", 5))
         return generate_valid_xml(
@@ -32,6 +33,7 @@ class FinalReviewAgent(BaseAgent):
                     "content": (
                         "You are the Final Review Agent. Synthesize the dimension "
                         "reviews into one final score and an Accept or Reject recommendation.\n\n"
+                        f"{rubric_prompt}\n\n"
                         f"{prompt}"
                     ),
                 },

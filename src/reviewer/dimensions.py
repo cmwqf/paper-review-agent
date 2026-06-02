@@ -6,7 +6,7 @@ from enum import Enum
 
 
 class ReviewDimension(str, Enum):
-    """ICLR-aligned dimensions used by this workflow."""
+    """Review dimensions used by this workflow."""
 
     CONTRIBUTION = "Contribution"
     SOUNDNESS = "Soundness"

@@ -17,5 +17,11 @@ For `search_file`, prefer paper-local terms such as section names, method names,
 metric names, dataset names, or exact phrases from the paper map. Longer
 prior-work queries usually belong in `search_scholar`.
 
-Do not infer novelty from the title alone. If retrieval is unavailable or empty,
-say so explicitly in the evidence and lower confidence.
+Use `inspect_visual` when a contribution claim depends on a visual object, such
+as a method diagram, system overview, benchmark plot, or qualitative example.
+Focus on what the visual communicates about the contribution, not on visual
+polish.
+
+Base novelty and impact claims on paper evidence and retrieved prior work. If
+retrieval is unavailable or empty, say so explicitly in the evidence and lower
+confidence.
