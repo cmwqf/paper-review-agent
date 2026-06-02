@@ -23,7 +23,39 @@ from reviewer.workflow.review_workflow import ReviewWorkflow
 def build_parser() -> argparse.ArgumentParser:
     """Build the CLI parser without executing workflow code."""
     parser = argparse.ArgumentParser(prog="reviewer")
-    parser.add_argument("--config", default="config.yaml", help="Path to config.yaml.")
+    parser.add_argument(
+        "--config",
+        default="config.yaml",
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--agent",
+        default=None,
+        help="Optional models.profiles key to apply for this run.",
+    )
+    parser.add_argument(
+        "--profile",
+        default=None,
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--split",
+        default="dev",
+        help="Configured benchmark split name, such as dev, lite, test, or all.",
+    )
+    parser.add_argument("--start", type=int, default=0, help="Start row index in the split.")
+    parser.add_argument("--limit", type=int, default=None, help="Maximum number of rows to process.")
+    parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=None,
+        help="Override bench.concurrency for concurrent paper runs.",
+    )
+    parser.add_argument(
+        "--fresh",
+        action="store_true",
+        help="Ignore existing results.jsonl and process rows from scratch.",
+    )
 
     subparsers = parser.add_subparsers(dest="command")
     summarize = subparsers.add_parser("summarize", help="Generate summary XML and paper-map markdown.")
@@ -38,24 +70,6 @@ def build_parser() -> argparse.ArgumentParser:
     batch = subparsers.add_parser("batch", help="Run review workflow for a JSONL batch.")
     batch.add_argument("--input", required=True, help="Path to input JSONL.")
 
-    run_dev = subparsers.add_parser(
-        "run-bench-dev",
-        help="Run the configured DeepReview-Bench dev split.",
-    )
-    run_dev.add_argument("--start", type=int, default=0, help="Start row index in the dev split.")
-    run_dev.add_argument("--limit", type=int, default=None, help="Maximum number of rows to process.")
-    run_dev.add_argument(
-        "--concurrency",
-        type=int,
-        default=None,
-        help="Override bench.concurrency for concurrent paper runs.",
-    )
-    run_dev.add_argument(
-        "--fresh",
-        action="store_true",
-        help="Ignore existing results.jsonl and process rows from scratch.",
-    )
-
     return parser
 
 
@@ -64,7 +78,7 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
     if args.command == "summarize":
-        config = load_config(args.config)
+        config = _load_cli_config(args)
         configure_logging(config)
         paper = load_paper(args.input, index=args.index)
         summary_xml = SummaryAgent(config).run(paper)
@@ -84,7 +98,7 @@ def main() -> None:
         return
 
     if args.command == "run":
-        config = load_config(args.config)
+        config = _load_cli_config(args)
         configure_logging(config)
         paper = load_paper(args.paper)
         state = ReviewWorkflow(config).run(paper)
@@ -93,23 +107,10 @@ def main() -> None:
         print(output_dir)
         return
 
-    if args.command == "run-bench-dev":
-        config = load_config(args.config)
+    if args.command is None:
+        config = _load_cli_config(args)
         configure_logging(config)
-        bench_config = config.get("bench", {})
-        split_path = bench_config.get("dev_split")
-        bench_root = bench_config.get("root")
-        output_dir = bench_config.get("dev_output_dir")
-        if not split_path:
-            raise ValueError("bench.dev_split must be set in config.yaml.")
-        if not bench_root:
-            raise ValueError("bench.root must be set in config.yaml.")
-        if not output_dir:
-            output_dir = (
-                Path(config.get("project", {}).get("output_dir", "outputs"))
-                / "deepreview_bench"
-                / "dev"
-            )
+        split_path, bench_root, output_dir = _resolve_bench_paths(config, args.split)
         run_bench_dev(
             config=config,
             split_path=split_path,
@@ -124,6 +125,41 @@ def main() -> None:
         return
 
     raise NotImplementedError(f"Command is scaffolded but not implemented yet: {args}")
+
+
+def _load_cli_config(args: argparse.Namespace) -> dict:
+    """Load config.yaml and apply command-line model profile overrides."""
+    config = load_config(args.config)
+    selected_agent = getattr(args, "agent", None) or getattr(args, "profile", None)
+    if selected_agent:
+        config["model_profile"] = selected_agent
+        config["_selected_agent"] = selected_agent
+    return config
+
+
+def _resolve_bench_paths(config: dict, split_name: str) -> tuple[str | Path, str | Path, Path]:
+    """Resolve a named benchmark split and its output directory."""
+    bench_config = config.get("bench", {}) if isinstance(config.get("bench"), dict) else {}
+    bench_root = bench_config.get("root")
+    if not bench_root:
+        raise ValueError("bench.root must be set in config.yaml.")
+
+    splits = bench_config.get("splits", {}) if isinstance(bench_config.get("splits"), dict) else {}
+    split_path = splits.get(split_name) or bench_config.get(f"{split_name}_split")
+    if not split_path:
+        raise ValueError(f"bench.splits.{split_name} must be set in config.yaml.")
+
+    output_dirs = (
+        bench_config.get("output_dirs", {}) if isinstance(bench_config.get("output_dirs"), dict) else {}
+    )
+    output_dir = output_dirs.get(split_name)
+    if not output_dir:
+        output_base = Path(bench_config.get("output_dir", "outputs/deepreview_bench"))
+        selected_agent = config.get("_selected_agent")
+        suffix = f"{split_name}_{selected_agent}" if selected_agent else split_name
+        output_dir = output_base / suffix
+
+    return split_path, bench_root, Path(output_dir)
 
 
 def run_bench_dev(
@@ -162,7 +198,7 @@ def run_bench_dev(
         pending,
         total=len(selected),
         initial=counts["skipped"],
-        desc="run-bench-dev",
+        desc="benchmark",
         unit="paper",
     )
     progress.set_postfix(

@@ -6,8 +6,12 @@ project:
 
 bench:
   root: ../DeepReview-Bench
-  dev_split: ../DeepReview-Bench/splits/deepreview13k_test_dev.jsonl
-  dev_output_dir: outputs/deepreview_bench/dev
+  output_dir: outputs/deepreview_bench
+  splits:
+    dev: ../DeepReview-Bench/splits/deepreview13k_test_dev.jsonl
+    lite: ../DeepReview-Bench/splits/deepreview13k_test_lite.jsonl
+    test: ../DeepReview-Bench/splits/deepreview13k_test.jsonl
+    all: ../DeepReview-Bench/splits/all.jsonl
   concurrency: 8
 
 network:
@@ -19,7 +23,7 @@ network:
     - 0.0.0.0
 
 models:
-  summary:
+  default:
     model: openai/gpt-5.5
     base_url: ${OPENAI_BASE_URL}
     api_key_env: OPENAI_API_KEY
@@ -28,51 +32,28 @@ models:
     top_p: 1.0
     timeout_seconds: 60
     max_retries: 3
+
+  profiles:
+    deepseek_v4_pro:
+      final_review:
+        model: deepseek-v4-pro
+
+  summary:
+    temperature: 0.2
 
   agent:
-    model: openai/gpt-5.5
-    base_url: ${OPENAI_BASE_URL}
-    api_key_env: OPENAI_API_KEY
     temperature: 0.3
-    max_tokens: 32768
-    top_p: 1.0
-    timeout_seconds: 60
-    max_retries: 3
 
   answer:
-    model: openai/gpt-5.5
-    base_url: ${OPENAI_BASE_URL}
-    api_key_env: OPENAI_API_KEY
     temperature: 0.2
-    max_tokens: 32768
-    top_p: 1.0
-    timeout_seconds: 60
-    max_retries: 3
 
   final_review:
-    model: openai/gpt-5.5
-    base_url: ${OPENAI_BASE_URL}
-    api_key_env: OPENAI_API_KEY
     temperature: 0.2
-    max_tokens: 32768
-    top_p: 1.0
-    timeout_seconds: 60
-    max_retries: 3
 
   vlm:
-    model: openai/gpt-5.5
-    base_url: ${OPENAI_BASE_URL}
-    api_key_env: OPENAI_API_KEY
     temperature: 0.1
-    max_tokens: 32768
-    top_p: 1.0
-    timeout_seconds: 60
-    max_retries: 3
 
   reranker:
-    model: openai/gpt-5.5
-    base_url: ${OPENAI_BASE_URL}
-    api_key_env: OPENAI_API_KEY
     temperature: 0
     max_tokens: 1024
     timeout_seconds: 30

@@ -63,15 +63,47 @@ def load_config(path: str | Path, *, expand_env: bool = True) -> dict[str, Any]:
     return data
 
 
+def _merge_model_config(*configs: Any) -> dict[str, Any]:
+    """Merge model config fragments, ignoring missing fragments."""
+    merged: dict[str, Any] = {}
+    for fragment in configs:
+        if isinstance(fragment, dict):
+            merged.update(fragment)
+    return merged
+
+
 def get_model_config(config: dict[str, Any], model_key: str) -> dict[str, Any]:
-    """Return one model config and fail loudly if it is missing."""
+    """Return one model config with default and active-profile inheritance."""
     models = config.get("models")
     if not isinstance(models, dict):
         raise ConfigError("config.yaml must contain a 'models' mapping.")
-    model_config = models.get(model_key)
+
+    base_config = models.get("default", {})
+    model_config = models.get(model_key, {})
     if not isinstance(model_config, dict):
         raise ConfigError(f"Model config not found: models.{model_key}")
-    return model_config
+
+    active_profile = config.get("model_profile") or models.get("active_profile")
+    profile_default: dict[str, Any] = {}
+    profile_model: dict[str, Any] = {}
+    if active_profile:
+        profiles = models.get("profiles", {})
+        if not isinstance(profiles, dict):
+            raise ConfigError("models.profiles must be a mapping when active_profile is set.")
+        profile = profiles.get(str(active_profile))
+        if not isinstance(profile, dict):
+            raise ConfigError(f"Active model profile not found: models.profiles.{active_profile}")
+        profile_default = profile.get("default", {})
+        profile_model = profile.get(model_key, {})
+        if profile_default and not isinstance(profile_default, dict):
+            raise ConfigError(f"models.profiles.{active_profile}.default must be a mapping.")
+        if profile_model and not isinstance(profile_model, dict):
+            raise ConfigError(f"models.profiles.{active_profile}.{model_key} must be a mapping.")
+
+    merged = _merge_model_config(base_config, model_config, profile_default, profile_model)
+    if not merged:
+        raise ConfigError(f"Model config not found: models.{model_key}")
+    return merged
 
 
 def resolve_api_key(model_config: dict[str, Any]) -> str | None:

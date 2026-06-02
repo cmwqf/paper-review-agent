@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from reviewer.cli import build_parser
+from reviewer.cli import _load_cli_config, _resolve_bench_paths, build_parser
 from reviewer.cli import run_bench_dev
 from reviewer.schemas.qa import QAResult, ReviewImpact
 from reviewer.utils.jsonl import read_jsonl
@@ -159,9 +159,12 @@ def test_run_bench_dev_supports_configured_concurrency(tmp_path, monkeypatch):
 
 def test_run_bench_dev_cli_uses_configured_paths_and_resumes_by_default():
     parser = build_parser()
-    args = parser.parse_args(["run-bench-dev", "--limit", "1"])
+    args = parser.parse_args(["--split", "dev", "--limit", "1"])
 
-    assert args.command == "run-bench-dev"
+    assert args.command is None
+    assert args.split == "dev"
+    assert args.agent is None
+    assert args.profile is None
     assert args.limit == 1
     assert args.concurrency is None
     assert args.fresh is False
@@ -171,15 +174,66 @@ def test_run_bench_dev_cli_uses_configured_paths_and_resumes_by_default():
 
 def test_run_bench_dev_cli_supports_fresh_start():
     parser = build_parser()
-    args = parser.parse_args(["run-bench-dev", "--fresh"])
+    args = parser.parse_args(["--fresh"])
 
-    assert args.command == "run-bench-dev"
+    assert args.command is None
     assert args.fresh is True
 
 
 def test_run_bench_dev_cli_supports_concurrency_override():
     parser = build_parser()
-    args = parser.parse_args(["run-bench-dev", "--concurrency", "4"])
+    args = parser.parse_args(["--concurrency", "4"])
 
-    assert args.command == "run-bench-dev"
+    assert args.command is None
     assert args.concurrency == 4
+
+
+def test_cli_supports_agent_override() -> None:
+    parser = build_parser()
+    args = parser.parse_args(["--agent", "deepseek_v4_pro"])
+
+    assert args.command is None
+    assert args.agent == "deepseek_v4_pro"
+
+
+def test_load_cli_config_applies_profile_override(tmp_path) -> None:
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        """
+models:
+  default:
+    model: default-model
+    base_url: http://localhost:8000/v1
+  profiles:
+    deepseek_v4_pro:
+      final_review:
+        model: deepseek-v4-pro
+""",
+        encoding="utf-8",
+    )
+    parser = build_parser()
+    args = parser.parse_args(["--config", str(config_path), "--agent", "deepseek_v4_pro"])
+
+    config = _load_cli_config(args)
+
+    assert config["model_profile"] == "deepseek_v4_pro"
+    assert config["_selected_agent"] == "deepseek_v4_pro"
+
+
+def test_resolve_bench_paths_uses_named_split_and_agent_output_dir(tmp_path) -> None:
+    config = {
+        "_selected_agent": "deepseek_v4_pro",
+        "bench": {
+            "root": str(tmp_path / "bench"),
+            "output_dir": str(tmp_path / "outputs"),
+            "splits": {
+                "dev": str(tmp_path / "splits" / "dev.jsonl"),
+            },
+        },
+    }
+
+    split_path, bench_root, output_dir = _resolve_bench_paths(config, "dev")
+
+    assert split_path == str(tmp_path / "splits" / "dev.jsonl")
+    assert bench_root == str(tmp_path / "bench")
+    assert output_dir == tmp_path / "outputs" / "dev_deepseek_v4_pro"
