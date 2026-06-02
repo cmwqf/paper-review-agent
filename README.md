@@ -82,7 +82,8 @@ PYTHONPATH=src python -m reviewer.cli --split lite
 PYTHONPATH=src python -m reviewer.cli --split all
 ```
 
-指定某个模型实验 agent，例如只把综合模型切到 `deepseek-v4-pro`：
+指定某个模型实验 agent，例如把三个维度总结和最终总结切到
+`deepseek-v4-pro`：
 
 ```bash
 PYTHONPATH=src python -m reviewer.cli --agent deepseek_v4_pro --split dev
@@ -103,6 +104,35 @@ PYTHONPATH=src python -m reviewer.cli --split dev --fresh
 # 覆盖 config.yaml 中的 bench.concurrency。
 PYTHONPATH=src python -m reviewer.cli --split dev --concurrency 4
 ```
+
+只复用已有 Q&A，重跑每个维度最后总结和最终总结：
+
+```bash
+PYTHONPATH=src python -m reviewer.cli \
+  --agent deepseek_v4_pro \
+  --split dev \
+  --reuse-from outputs/deepreview_bench/dev \
+  --fresh
+```
+
+这个模式会从 `--reuse-from` 指定的旧输出目录中读取：
+
+```text
+<old_output>/<paper_id>/summary.xml
+<old_output>/<paper_id>/qa_trajectory.json
+```
+
+然后只重新生成：
+
+```text
+<new_output>/<paper_id>/contribution.xml
+<new_output>/<paper_id>/soundness.xml
+<new_output>/<paper_id>/presentation.xml
+<new_output>/<paper_id>/final_review.xml
+```
+
+它不会重新跑 summary agent，也不会重新跑每个维度的 Q&A 检索/回答过程。
+这适合快速比较不同 `--agent` 在“维度总结”和“最终综合总结”上的影响。
 
 输出目录规则：
 
@@ -168,8 +198,10 @@ models:
 
   profiles:
     deepseek_v4_pro:
+      agent:
+        model: deepseek/deepseek-v4-pro
       final_review:
-        model: deepseek-v4-pro
+        model: deepseek/deepseek-v4-pro
 ```
 
 当你运行：
@@ -178,9 +210,15 @@ models:
 PYTHONPATH=src python -m reviewer.cli --agent deepseek_v4_pro --split dev
 ```
 
-只有 `final_review` 会使用 `deepseek-v4-pro`。没有设置的字段，例如
-`base_url`、`api_key_env`、`max_tokens`、`timeout_seconds`，都会继承
-`models.default`。
+`agent` 和 `final_review` 会使用 `deepseek/deepseek-v4-pro`。其中：
+
+- `agent` 用于三个维度的最终总结：Contribution、Soundness、Presentation。
+- `final_review` 用于最终综合总结。
+- `answer` 没有在该 profile 中覆盖，因此仍然使用默认模型；在 `--reuse-from`
+  模式下不会重新跑 Q&A，所以不会调用 `answer`。
+
+没有设置的字段，例如 `base_url`、`api_key_env`、`max_tokens`、
+`timeout_seconds`，都会继承 `models.default`。
 
 `--agent` 选择的是 `models.profiles` 下面的一个 key，用来切换一次运行的
 模型实验配置。

@@ -3,21 +3,27 @@
 from __future__ import annotations
 
 import argparse
+import json
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from tqdm.auto import tqdm
 
+from reviewer.agents.dimension_base import _write_dimension_review
+from reviewer.agents.final.agent import FinalReviewAgent
 from reviewer.agents.summary.agent import SummaryAgent
+from reviewer.models.factory import build_llm
 from reviewer.logging import configure_logging
 from reviewer.paper.bench_loader import load_bench_paper, load_bench_split
 from reviewer.paper.loader import load_paper
+from reviewer.schemas.qa import QAResult
 from reviewer.schemas.summary import parse_summary_xml, render_summary_for_agent
 from reviewer.settings import load_config
 from reviewer.utils.jsonl import append_jsonl, read_jsonl_ids
 from reviewer.utils.io import write_json, write_text
 from reviewer.workflow.review_workflow import ReviewWorkflow
+from reviewer.workflow.state import ReviewWorkflowState
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -55,6 +61,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--fresh",
         action="store_true",
         help="Ignore existing results.jsonl and process rows from scratch.",
+    )
+    parser.add_argument(
+        "--reuse-from",
+        default=None,
+        help=(
+            "Existing benchmark output directory to reuse summary.xml and "
+            "qa_trajectory.json from; only rerun dimension summaries and final review."
+        ),
     )
 
     subparsers = parser.add_subparsers(dest="command")
@@ -120,6 +134,7 @@ def main() -> None:
             limit=args.limit,
             resume=not args.fresh,
             concurrency=args.concurrency,
+            reuse_from=args.reuse_from,
         )
         print(output_dir)
         return
@@ -172,6 +187,7 @@ def run_bench_dev(
     limit: int | None = None,
     resume: bool = False,
     concurrency: int | None = None,
+    reuse_from: str | Path | None = None,
 ) -> dict[str, int]:
     """Run ReviewWorkflow over a DeepReview-Bench split."""
     rows = load_bench_split(split_path)
@@ -209,7 +225,15 @@ def run_bench_dev(
     )
     with ThreadPoolExecutor(max_workers=concurrency) as executor:
         futures = {
-            executor.submit(_run_one_bench_paper, config, bench_root, output_path, offset, row): (
+            executor.submit(
+                _run_one_bench_paper,
+                config,
+                bench_root,
+                output_path,
+                offset,
+                row,
+                reuse_from,
+            ): (
                 offset,
                 row,
             )
@@ -241,12 +265,16 @@ def _run_one_bench_paper(
     output_path: Path,
     offset: int,
     row: dict,
+    reuse_from: str | Path | None = None,
 ) -> dict:
     """Run and persist artifacts for one DeepReview-Bench paper."""
     paper_id = str(row.get("id") or f"row-{offset}")
     try:
         paper = load_bench_paper(row, bench_root)
-        state = ReviewWorkflow(config).run(paper)
+        if reuse_from:
+            state = _run_summary_only_from_artifacts(config, paper, Path(reuse_from) / paper_id)
+        else:
+            state = ReviewWorkflow(config).run(paper)
         paper_output_dir = output_path / paper_id
         _write_review_artifacts(paper_output_dir, state)
         return {
@@ -275,6 +303,57 @@ def _run_one_bench_paper(
                 "traceback": traceback.format_exc(),
             },
         }
+
+
+def _run_summary_only_from_artifacts(config: dict, paper: dict, source_dir: Path) -> ReviewWorkflowState:
+    """Reuse existing paper summary and Q&A trajectory; rerun dimension/final summaries."""
+    summary_path = source_dir / "summary.xml"
+    qa_path = source_dir / "qa_trajectory.json"
+    if not summary_path.exists():
+        raise FileNotFoundError(f"Missing reused summary XML: {summary_path}")
+    if not qa_path.exists():
+        raise FileNotFoundError(f"Missing reused Q&A trajectory: {qa_path}")
+
+    state = ReviewWorkflowState(paper=paper)
+    state.summary_xml = summary_path.read_text(encoding="utf-8")
+    summary = parse_summary_xml(state.summary_xml)
+    paper_map = render_summary_for_agent(summary)
+    qa_payload = json.loads(qa_path.read_text(encoding="utf-8"))
+
+    dimensions = [
+        ("Contribution", "contribution"),
+        ("Soundness", "soundness"),
+        ("Presentation", "presentation"),
+    ]
+    for dimension, agent_name in dimensions:
+        qa_results = _load_qa_results(qa_payload.get(dimension, []))
+        model_key = config.get("agents", {}).get(agent_name, {}).get("model", "agent")
+        client = build_llm(config, model_key)
+        review_xml = _write_dimension_review(
+            client=client,
+            config=config,
+            dimension=dimension,
+            paper_map=paper_map,
+            qa_results=qa_results,
+        )
+        state.dimension_reviews[dimension] = review_xml
+        state.qa_trajectories[dimension] = qa_results
+
+    final_agent = FinalReviewAgent(config)
+    state.final_review_xml = final_agent.run(state.summary_xml, state.dimension_reviews)
+    state.traces["final_review"] = getattr(final_agent, "trace_events", [])
+    return state
+
+
+def _load_qa_results(items: list[dict]) -> list[QAResult]:
+    """Load QAResult objects from serialized qa_trajectory.json entries."""
+    results = []
+    for item in items:
+        if hasattr(QAResult, "model_validate"):
+            results.append(QAResult.model_validate(item))
+        else:
+            results.append(QAResult.parse_obj(item))
+    return results
 
 
 def _write_review_artifacts(output_dir: Path, state) -> None:

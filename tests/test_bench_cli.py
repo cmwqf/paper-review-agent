@@ -188,6 +188,14 @@ def test_run_bench_dev_cli_supports_concurrency_override():
     assert args.concurrency == 4
 
 
+def test_cli_supports_reuse_from() -> None:
+    parser = build_parser()
+    args = parser.parse_args(["--reuse-from", "outputs/deepreview_bench/dev"])
+
+    assert args.command is None
+    assert args.reuse_from == "outputs/deepreview_bench/dev"
+
+
 def test_cli_supports_agent_override() -> None:
     parser = build_parser()
     args = parser.parse_args(["--agent", "deepseek_v4_pro"])

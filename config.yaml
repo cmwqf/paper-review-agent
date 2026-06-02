@@ -35,8 +35,10 @@ models:
 
   profiles:
     deepseek_v4_pro:
+      agent:
+        model: deepseek/deepseek-v4-pro
       final_review:
-        model: deepseek-v4-pro
+        model: deepseek/deepseek-v4-pro
 
   summary:
     temperature: 0.2
