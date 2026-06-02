@@ -133,6 +133,8 @@ PYTHONPATH=src python -m reviewer.cli \
 
 它不会重新跑 summary agent，也不会重新跑每个维度的 Q&A 检索/回答过程。
 这适合快速比较不同 `--agent` 在“维度总结”和“最终综合总结”上的影响。
+如果模型输出的 XML 不合法，Reviewer 会把解析错误反馈给模型并重新生成，
+直到 XML 合法或达到 `xml.max_generation_attempts` 上限。
 
 输出目录规则：
 

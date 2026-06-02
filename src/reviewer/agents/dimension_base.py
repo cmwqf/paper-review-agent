@@ -12,6 +12,7 @@ from reviewer.schemas.qa import QAResult
 from reviewer.schemas.summary import parse_summary_xml, render_summary_for_agent
 from reviewer.tools.xml_validator import extract_xml_document, validate_xml_root
 from reviewer.utils.prompts import load_prompt
+from reviewer.utils.xml_retry import generate_valid_xml
 
 
 class DimensionAgent(BaseAgent):
@@ -282,8 +283,12 @@ def _write_dimension_review(
     """Ask the dimension model to write the final dimension review XML."""
     review_contract = load_prompt("prompts/dimension_review_xml.md", config=config)
     qa_text = "\n\n".join(_render_qa_result(result, index) for index, result in enumerate(qa_results, 1))
-    raw_output = client.generate(
-        [
+    max_attempts = int(config.get("xml", {}).get("max_generation_attempts", 5))
+    return generate_valid_xml(
+        client=client,
+        root_tag="dimension_review",
+        max_attempts=max_attempts,
+        messages=[
             {
                 "role": "system",
                 "content": (
@@ -296,9 +301,8 @@ def _write_dimension_review(
                 "role": "user",
                 "content": f"Paper map:\n{paper_map}\n\nQ&A trajectory:\n{qa_text or 'No Q&A results.'}",
             },
-        ]
+        ],
     )
-    return validate_xml_root(raw_output, "dimension_review")
 
 
 def _child_text(root: ET.Element, name: str) -> str:

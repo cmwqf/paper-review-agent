@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from reviewer.agents.base import BaseAgent
 from reviewer.models.factory import build_llm
-from reviewer.tools.xml_validator import validate_xml_root
 from reviewer.utils.prompts import load_prompt
+from reviewer.utils.xml_retry import generate_valid_xml
 
 
 class FinalReviewAgent(BaseAgent):
@@ -18,8 +18,15 @@ class FinalReviewAgent(BaseAgent):
         model_key = self.config.get("agents", {}).get("final", {}).get("model", "final_review")
         client = build_llm(self.config, model_key)
         prompt = load_prompt("prompts/final_review_xml.md", config=self.config)
-        raw_output = client.generate(
-            [
+        self.trace_events = []
+        max_attempts = int(self.config.get("xml", {}).get("max_generation_attempts", 5))
+        return generate_valid_xml(
+            client=client,
+            root_tag="final_review",
+            max_attempts=max_attempts,
+            trace_events=self.trace_events,
+            trace_base={"agent": self.name},
+            messages=[
                 {
                     "role": "system",
                     "content": (
@@ -36,16 +43,8 @@ class FinalReviewAgent(BaseAgent):
                         f"{_render_dimension_reviews(dimension_reviews)}"
                     ),
                 },
-            ]
+            ],
         )
-        self.trace_events = [
-            {
-                "agent": self.name,
-                "event": "model_output",
-                "raw_output": raw_output,
-            }
-        ]
-        return validate_xml_root(raw_output, "final_review")
 
 
 def _render_dimension_reviews(dimension_reviews: dict[str, str]) -> str:

@@ -338,6 +338,15 @@ def _run_summary_only_from_artifacts(config: dict, paper: dict, source_dir: Path
         )
         state.dimension_reviews[dimension] = review_xml
         state.qa_trajectories[dimension] = qa_results
+        state.traces[f"{dimension}.dimension_summary"] = [
+            {
+                "agent": agent_name,
+                "event": "reuse_qa_summary_regenerated",
+                "dimension": dimension,
+                "model_key": model_key,
+                "qa_count": len(qa_results),
+            }
+        ]
 
     final_agent = FinalReviewAgent(config)
     state.final_review_xml = final_agent.run(state.summary_xml, state.dimension_reviews)

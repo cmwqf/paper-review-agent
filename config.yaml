@@ -122,6 +122,9 @@ retrieval:
 qa:
   max_answer_steps: 6
 
+xml:
+  max_generation_attempts: 5
+
 paper:
   max_text_chars: 120000
   max_pdf_read_pages: 3
