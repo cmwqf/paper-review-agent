@@ -43,6 +43,12 @@ models:
       final_review:
         model: deepseek/deepseek-v4-pro
 
+    kimi_k2.6:
+      agent:
+        model: moonshotai/kimi-k2.6
+      final_review:
+        model: moonshotai/kimi-k2.6
+
   summary:
     temperature: 0.2
 
@@ -123,6 +129,7 @@ retrieval:
 
 qa:
   max_answer_steps: 6
+  max_format_retries: 3
 
 xml:
   max_generation_attempts: 5

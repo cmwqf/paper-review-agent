@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import traceback
 import xml.etree.ElementTree as ET
@@ -168,6 +169,7 @@ def main() -> None:
             concurrency=args.concurrency,
             reuse_from=args.reuse_from,
         )
+        _write_run_metrics(run_dir)
         print(run_dir)
         return
 
@@ -268,6 +270,7 @@ def _write_run_metadata(
             "papers_output_dir": str(papers_output_dir),
             "results_path": str(run_dir / "results.jsonl"),
             "errors_path": str(run_dir / "errors.jsonl"),
+            "metrics_dir": str(run_dir / "metrics"),
             "log_file": str(run_dir / "logs" / "reviewer.log"),
             "created_at_gmt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "split": args.split,
@@ -296,6 +299,53 @@ def _set_run_log_file(config: dict, run_dir: Path) -> None:
     logging_config = config.setdefault("logging", {})
     if isinstance(logging_config, dict):
         logging_config["log_file"] = str(run_dir / "logs" / "reviewer.log")
+
+
+def _write_run_metrics(run_dir: str | Path) -> dict[str, str]:
+    """Evaluate a completed benchmark run and persist metrics inside the run directory."""
+    run_path = Path(run_dir)
+    metrics_dir = run_path / "metrics"
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        metric_module = _load_metric_module()
+        split_file = metric_module.infer_split_file(run_path)
+        results, records, skipped = metric_module.evaluate(run_path, split_file)
+        rows = [results]
+        table = metric_module.comparison_markdown(rows)
+        write_text(metrics_dir / "metrics.md", table + "\n")
+        write_json(metrics_dir / "metrics.json", rows)
+        metric_module.write_csv(metrics_dir / "metrics.csv", rows)
+        details_path = metrics_dir / "details.jsonl"
+        with details_path.open("w", encoding="utf-8") as handle:
+            for record in records:
+                handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+        write_json(metrics_dir / "skipped.json", skipped)
+        return {
+            "status": "ok",
+            "metrics_dir": str(metrics_dir),
+            "evaluated": results.get("Evaluated", ""),
+            "skipped": results.get("Skipped", ""),
+        }
+    except Exception as exc:
+        payload = {
+            "status": "failed",
+            "error_type": type(exc).__name__,
+            "error": str(exc),
+            "traceback": traceback.format_exc(),
+        }
+        write_json(metrics_dir / "metrics_error.json", payload)
+        return payload
+
+
+def _load_metric_module():
+    """Load the repository-level get_metric.py module."""
+    metric_path = Path(__file__).resolve().parents[2] / "get_metric.py"
+    spec = importlib.util.spec_from_file_location("reviewer_get_metric", metric_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Could not load metrics module from {metric_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 
@@ -741,8 +791,6 @@ def _trace_markdown(state) -> str:
                     lines.append(f"- **{key}:** {event[key]}")
             if "action" in event:
                 lines.extend(["", "**Action:**", "```text", str(event["action"]), "```"])
-            if "raw_output" in event:
-                lines.extend(["", "**Raw Output:**", "```xml", str(event["raw_output"]).rstrip(), "```"])
             if "observation" in event:
                 lines.extend(
                     ["", "**Observation:**", "```text", str(event["observation"]).rstrip(), "```"]

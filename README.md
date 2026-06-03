@@ -217,8 +217,20 @@ outputs/deepreview_bench/runs/20260602_153045_GMT_dev_deepseek_v4_pro/
 
 ### 评估输出
 
-`get_metric.py` 在 Reviewer repo 内，可以一次评估多个 run，并输出“每个
-run 一行、每个指标一列”的对比表。
+Benchmark 跑完后会自动评估当前 run，并把指标保存在当前 run 目录内：
+
+```text
+outputs/deepreview_bench/runs/<run_name>/metrics/
+├── metrics.md
+├── metrics.csv
+├── metrics.json
+├── details.jsonl
+└── skipped.json
+```
+
+`get_metric.py` 在 Reviewer repo 内，也可以手动一次评估多个 run，并输出“每个
+run 一行、每个指标一列”的对比表。建议把手动评估结果也保存在对应 run 的
+`metrics/` 目录内。
 
 方式一：直接在脚本顶部填写 `RUN_DIRS`：
 
@@ -234,9 +246,9 @@ RUN_DIRS = [
 ```bash
 cd /root/autodl-tmp/review_agent/Reviewer
 python get_metric.py \
-  --save-md outputs/deepreview_bench/runs/compare.metrics.md \
-  --save-csv outputs/deepreview_bench/runs/compare.metrics.csv \
-  --save-json outputs/deepreview_bench/runs/compare.metrics.json
+  --save-md outputs/deepreview_bench/runs/20260602_153012_GMT_dev_default/metrics/metrics.md \
+  --save-csv outputs/deepreview_bench/runs/20260602_153012_GMT_dev_default/metrics/metrics.csv \
+  --save-json outputs/deepreview_bench/runs/20260602_153012_GMT_dev_default/metrics/metrics.json
 ```
 
 方式二：命令行直接传多个 run：
@@ -246,8 +258,8 @@ cd /root/autodl-tmp/review_agent/Reviewer
 python get_metric.py \
   outputs/deepreview_bench/runs/20260602_153012_GMT_dev_default \
   outputs/deepreview_bench/runs/20260602_153045_GMT_dev_deepseek_v4_pro \
-  --save-md outputs/deepreview_bench/runs/compare.metrics.md \
-  --save-csv outputs/deepreview_bench/runs/compare.metrics.csv
+  --save-md outputs/deepreview_bench/runs/20260602_153045_GMT_dev_deepseek_v4_pro/metrics/compare.metrics.md \
+  --save-csv outputs/deepreview_bench/runs/20260602_153045_GMT_dev_deepseek_v4_pro/metrics/compare.metrics.csv
 ```
 
 传 run 根目录或 `papers/` 子目录都可以。脚本会优先从

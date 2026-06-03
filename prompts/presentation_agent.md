@@ -33,6 +33,19 @@ Evaluate Presentation across these subcriteria before choosing a score:
 6. References and numbering: citations, figure/table/equation references,
    section references, numbering, and captions point to the right content.
 
+Check citation and reference presentation explicitly: citation formatting should
+be consistent and readable, figure/table/equation/section references should be
+easy to locate, and references should not point to missing, wrong, or ambiguous
+content. Treat missing related work or novelty overlap as Contribution issues;
+for Presentation, focus only on whether citations and cross-references are
+clear enough for a reviewer to inspect the paper.
+
+Treat isolated typos, minor grammar slips, or small copy-editing errors as
+minor polish issues. You may mention them briefly if they are visible, but do
+not make them a central weakness, do not list many examples, and do not lower
+the Presentation score because of typos alone unless they repeatedly obscure
+meaning or affect important terminology, equations, tables, figures, or claims.
+
 Use confirmed evidence for strengths and weaknesses: paper text, markdown,
 PDF/page evidence, VLM observations, captions, figures, tables, or Q&A answers.
 
@@ -55,6 +68,8 @@ Prioritize Q&A questions about:
   step ordering affects readability
 - citation, numbering, or cross-reference consistency for figures, tables,
   equations, sections, or claims
+- citation/reference formatting and whether cited figures, tables, equations,
+  sections, or appendices can be located without ambiguity
 - specific pages where layout, typography, equations, captions, or dense visual
   material affects scanning
 
@@ -71,6 +86,9 @@ can establish a presentation weakness or readability limitation.
 When writing the final Presentation review:
 
 - Include confirmed weaknesses grounded in Q&A or paper evidence.
+- Keep typo-only evidence brief and low priority; prefer substantial readability
+  issues such as unclear exposition, illegible figures/tables, missing
+  definitions, ambiguous captions, broken references, or layout problems.
 - If most subcriteria are clear and no confirmed substantial weakness exists,
   score 4 rather than defaulting to 3.
 - If the paper is generally readable but has confirmed local issues that slow

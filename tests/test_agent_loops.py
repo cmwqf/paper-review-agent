@@ -367,8 +367,8 @@ def test_answer_agent_retries_after_mixed_tool_and_answer(monkeypatch) -> None:
     assert any(event["event"] == "tool_observation" for event in result.trace_events)
 
 
-def test_answer_agent_retries_after_multiple_tool_calls(monkeypatch) -> None:
-    """Multiple tool calls in one response should be rejected, not partially executed."""
+def test_answer_agent_retries_multiple_tool_calls_without_spending_tool_step(monkeypatch) -> None:
+    """Multiple tool calls should be retried as a format error without spending a tool step."""
     client = FakeClient(
         [
             """
@@ -383,6 +383,121 @@ def test_answer_agent_retries_after_multiple_tool_calls(monkeypatch) -> None:
               <num_lines>2</num_lines>
               <rationale>Read the located evidence.</rationale>
             </tool_call>
+            """,
+            """
+            <tool_call>
+              <tool_name>search_file</tool_name>
+              <keyword>baseline</keyword>
+              <rationale>Need paper evidence.</rationale>
+            </tool_call>
+            """,
+            """
+            <qa_result>
+              <question>Are baselines sufficient?</question>
+              <answer>The forced answer follows the retried tool observation.</answer>
+              <evidence><item source="paper">Evidence from search.</item></evidence>
+              <retrieved_papers></retrieved_papers>
+              <review_impact>
+                <dimension>Soundness</dimension>
+                <polarity>weakness</polarity>
+                <impact_level>C2</impact_level>
+                <confidence>medium</confidence>
+              </review_impact>
+            </qa_result>
+            """,
+        ]
+    )
+    monkeypatch.setattr("reviewer.agents.answer.agent.build_llm", lambda config, model_key: client)
+
+    result = AnswerAgent({"qa": {"max_answer_steps": 1}}).run(
+        "Are baselines sufficient?",
+        "Soundness",
+        {"text": "Intro\nStrong baseline is used.", "metadata": {"title": "Paper"}},
+        SUMMARY_XML,
+    )
+
+    assert result.answer == "The forced answer follows the retried tool observation."
+    assert "Previous output format error" in client.calls[1][1]["content"]
+    assert "multiple <tool_call>" in client.calls[1][1]["content"]
+    assert any(event["event"] == "tool_observation" for event in result.trace_events)
+
+
+def test_answer_agent_falls_back_to_first_tool_call_after_format_retry_limit(
+    monkeypatch,
+) -> None:
+    """After configured format retries, repeated multi-tool output should use the first call."""
+    multi_tool_output = """
+        <tool_call>
+          <tool_name>search_file</tool_name>
+          <keyword>baseline</keyword>
+          <rationale>Need paper evidence.</rationale>
+        </tool_call>
+        <tool_call>
+          <tool_name>read_file</tool_name>
+          <start_line>1</start_line>
+          <num_lines>2</num_lines>
+          <rationale>Read the located evidence.</rationale>
+        </tool_call>
+        """
+    client = FakeClient(
+        [
+            multi_tool_output,
+            multi_tool_output,
+            multi_tool_output,
+            multi_tool_output,
+            """
+            <qa_result>
+              <question>Are baselines sufficient?</question>
+              <answer>The forced answer follows the fallback tool observation.</answer>
+              <evidence><item source="paper">Evidence from fallback search.</item></evidence>
+              <retrieved_papers></retrieved_papers>
+              <review_impact>
+                <dimension>Soundness</dimension>
+                <polarity>weakness</polarity>
+                <impact_level>C2</impact_level>
+                <confidence>medium</confidence>
+              </review_impact>
+            </qa_result>
+            """,
+        ]
+    )
+    monkeypatch.setattr("reviewer.agents.answer.agent.build_llm", lambda config, model_key: client)
+
+    result = AnswerAgent({"qa": {"max_answer_steps": 1, "max_format_retries": 3}}).run(
+        "Are baselines sufficient?",
+        "Soundness",
+        {"text": "Intro\nStrong baseline is used.", "metadata": {"title": "Paper"}},
+        SUMMARY_XML,
+    )
+
+    assert result.answer == "The forced answer follows the fallback tool observation."
+    assert len(client.calls) == 5
+    assert any(event["event"] == "output_contract_fallback" for event in result.trace_events)
+    assert any(event["event"] == "tool_observation" for event in result.trace_events)
+
+
+def test_answer_agent_retries_after_tool_call_and_qa_result(monkeypatch) -> None:
+    """Mixed action and answer documents should still be rejected as ambiguous."""
+    client = FakeClient(
+        [
+            """
+            <tool_call>
+              <tool_name>search_file</tool_name>
+              <keyword>baseline</keyword>
+              <rationale>Need paper evidence.</rationale>
+            </tool_call>
+            <qa_result>
+              <question>Are baselines sufficient?</question>
+              <answer>Premature answer.</answer>
+              <evidence><item source="paper">Evidence.</item></evidence>
+              <retrieved_papers></retrieved_papers>
+              <review_impact>
+                <dimension>Soundness</dimension>
+                <polarity>weakness</polarity>
+                <impact_level>C2</impact_level>
+                <confidence>medium</confidence>
+              </review_impact>
+            </qa_result>
             """,
             """
             <qa_result>
@@ -410,7 +525,7 @@ def test_answer_agent_retries_after_multiple_tool_calls(monkeypatch) -> None:
     )
 
     assert result.answer == "The retry returned one document."
-    assert "multiple <tool_call>" in client.calls[1][1]["content"]
+    assert "both <tool_call> and <qa_result>" in client.calls[1][1]["content"]
     assert not any(event["event"] == "tool_observation" for event in result.trace_events)
 
 

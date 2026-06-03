@@ -12,6 +12,7 @@ from reviewer.cli import (
     _resolve_run_output_dir,
     _reuse_source_dir,
     _set_run_log_file,
+    _write_run_metrics,
     _write_review_artifacts,
     _write_run_metadata,
     build_parser,
@@ -59,6 +60,26 @@ class FakeState:
         }
     )
     final_review_xml: str = "<final_review />"
+    traces: dict[str, list[dict]] = field(
+        default_factory=lambda: {
+            "summary": [
+                {
+                    "event": "model_output",
+                    "raw_output": "<paper_summary><metadata><title>Raw</title></metadata></paper_summary>",
+                }
+            ],
+            "Contribution.answer_agent": [
+                {
+                    "event": "tool_observation",
+                    "step": 1,
+                    "dimension": "Contribution",
+                    "question": "Is the method novel?",
+                    "action": {"action": "search_file", "keyword": "novel"},
+                    "observation": "search_file('novel') found line evidence.",
+                }
+            ],
+        }
+    )
 
 
 class FakeWorkflow:
@@ -194,6 +215,78 @@ def test_write_review_artifacts_marks_incomplete_until_all_stages_land(tmp_path)
     status = json.loads((tmp_path / "paper" / "status.json").read_text(encoding="utf-8"))
     assert status["complete"] is True
     assert _paper_is_complete(tmp_path / "paper") is True
+
+
+def test_trace_markdown_omits_raw_output_but_trace_json_keeps_it(tmp_path):
+    _write_review_artifacts(tmp_path / "paper", FakeState())
+
+    trace_md = (tmp_path / "paper" / "logs" / "trace.md").read_text(encoding="utf-8")
+    trace_json = json.loads((tmp_path / "paper" / "logs" / "trace.json").read_text(encoding="utf-8"))
+
+    assert "Raw Output" not in trace_md
+    assert "<paper_summary><metadata><title>Raw</title></metadata></paper_summary>" not in trace_md
+    assert "search_file('novel') found line evidence." in trace_md
+    assert trace_json["summary"][0]["raw_output"].startswith("<paper_summary>")
+
+
+def test_write_run_metrics_saves_outputs_inside_run_dir(tmp_path):
+    run_dir = tmp_path / "runs" / "20260602_153012_GMT_dev_default"
+    paper_dir = run_dir / "papers" / "paper-1"
+    paper_dir.mkdir(parents=True)
+    split = tmp_path / "split.jsonl"
+    split.write_text(
+        json.dumps(
+            {
+                "id": "paper-1",
+                "decision": "Accept",
+                "review": [
+                    {
+                        "content": {
+                            "rating": "6",
+                            "soundness": "3",
+                            "presentation": "3",
+                            "contribution": "3",
+                        }
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (run_dir / "run_manifest.json").write_text(
+        json.dumps({"split_path": str(split), "split": "dev", "agent": "default"}),
+        encoding="utf-8",
+    )
+    (paper_dir / "final_review.xml").write_text(
+        """
+        <final_review>
+          <final_score>6</final_score>
+          <recommendation>Accept</recommendation>
+        </final_review>
+        """,
+        encoding="utf-8",
+    )
+    for dimension, score in [
+        ("contribution", 3),
+        ("soundness", 3),
+        ("presentation", 3),
+    ]:
+        (paper_dir / f"{dimension}.xml").write_text(
+            f"<dimension_review><score>{score}</score></dimension_review>",
+            encoding="utf-8",
+        )
+
+    result = _write_run_metrics(run_dir)
+
+    assert result["status"] == "ok"
+    assert (run_dir / "metrics" / "metrics.md").exists()
+    assert (run_dir / "metrics" / "metrics.csv").exists()
+    assert (run_dir / "metrics" / "metrics.json").exists()
+    assert (run_dir / "metrics" / "details.jsonl").exists()
+    assert (run_dir / "metrics" / "skipped.json").exists()
+    assert not (run_dir.parent / "metrics.md").exists()
+    assert "Rating MAE" in (run_dir / "metrics" / "metrics.md").read_text(encoding="utf-8")
 
 
 def test_run_bench_dev_supports_configured_concurrency(tmp_path, monkeypatch):

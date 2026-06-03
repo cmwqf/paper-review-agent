@@ -62,10 +62,13 @@ class AnswerAgent(BaseAgent):
         format_feedback = ""
         prior_qa_results = prior_qa_results or []
         max_steps = int(self.config.get("qa", {}).get("max_answer_steps", 6))
+        max_format_retries = int(self.config.get("qa", {}).get("max_format_retries", 3))
+        format_retry_count = 0
         paper_map = _render_paper_summary(paper_summary)
         system_prompt = _answer_system_prompt(self.config, dimension)
 
-        for step_index in range(max_steps):
+        step_index = 0
+        while step_index < max_steps:
             messages = [
                 {"role": "system", "content": system_prompt},
                 {
@@ -96,6 +99,7 @@ class AnswerAgent(BaseAgent):
             )
             violation = _output_contract_violation(raw_output)
             if violation:
+                format_retry_count += 1
                 format_feedback = violation
                 trace_events.append(
                     {
@@ -105,9 +109,27 @@ class AnswerAgent(BaseAgent):
                         "dimension": dimension,
                         "question": question,
                         "feedback": violation,
+                        "format_retry": format_retry_count,
                     }
                 )
-                continue
+                if format_retry_count <= max_format_retries:
+                    continue
+                fallback_output = _fallback_first_tool_call(raw_output)
+                if fallback_output:
+                    trace_events.append(
+                        {
+                            "agent": "answer",
+                            "event": "output_contract_fallback",
+                            "step": step_index + 1,
+                            "dimension": dimension,
+                            "question": question,
+                            "feedback": violation,
+                            "format_retry": format_retry_count,
+                        }
+                    )
+                    raw_output = fallback_output
+                else:
+                    break
             try:
                 action_xml = extract_xml_document(raw_output, "tool_call")
                 has_tool_call = (
@@ -124,6 +146,7 @@ class AnswerAgent(BaseAgent):
                         return result
                     action = _parse_action(raw_output)
             except (ValueError, ParseError):
+                format_retry_count += 1
                 trace_events.append(
                     {
                         "agent": "answer",
@@ -131,9 +154,14 @@ class AnswerAgent(BaseAgent):
                         "step": step_index + 1,
                         "dimension": dimension,
                         "question": question,
+                        "format_retry": format_retry_count,
                     }
                 )
-                continue
+                if format_retry_count <= max_format_retries:
+                    continue
+                break
+            format_retry_count = 0
+            format_feedback = ""
             observation, new_retrieved = _run_action(action, self.config, paper, question)
             trace_events.append(
                 {
@@ -159,6 +187,7 @@ class AnswerAgent(BaseAgent):
             )
             observations.append(observation)
             retrieved_papers.extend(new_retrieved)
+            step_index += 1
 
         result = _write_forced_answer(
             client=client,
@@ -326,6 +355,15 @@ def _output_contract_violation(raw_output: str) -> str:
     if qa_result_count > 1:
         return "Invalid output: you returned multiple <qa_result> documents. Return exactly one."
     return ""
+
+
+def _fallback_first_tool_call(raw_output: str) -> str:
+    """Return the first tool_call only for pure multi-tool-call outputs."""
+    tool_call_count = raw_output.count("<tool_call")
+    qa_result_count = raw_output.count("<qa_result")
+    if tool_call_count <= 1 or qa_result_count:
+        return ""
+    return extract_xml_document(raw_output, "tool_call")
 
 
 def _parse_action(raw_output: str) -> dict[str, str]:

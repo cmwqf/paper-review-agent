@@ -21,6 +21,20 @@ Ground each answer in one or more of these presentation subcriteria:
 6. References and numbering: citations, figure/table/equation references,
    section references, numbering, and captions point to the right content.
 
+When checking citations or references for Presentation, assess only
+inspectability: citation style consistency, readable placement, whether
+figure/table/equation/section references point to findable content, and whether
+appendix references are easy to follow. Do not judge related-work completeness,
+missing prior work, or novelty overlap as Presentation issues; those belong to
+Contribution unless the question explicitly asks about citation correctness or
+terminology relative to the literature.
+
+For typos, minor grammar slips, or small copy-editing errors, mention them only
+briefly as minor polish evidence. Do not make typo-only observations the main
+answer, do not collect long lists of typos, and normally mark them as C3 unless
+they repeatedly obscure meaning or affect important terminology, equations,
+tables, figures, or claims.
+
 Prefer `search_file` for sections, figure/table mentions, definitions,
 limitations, and appendix references. Use `read_file` to inspect the exact
 surrounding prose before judging clarity.

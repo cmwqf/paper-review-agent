@@ -47,15 +47,13 @@ paper input
   -> paper loader / text extractor / optional PDF page renderer
   -> Summary Agent
   -> paper_summary XML
-  -> Contribution Agent Q&A trajectory
-  -> Soundness Agent Q&A trajectory
-  -> Presentation Agent Q&A trajectory
+  -> Contribution / Soundness / Presentation Agent Q&A trajectories in parallel
   -> three dimension_review XML documents
   -> Final Review Agent
   -> final_review XML
 ```
 
-三个维度 Agent 都依赖 Summary Agent 的输出。因此在 Summary 生成之后，Contribution、Soundness、Presentation 理论上可以并行运行。第一版实现可以先串行执行，这样更容易 debug 和观察 trace。
+三个维度 Agent 都依赖 Summary Agent 的输出，但彼此不共享中间状态。因此在 Summary 生成之后，Contribution、Soundness、Presentation 会并行运行；Final Review Agent 等三个维度 review 全部完成后再运行。
 
 Summary Agent 的职责边界需要保持清楚：它只记录论文自身信息，不做评价。它不应该输出 novelty 判断、soundness 判断、presentation 判断、missing baseline、missing ablation、review recommendation 或 final score。评价由后续三个维度 Agent 完成。
 
@@ -687,7 +685,6 @@ trace 是 debug 的核心。如果某个 final score 不合理，应该能沿着
 
 以下问题暂时不需要立刻定死，可以在第一版 end-to-end prototype 跑起来后再决定：
 
-- 三个维度 Agent 默认串行还是并行？
 - 每个维度是否需要不同的 agent model？
 - retrieved papers 是直接传给 Answer model，还是先做摘要压缩？
 - Final Review Agent 应该看到完整 Q&A trace，还是只看三个维度 review 和高影响 evidence？

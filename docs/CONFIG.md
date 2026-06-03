@@ -173,10 +173,13 @@ The search query itself is chosen by AnswerAgent and passed through verbatim.
 ```yaml
 qa:
   max_answer_steps: 6
+  max_format_retries: 3
 ```
 
 - `max_answer_steps`: maximum AnswerAgent tool-use steps before it is forced to
   write a final `<qa_result>`.
+- `max_format_retries`: maximum AnswerAgent format-error retries before a pure
+  multi-`<tool_call>` output falls back to executing the first tool call.
 
 Allowed impact values are prompt-level contracts, not config-driven validators
 in the current implementation.
