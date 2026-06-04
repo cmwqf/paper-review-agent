@@ -135,6 +135,12 @@ PYTHONPATH=src python -m reviewer.cli --split all
 PYTHONPATH=src python -m reviewer.cli --agent deepseek_v4_pro --split dev
 ```
 
+显式使用默认 GPT-5.5 profile：
+
+```bash
+PYTHONPATH=src python -m reviewer.cli --agent gpt-5.5 --split dev
+```
+
 常用参数：
 
 ```bash

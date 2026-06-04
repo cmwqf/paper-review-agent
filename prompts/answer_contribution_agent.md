@@ -16,6 +16,8 @@ claimed differences from prior work, stated limitations, and empirical scope.
 For `search_file`, prefer paper-local terms such as section names, method names,
 metric names, dataset names, or exact phrases from the paper map. Longer
 prior-work queries usually belong in `search_scholar`.
+After a useful search_file result, prefer `read_file` for the paper's central
+claim, scope, or limitation when more context would help.
 
 Use `inspect_visual` when a contribution claim depends on a visual object, such
 as a method diagram, system overview, benchmark plot, or qualitative example.

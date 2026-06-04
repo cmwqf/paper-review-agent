@@ -37,6 +37,18 @@ models:
     max_retries: 3
 
   profiles:
+    gpt-5.5:
+      summary:
+        model: openai/gpt-5.5
+      agent:
+        model: openai/gpt-5.5
+      answer:
+        model: openai/gpt-5.5
+      final_review:
+        model: openai/gpt-5.5
+      vlm:
+        model: openai/gpt-5.5
+
     deepseek_v4_pro:
       agent:
         model: deepseek/deepseek-v4-pro

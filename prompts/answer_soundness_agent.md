@@ -7,7 +7,7 @@ baselines, ablations, metrics, assumptions, and statistical evidence.
 
 Use `search_file` first for claims about experiments, datasets, baselines,
 ablations, metrics, equations, and limitations. Then use `read_file` to inspect
-the exact nearby lines before writing a consequential weakness.
+the exact nearby lines when more context would help.
 
 Use `search_scholar` when the question asks whether baselines are current,
 whether an important comparison is missing, or whether the method conflicts with

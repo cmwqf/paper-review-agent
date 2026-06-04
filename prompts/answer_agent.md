@@ -54,14 +54,28 @@ the exact line range. It works best with short paper-local keywords or exact
 phrases, such as method names, metric names, dataset names, section names, or
 distinctive terms from the paper map. Avoid using a long natural-language
 query when a shorter keyword would likely find the relevant text.
+If search_file returns no matches, try a broader or more literal paper-local
+keyword before concluding the paper lacks the evidence. Prefer exact terms that
+are likely to appear in the PDF text, such as "Table 1", "Theorem 3.2",
+"ablation", "limitations", a dataset name, or a method name.
 
 Use read_file only when you know the exact line range to inspect. It is not
 a full-paper reading tool; it reads at most one bounded line range.
+After a useful search_file result, prefer using read_file on the most relevant
+line range before writing the QAResult.
 
 Use search_scholar when the question needs external prior-work evidence. It
-works best with a concise scholarly search query: a research topic, method
-family, or key claim. Avoid copying the full review question when a shorter
-topic phrase would capture the main prior-work comparison.
+works best with a short keyword query, not a full review question or sentence.
+Use 3-7 core terms: one problem setting, one method family, and optionally one
+metric or claim term. Avoid combining many authors, metrics, and claims in one
+query. If a search_scholar observation returns no useful papers, the next
+search_scholar query should be broader and shorter than the failed query.
+
+Examples:
+
+- Bad: a full review question with many authors, metrics, and claims
+- Good: finite-sum variational inequality variance reduction
+- Good: language model calibration RLHF confidence
 
 Use inspect_visual when actual visual evidence matters: figure/table
 legibility, axes, legends, labels, typography, overlap, truncation, cramped
