@@ -2,9 +2,31 @@
 Purpose: XML output contract for the final aggregated review.
 -->
 
-Return exactly one `<final_review>` XML document with final_score, summary,
-strengths, weaknesses, requested_changes, administrative_decision,
-administrative_reasons, recommendation, and confidence_score.
+Return exactly one `<final_review>` XML document. Write it in the style of one
+individual ICLR reviewer filling out a review form, not as an area-chair
+meta-review or consensus summary.
+
+The XML must keep final_score, recommendation, and confidence_score for
+benchmark evaluation. It should also include ICLR-style review-form fields:
+summary, soundness, presentation, contribution, strengths, weaknesses,
+questions, suggestions, administrative_decision, and administrative_reasons.
+
+Human-review style:
+
+- Write like a careful reviewer speaking to the authors and area chairs.
+- Do not over-standardize the prose into a perfectly exhaustive checklist.
+- The summary should briefly describe the paper and the reviewer's overall
+  judgment, not merely restate the dimension scores.
+- Strengths and weaknesses should be concrete, reviewer-facing comments.
+- Include author-facing questions when the evidence leaves an important
+  uncertainty or when a rebuttal could clarify the assessment.
+- Use suggestions for actionable improvements.
+- Avoid saying "the dimension review found" or "the Q&A established"; use the
+  paper evidence directly.
+- Avoid C0/C1/C2/C3/C4 labels in the final review prose. Use those labels only
+  internally to decide priority.
+- Do not invent a reviewer persona, and do not mention that this is generated
+  from intermediate agents.
 
 Use the final rating scale:
 
@@ -22,6 +44,26 @@ Use the confidence scale:
 - 3: fairly confident; some uncertainty about parts of the submission or related work
 - 2: willing to defend the assessment, but likely missed central parts or related work
 - 1: unable to assess; an AC should seek another opinion
+
+Use the dimension rating fields as ICLR-style textual judgments copied from
+the already completed dimension reviews:
+
+- Do not re-score Soundness, Presentation, or Contribution in the final review.
+- Read each dimension review's `<score>` and use that exact score in the
+  corresponding final-review field.
+- `<soundness>` must start with the Soundness dimension score: `1 poor`,
+  `2 fair`, `3 good`, or `4 excellent`, followed by a concise explanation in
+  the same element.
+- `<presentation>` must start with the Presentation dimension score: `1 poor`,
+  `2 fair`, `3 good`, or `4 excellent`, followed by a concise explanation in
+  the same element.
+- `<contribution>` must start with the Contribution dimension score: `1 poor`,
+  `2 fair`, `3 good`, or `4 excellent`, followed by a concise explanation in
+  the same element.
+
+These dimension fields should sound like human review-form entries. They should
+summarize the dimension judgment, not repeat every key point from the
+dimension-review XML.
 
 Dimension weighting guidance:
 
@@ -59,6 +101,9 @@ Administrative decision guidance:
 - Do not introduce a new decisive administrative or non-reviewability reason in
   the final review unless it was already established with high-confidence
   evidence in the dimension reviews.
+- In ordinary cases, do not foreground administrative checks in the prose.
+  Only mention them when there is a confirmed desk-reject or non-reviewability
+  risk.
 
 Evidence and traceability guidance:
 
@@ -88,7 +133,7 @@ Review-impact labels may appear in the dimension reviews or their evidence:
 
 Dimension reviews may include `<key_points>` with C0/C1/C2/C3/C4 importance
 labels. Base the final recommendation primarily on C0 and C1 key_points and
-secondarily on C2 key_points. Use C3 points only for requested_changes or local
+secondarily on C2 key_points. Use C3 points only for suggestions or local
 caveats. Use C4 points only as trace context, not as recommendation drivers.
 
 Treat C0/C1/C2/C3/C4 as priority signals, not as a mechanical scoring formula.
@@ -101,8 +146,26 @@ tool_mismatch, unavailable evidence, or C4 polish notes lower the final_score
 unless the dimension review confirms a real paper problem.
 
 The final strengths and weaknesses should normally include only the most
-decision-relevant points. Prefer 3-6 well-supported weaknesses over an
-exhaustive list, and let requested_changes carry secondary C2/C3 details.
+decision-relevant points. Prefer 2-5 well-supported strengths and 2-5
+well-supported weaknesses over an exhaustive list. Let questions and
+suggestions carry secondary details and author-facing requested changes.
+
+Questions guidance:
+
+- Include 0-4 questions.
+- Use questions for genuine reviewer uncertainties, missing clarifications,
+  sensitivity checks, unexplained design choices, or possible rebuttal points.
+- Do not turn every weakness into a question. If the evidence already clearly
+  supports the weakness, state it as a weakness and optionally add a suggestion.
+
+Suggestions guidance:
+
+- Include 1-5 suggestions when useful.
+- Suggestions should be practical author-facing improvements such as adding a
+  baseline, reporting uncertainty, clarifying a claim, improving a figure, or
+  tempering a conclusion.
+- Avoid making suggestions sound like mandatory acceptance conditions unless
+  they truly determine the recommendation.
 
 Use this structure:
 
@@ -110,15 +173,21 @@ Use this structure:
 <final_review>
   <final_score>1 | 3 | 5 | 6 | 8 | 10</final_score>
   <summary>...</summary>
+  <soundness>1 poor | 2 fair | 3 good | 4 excellent - ...</soundness>
+  <presentation>1 poor | 2 fair | 3 good | 4 excellent - ...</presentation>
+  <contribution>1 poor | 2 fair | 3 good | 4 excellent - ...</contribution>
   <strengths>
     <item>...</item>
   </strengths>
   <weaknesses>
     <item>...</item>
   </weaknesses>
-  <requested_changes>
+  <questions>
     <item>...</item>
-  </requested_changes>
+  </questions>
+  <suggestions>
+    <item>...</item>
+  </suggestions>
   <administrative_decision>clear | desk_reject_risk | desk_reject</administrative_decision>
   <administrative_reasons>
     <item>...</item>
@@ -128,6 +197,8 @@ Use this structure:
 </final_review>
 ```
 
-The final_score is the final overall recommendation score, not a list of
-dimension scores. Synthesize the three dimension reviews, but do not blindly
-average them if one dimension contains a critical weakness.
+The final_score is the final overall recommendation score. It is the only score
+the Final Review Agent should synthesize. The Soundness, Presentation, and
+Contribution fields must reuse the scores already assigned by the corresponding
+dimension reviews. Do not blindly average the dimension scores when choosing
+final_score if one dimension contains a critical weakness.
