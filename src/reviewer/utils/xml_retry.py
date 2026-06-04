@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from reviewer.tools.xml_validator import validate_xml_root
@@ -15,6 +16,7 @@ def generate_valid_xml(
     max_attempts: int = 5,
     trace_events: list[dict[str, Any]] | None = None,
     trace_base: dict[str, Any] | None = None,
+    validator: Callable[[str], None] | None = None,
 ) -> str:
     """Generate model output until it validates as XML with the requested root."""
     attempts = max(1, int(max_attempts))
@@ -34,7 +36,10 @@ def generate_valid_xml(
                 }
             )
         try:
-            return validate_xml_root(raw_output, root_tag)
+            clean_xml = validate_xml_root(raw_output, root_tag)
+            if validator is not None:
+                validator(clean_xml)
+            return clean_xml
         except Exception as exc:
             last_error = exc
             if attempt >= attempts:

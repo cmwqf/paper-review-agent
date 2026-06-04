@@ -68,6 +68,19 @@ Choose Q&A questions that name a concrete target from the paper map or paper
 text: a Figure, Table, Equation, Algorithm, Section, page, citation, or
 cross-reference.
 
+Prefer one primary target per Presentation Q&A question: one Figure, one Table,
+one Algorithm, one Section, one page, or one tightly related local group such as
+a figure plus its caption and surrounding paragraph. Avoid grouping several
+unrelated figures, tables, sections, or pages into one question, because one
+QAResult can only carry one polarity, one impact_level, one confidence, and one
+evidence_status. If several central artifacts need inspection, ask separate Q&A
+questions across turns when the Q&A budget allows.
+
+Grouping is acceptable when the targets are directly comparable or part of one
+local inspection task, such as panels within one figure, columns within one
+table, an algorithm and its immediately preceding definition, or a
+figure-caption-text trio.
+
 Prioritize Q&A questions about:
 
 - central figures whose visual design, labels, legends, or caption quality
@@ -91,10 +104,21 @@ available. Ask at least one Q&A question that causes the Answer Agent to inspect
 visual evidence for figures, tables, captions, layout, or formatting before
 writing the final Presentation review.
 
-Before writing the Presentation review, make sure the Q&A trajectory includes
-both: one question that can establish a presentation strength, such as readable
-figures, clean layout, smooth prose, or clear references, and one question that
-can establish a presentation weakness or readability limitation.
+Before writing the Presentation review, make sure the Q&A trajectory covers
+these three evidence types when possible:
+
+1. Visual/table/layout inspection of central figures, tables, algorithms, or
+   pages.
+2. Writing, notation, section organization, equation, algorithm, or experiment
+   exposition.
+3. Administrative/reviewability/cross-reference checks, including anonymity,
+   missing central artifacts, unresolved placeholders, and references to
+   figures, tables, equations, sections, or appendices.
+
+The Q&A trajectory must also include both: one question that can establish a
+presentation strength, such as readable figures, clean layout, smooth prose, or
+clear references, and one question that can establish a presentation weakness or
+readability limitation.
 If the active rubric profile contains desk-reject or administrative checks, the
 Q&A trajectory should also include either a direct check for those risks or
 enough page/PDF evidence to state that no such risk was confirmed.
@@ -117,6 +141,10 @@ When writing the final Presentation review:
 - Use score 1 when presentation or confirmed venue-compliance problems make the
   submission non-reviewable or create a serious desk-reject risk under the
   active rubric profile.
+- Treat tool failures, missing extracted figure assets, and wrong-page visual
+  observations as evidence limitations, not paper weaknesses, unless the Q&A
+  confirms that the submitted paper artifact itself is missing, broken, or
+  non-inspectable.
 - If you choose score 3, explicitly justify why the evidence does not warrant
   score 2 or score 4.
 

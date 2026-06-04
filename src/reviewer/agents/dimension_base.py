@@ -76,7 +76,15 @@ class DimensionAgent(BaseAgent):
                 if missing_feedback and turn_index < max_turns:
                     feedback = missing_feedback
                     continue
-                return validate_xml_root(review_xml, "dimension_review"), qa_results
+                clean_review_xml = validate_xml_root(review_xml, "dimension_review")
+                try:
+                    _validate_dimension_review_contract(clean_review_xml)
+                except ValueError as exc:
+                    if turn_index < max_turns:
+                        feedback = str(exc)
+                        continue
+                    raise
+                return clean_review_xml, qa_results
 
             action = _parse_dimension_action(raw_output)
             missing_feedback = _missing_qa_feedback(qa_results, min_turns, require_balanced_qa)
@@ -290,6 +298,7 @@ def _write_dimension_review(
         client=client,
         root_tag="dimension_review",
         max_attempts=max_attempts,
+        validator=_validate_dimension_review_contract,
         messages=[
             {
                 "role": "system",
@@ -306,6 +315,34 @@ def _write_dimension_review(
             },
         ],
     )
+
+
+def _validate_dimension_review_contract(xml_text: str) -> None:
+    """Require dimension review fields that downstream aggregation depends on."""
+    root = ET.fromstring(xml_text)
+    key_points = root.find("key_points")
+    if key_points is None:
+        raise ValueError(
+            "The dimension_review must include a <key_points> section with 2-5 scored findings."
+        )
+    items = [
+        item
+        for item in key_points.findall("item")
+        if "".join(item.itertext()).strip()
+    ]
+    if not items:
+        raise ValueError(
+            "The dimension_review <key_points> section must include at least one non-empty <item>."
+        )
+    for item in items:
+        if not item.attrib.get("importance"):
+            raise ValueError("Each key_points item must include an importance attribute.")
+        if not item.attrib.get("polarity"):
+            raise ValueError("Each key_points item must include a polarity attribute.")
+        if not item.attrib.get("confidence"):
+            raise ValueError("Each key_points item must include a confidence attribute.")
+        if not item.attrib.get("evidence_status"):
+            raise ValueError("Each key_points item must include an evidence_status attribute.")
 
 
 def _child_text(root: ET.Element, name: str) -> str:

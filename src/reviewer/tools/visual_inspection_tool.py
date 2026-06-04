@@ -30,6 +30,17 @@ class VisualInspectionTool:
             [route["image_path"]],
             _visual_questions(target, focus, route),
         )
+        fallback_route = self._fallback_route_after_mismatch(paper, target, route, observation)
+        if fallback_route is not None:
+            fallback_observation = VLMTool(self.config).inspect_pages(
+                [fallback_route["image_path"]],
+                _visual_questions(target, focus, fallback_route),
+            )
+            observation = (
+                f"{observation}\n\nFallback visual inspection after target mismatch:\n"
+                f"{fallback_observation}"
+            )
+            route = fallback_route
         return _format_observation(target, focus, route, observation)
 
     def _route(self, paper: dict, target: str, focus: str) -> dict[str, Any]:
@@ -42,7 +53,15 @@ class VisualInspectionTool:
         if figure_label:
             asset = _find_figure_asset(paper.get("figures", []), figure_label)
             if not asset:
-                raise ValueError(_missing_figure_message(figure_label, paper.get("figures", [])))
+                page = _locate_label_page_in_pdf(paper, figure_label)
+                if page is None:
+                    raise ValueError(_missing_figure_message(figure_label, paper.get("figures", [])))
+                return self._render_pdf_page(
+                    paper,
+                    page,
+                    reason="figure_caption_text_fallback",
+                    label=figure_label,
+                )
             if _wants_page_layout(target, focus):
                 return self._render_pdf_page(
                     paper,
@@ -71,6 +90,27 @@ class VisualInspectionTool:
 
         raise ValueError(
             "inspect_visual requires one specific visual target: Figure N, Picture N, Table N, or page N."
+        )
+
+    def _fallback_route_after_mismatch(
+        self,
+        paper: dict,
+        target: str,
+        route: dict[str, Any],
+        observation: str,
+    ) -> dict[str, Any] | None:
+        """Retry with a caption-located page when the VLM reports a target mismatch."""
+        if not route.get("label") or not _target_mismatch_observation(observation):
+            return None
+        page = _locate_label_page_in_pdf(paper, str(route["label"]))
+        if page is None or page == route.get("pdf_page"):
+            return None
+        return self._render_pdf_page(
+            paper,
+            page,
+            reason=f"{route.get('reason', 'visual')}_mismatch_fallback",
+            label=str(route["label"]),
+            asset_path=str(route.get("asset_path") or ""),
         )
 
     def _render_pdf_page(
@@ -186,6 +226,23 @@ def _locate_label_page_in_pdf(paper: dict, label: str) -> int | None:
     return None
 
 
+def _target_mismatch_observation(observation: str) -> bool:
+    """Return whether VLM text says the requested target is absent or mismatched."""
+    text = observation.lower()
+    return any(
+        phrase in text
+        for phrase in (
+            "not present on this page",
+            "not visible on this page",
+            "not shown on this page",
+            "does not visually contain",
+            "target mismatch",
+            "wrong page",
+            "not the requested",
+        )
+    )
+
+
 def _visual_questions(target: str, focus: str, route: dict[str, Any]) -> list[str]:
     """Build focused VLM questions for the chosen visual input."""
     focus_text = focus.strip() or (
@@ -200,6 +257,8 @@ def _visual_questions(target: str, focus: str, route: dict[str, Any]) -> list[st
     return [
         source_note,
         f"Target: {target}. Focus: {focus_text}",
+        "First verify whether the attached image actually contains the requested target. "
+        "If it does not, state this as a target mismatch before any other assessment.",
         "Report only confirmed visual evidence. Separate evidence limitations from presentation weaknesses.",
     ]
 

@@ -21,6 +21,7 @@ Use this structure:
   <answer>...</answer>
   <evidence>
     <item source="paper">...</item>
+    <item source="visual">...</item>
     <item source="retrieval">...</item>
     <item source="inference">...</item>
   </evidence>
@@ -35,7 +36,7 @@ Use this structure:
   <review_impact>
     <dimension>Contribution | Soundness | Presentation</dimension>
     <polarity>strength | weakness</polarity>
-    <impact_level>C1 | C2 | C3</impact_level>
+    <impact_level>C0 | C1 | C2 | C3 | C4</impact_level>
     <confidence>low | medium | high</confidence>
   </review_impact>
 </qa_result>
@@ -43,27 +44,34 @@ Use this structure:
 
 Impact levels:
 
-- C1: decision-driving review point. If this point is correct, it should
+- C0: hard-gate or non-reviewability point. Use only for confirmed
+  administrative, artifact, or reviewability issues that can force rejection or
+  make the paper impossible to evaluate.
+- C1: score-driving review point. If this point is correct, it should
   materially affect the dimension score or may affect the final Accept/Reject
   recommendation.
 - C2: important review point. It should usually appear in the dimension review,
   but by itself would not normally change the final Accept/Reject
   recommendation.
-- C3: local or secondary review point. It may support a requested change,
-  caveat, or polish note, but should not drive the dimension score or final
-  recommendation.
+- C3: local actionable point. It may support a requested change or caveat, but
+  should not drive the dimension score or final recommendation.
+- C4: minor polish or trace-only note. Use for isolated typos, small style
+  preferences, low-confidence observations, or evidence limitations that should
+  not affect the dimension score.
 
 Always choose either strength or weakness. Do not use neutral or mixed. If the
 available evidence is incomplete, still make the best reviewer-style judgment
 and explain the uncertainty in the answer text.
 
-Do not use C2 as a safe default. Choose C1 only for decisive strengths or
-weaknesses that could change the score or recommendation. Choose C3 for local,
-secondary, speculative, or low-confidence points. Choose C2 only when the point
-is clearly important but not decisive.
-Use C3 actively for local presentation polish, narrow missing details,
-non-central ablations, secondary caveats, and uncertain observations. Not every
-confirmed weakness or strength is C1 or C2.
+Do not use C2 as a safe default. Choose C0 only for confirmed hard-gate
+problems. Choose C1 only for decisive strengths or weaknesses that could change
+the score or recommendation. Choose C2 only when the point is clearly important
+but not decisive. Choose C3 for local, actionable, secondary points. Use C4 for
+minor polish, speculative or low-confidence observations, and tool/evidence
+limitations.
 
 Do not treat retrieved papers as evidence unless they are provided to you.
-Separate paper evidence, retrieval evidence, and inference.
+Separate paper evidence, visual evidence, retrieval evidence, and inference.
+Use source="visual" for PDF page inspection, figure/table inspection, layout
+observations, and VLM observations. Use source="retrieval" only for external
+scholarly search results.

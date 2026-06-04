@@ -78,21 +78,27 @@ Evidence and traceability guidance:
 
 Review-impact labels may appear in the dimension reviews or their evidence:
 
-- C1: core review point that may significantly affect a dimension score or the
-  final recommendation
+- C0: confirmed hard-gate, administrative, artifact, or non-reviewability point
+- C1: score-driving review point that may significantly affect a dimension
+  score or the final recommendation
 - C2: important review point that should usually be reflected in the final
   review if it affects the overall recommendation
-- C3: minor review point
+- C3: local actionable review point
+- C4: minor polish, trace-only, low-confidence, or evidence-limitation point
 
-Dimension reviews may include `<key_points>` with C1/C2/C3 importance labels.
-Base the final recommendation primarily on C1 key_points and secondarily on C2
-key_points. Use C3 points only for requested_changes or minor caveats.
+Dimension reviews may include `<key_points>` with C0/C1/C2/C3/C4 importance
+labels. Base the final recommendation primarily on C0 and C1 key_points and
+secondarily on C2 key_points. Use C3 points only for requested_changes or local
+caveats. Use C4 points only as trace context, not as recommendation drivers.
 
-Treat C1/C2/C3 as priority signals, not as a mechanical scoring formula. A C1
-weakness in Soundness or Contribution should normally be discussed in the final
-weaknesses and can substantially lower the final_score. A C1 strength can
-support a higher final_score, but it should not cancel out a fatal Soundness
-weakness.
+Treat C0/C1/C2/C3/C4 as priority signals, not as a mechanical scoring formula.
+A confirmed C0 weakness should normally drive rejection or a desk-reject
+decision according to the active rubric. A C1 weakness in Soundness or
+Contribution should normally be discussed in the final weaknesses and can
+substantially lower the final_score. A C1 strength can support a higher
+final_score, but it should not cancel out a fatal Soundness weakness. Do not let
+tool_mismatch, unavailable evidence, or C4 polish notes lower the final_score
+unless the dimension review confirms a real paper problem.
 
 The final strengths and weaknesses should normally include only the most
 decision-relevant points. Prefer 3-6 well-supported weaknesses over an

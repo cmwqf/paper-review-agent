@@ -170,7 +170,7 @@ def test_parse_dimension_review_xml_reads_key_points() -> None:
           <dimension>Soundness</dimension>
           <score>2</score>
           <key_points>
-            <item importance="C1" polarity="weakness" confidence="high">Main claim lacks ablation evidence.</item>
+            <item importance="C1" polarity="weakness" confidence="high" evidence_status="confirmed">Main claim lacks ablation evidence.</item>
           </key_points>
           <strengths><item>Clear setup.</item></strengths>
           <weaknesses><item>Missing ablations.</item></weaknesses>
@@ -183,4 +183,5 @@ def test_parse_dimension_review_xml_reads_key_points() -> None:
     assert review.key_points[0].importance == "C1"
     assert review.key_points[0].polarity == "weakness"
     assert review.key_points[0].confidence == "high"
+    assert review.key_points[0].evidence_status == "confirmed"
     assert review.key_points[0].text == "Main claim lacks ablation evidence."

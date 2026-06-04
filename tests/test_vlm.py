@@ -169,3 +169,85 @@ def test_visual_inspection_routes_table_to_one_pdf_page(monkeypatch, tmp_path):
     assert calls[1][0] == [str(rendered)]
     assert "kind: pdf_page" in output
     assert "pdf_page: 2" in output
+
+
+def test_visual_inspection_falls_back_to_caption_page_when_figure_asset_missing(
+    monkeypatch,
+    tmp_path,
+):
+    """Missing figure assets should fall back to the PDF page containing the caption."""
+    rendered = tmp_path / "page_4.png"
+    calls = []
+
+    def fake_extract(source_path):
+        return ["intro", "method", "more text", "Figure 2: Architecture overview"]
+
+    def fake_render(source_path, output_dir, start_page, num_pages, dpi):
+        calls.append((start_page, num_pages))
+        return [str(rendered)]
+
+    def fake_inspect_pages(self, page_images, questions):
+        calls.append((page_images, questions))
+        return "Figure 2 is visible and readable."
+
+    monkeypatch.setattr("reviewer.tools.visual_inspection_tool.extract_pdf_pages", fake_extract)
+    monkeypatch.setattr("reviewer.tools.visual_inspection_tool.render_pdf_page_range", fake_render)
+    monkeypatch.setattr("reviewer.tools.visual_inspection_tool.VLMTool.inspect_pages", fake_inspect_pages)
+
+    output = VisualInspectionTool({"agents": {"presentation": {"use_vlm": True}}}).inspect(
+        {"id": "paper", "figures": [], "metadata": {"source_path": str(tmp_path / "paper.pdf")}},
+        target="Figure 2",
+        focus="readability",
+    )
+
+    assert calls[0] == (4, 1)
+    assert calls[1][0] == [str(rendered)]
+    assert "route_reason: figure_caption_text_fallback" in output
+
+
+def test_visual_inspection_retries_caption_page_after_target_mismatch(
+    monkeypatch,
+    tmp_path,
+):
+    """Wrong figure-page routes should retry a caption-located page once."""
+    wrong_page = tmp_path / "page_9.png"
+    correct_page = tmp_path / "page_2.png"
+    calls = []
+
+    def fake_extract(source_path):
+        return ["intro", "Figure 1: Pipeline overview", "appendix"]
+
+    def fake_render(source_path, output_dir, start_page, num_pages, dpi):
+        calls.append((start_page, num_pages))
+        return [str(wrong_page if start_page == 9 else correct_page)]
+
+    def fake_inspect_pages(self, page_images, questions):
+        calls.append((page_images, questions))
+        if page_images == [str(wrong_page)]:
+            return "Target mismatch: this page does not visually contain Figure 1."
+        return "Figure 1 is visible and readable."
+
+    monkeypatch.setattr("reviewer.tools.visual_inspection_tool.extract_pdf_pages", fake_extract)
+    monkeypatch.setattr("reviewer.tools.visual_inspection_tool.render_pdf_page_range", fake_render)
+    monkeypatch.setattr("reviewer.tools.visual_inspection_tool.VLMTool.inspect_pages", fake_inspect_pages)
+
+    output = VisualInspectionTool({"agents": {"presentation": {"use_vlm": True}}}).inspect(
+        {
+            "id": "paper",
+            "figures": [
+                {
+                    "label": "Figure 1",
+                    "path": str(tmp_path / "_page_9_Figure_1.jpeg"),
+                    "pdf_page": 9,
+                }
+            ],
+            "metadata": {"source_path": str(tmp_path / "paper.pdf")},
+        },
+        target="Figure 1",
+        focus="page layout",
+    )
+
+    assert calls[0] == (9, 1)
+    assert calls[2] == (2, 1)
+    assert "Fallback visual inspection after target mismatch" in output
+    assert "route_reason: figure_page_layout_mismatch_fallback" in output

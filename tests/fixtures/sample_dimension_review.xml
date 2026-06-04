@@ -2,10 +2,15 @@
 <dimension_review>
   <dimension>Soundness</dimension>
   <score>3</score>
+  <key_points>
+    <item importance="C2" polarity="weakness" confidence="medium" evidence_status="confirmed">Missing one important baseline.</item>
+  </key_points>
   <strengths>
     <item>Clear experimental setup.</item>
   </strengths>
   <weaknesses>
     <item>Missing one important baseline.</item>
   </weaknesses>
+  <evidence_summary>Baseline coverage is incomplete.</evidence_summary>
+  <rationale>The C2 weakness limits the score.</rationale>
 </dimension_review>

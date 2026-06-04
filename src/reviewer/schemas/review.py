@@ -16,6 +16,7 @@ class ReviewKeyPoint(BaseModel):
     importance: str = "C2"
     polarity: str = "weakness"
     confidence: str = "medium"
+    evidence_status: str = "confirmed"
 
 
 class DimensionReview(BaseModel):
@@ -23,9 +24,9 @@ class DimensionReview(BaseModel):
 
     dimension: str
     score: int = Field(ge=1, le=4)
-    key_points: list[ReviewKeyPoint] = []
-    strengths: list[str] = []
-    weaknesses: list[str] = []
+    key_points: list[ReviewKeyPoint] = Field(default_factory=list)
+    strengths: list[str] = Field(default_factory=list)
+    weaknesses: list[str] = Field(default_factory=list)
     evidence_summary: str | None = None
     rationale: str
 
@@ -69,6 +70,7 @@ def _key_points(parent: ET.Element | None) -> list[ReviewKeyPoint]:
                 importance=item.attrib.get("importance", "C2"),
                 polarity=item.attrib.get("polarity", "weakness"),
                 confidence=item.attrib.get("confidence", "medium"),
+                evidence_status=item.attrib.get("evidence_status", "confirmed"),
             )
         )
     return points

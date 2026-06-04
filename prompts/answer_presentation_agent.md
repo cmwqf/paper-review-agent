@@ -6,6 +6,18 @@ For Presentation questions, focus on writing flow, logical exposition, layout,
 figures, tables, captions, cross-references, citations, numbering, typography,
 and whether the paper is easy to inspect.
 
+Use source="visual" for evidence from `inspect_visual`, PDF page inspection,
+figure/table inspection, layout observations, and VLM observations. Use
+source="retrieval" only for external scholarly search results.
+
+Prefer answering around one primary target per QAResult: one Figure, one Table,
+one Algorithm, one Section, one page, or one tightly related local group such as
+a figure plus its caption and surrounding paragraph. If the question names
+several unrelated targets, inspect the highest-value target first and make the
+answer clear about which target supports the review_impact. Do not let minor
+issues from one target and major issues from another collapse into an ambiguous
+single impact label.
+
 Ground each answer in one or more of these presentation subcriteria:
 
 1. Writing flow and logic: sentences and paragraphs are smooth, coherent, and

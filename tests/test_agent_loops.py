@@ -639,6 +639,9 @@ def test_dimension_agent_asks_question_then_writes_review(monkeypatch) -> None:
             <dimension_review>
               <dimension>Contribution</dimension>
               <score>2</score>
+              <key_points>
+                <item importance="C2" polarity="weakness" confidence="medium" evidence_status="confirmed">Limited novelty evidence.</item>
+              </key_points>
               <strengths><item>Interesting task.</item></strengths>
               <weaknesses><item>Limited novelty evidence.</item></weaknesses>
               <evidence_summary>One QA result.</evidence_summary>
@@ -696,6 +699,9 @@ def test_dimension_agent_enforces_min_qa_turns(monkeypatch) -> None:
             <dimension_review>
               <dimension>Contribution</dimension>
               <score>2</score>
+              <key_points>
+                <item importance="C2" polarity="weakness" confidence="medium" evidence_status="confirmed">Novelty is unclear.</item>
+              </key_points>
               <strengths><item>Useful task.</item></strengths>
               <weaknesses><item>Novelty is unclear.</item></weaknesses>
               <evidence_summary>One QA result.</evidence_summary>
@@ -713,6 +719,9 @@ def test_dimension_agent_enforces_min_qa_turns(monkeypatch) -> None:
             <dimension_review>
               <dimension>Contribution</dimension>
               <score>2</score>
+              <key_points>
+                <item importance="C2" polarity="weakness" confidence="medium" evidence_status="confirmed">Novelty and impact are limited.</item>
+              </key_points>
               <strengths><item>Useful task.</item></strengths>
               <weaknesses><item>Novelty and impact are limited.</item></weaknesses>
               <evidence_summary>Two QA results.</evidence_summary>
@@ -790,6 +799,9 @@ def test_dimension_agent_prompt_includes_configured_qa_limits(monkeypatch) -> No
             <dimension_review>
               <dimension>Contribution</dimension>
               <score>2</score>
+              <key_points>
+                <item importance="C2" polarity="weakness" confidence="medium" evidence_status="confirmed">Limited novelty evidence.</item>
+              </key_points>
               <strengths><item>Useful task.</item></strengths>
               <weaknesses><item>Limited novelty evidence.</item></weaknesses>
               <evidence_summary>Prompt only test.</evidence_summary>
@@ -872,6 +884,10 @@ def test_dimension_agent_enforces_strength_and_weakness_qa(monkeypatch) -> None:
             <dimension_review>
               <dimension>Contribution</dimension>
               <score>3</score>
+              <key_points>
+                <item importance="C2" polarity="strength" confidence="medium" evidence_status="confirmed">Strong positive contribution.</item>
+                <item importance="C2" polarity="weakness" confidence="medium" evidence_status="confirmed">Some limitation.</item>
+              </key_points>
               <strengths><item>Strong positive contribution.</item></strengths>
               <weaknesses><item>Some limitation.</item></weaknesses>
               <evidence_summary>Balanced evidence.</evidence_summary>
@@ -928,6 +944,9 @@ def test_presentation_agent_does_not_preload_visual_evidence(monkeypatch, tmp_pa
             <dimension_review>
               <dimension>Presentation</dimension>
               <score>3</score>
+              <key_points>
+                <item importance="C2" polarity="strength" confidence="medium" evidence_status="confirmed">Readable structure.</item>
+              </key_points>
               <strengths><item>Readable structure.</item></strengths>
               <weaknesses></weaknesses>
               <evidence_summary>Review used available evidence.</evidence_summary>

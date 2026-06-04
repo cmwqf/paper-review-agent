@@ -54,6 +54,24 @@ For ICLR-style Presentation scoring, use the full 1-4 range:
   internally disorganized, missing, incorrectly referenced, or visually
   impossible to inspect, so a reviewer cannot reliably evaluate the paper.
 
+When scoring Presentation, explicitly compare the evidence against adjacent
+anchors instead of defaulting to 3:
+
+- Give 4 when the paper is easy to inspect overall and only has isolated C3/C4
+  local polish issues.
+- Give 3 when the paper is generally readable but one or more C2 local
+  frictions make inspection slower.
+- Give 2 when confirmed C1/C2 presentation problems materially slow inspection
+  of central methods, experiments, assumptions, figures, tables, or claims.
+- Give 1 when a confirmed C0 hard-gate, broken artifact, unreadable core
+  content, or severe cross-reference/layout problem makes the paper
+  non-reviewable.
+
+Unavailable visual evidence, wrong-page tool observations, or missing extracted
+assets are evidence limitations, not paper weaknesses. They should not lower
+the Presentation score unless the Q&A also confirms that the submitted paper
+artifact itself is missing, broken, or non-inspectable.
+
 ## ICLR-Style Administrative / Desk-Reject Presentation Checks
 
 When there is confirmed evidence, flag possible administrative problems that

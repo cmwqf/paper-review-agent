@@ -487,11 +487,12 @@ Q&A answer 是这个系统的关键结构。它不应该只是回答问题，还
 <qa_result>
   <question>Are the baselines sufficient?</question>
   <answer>...</answer>
-  <evidence>
-    <item source="paper">...</item>
-    <item source="retrieval">...</item>
-    <item source="inference">...</item>
-  </evidence>
+	  <evidence>
+	    <item source="paper">...</item>
+	    <item source="visual">...</item>
+	    <item source="retrieval">...</item>
+	    <item source="inference">...</item>
+	  </evidence>
   <retrieved_papers>
     <paper>
       <title>...</title>
@@ -500,32 +501,29 @@ Q&A answer 是这个系统的关键结构。它不应该只是回答问题，还
       <relevance>...</relevance>
     </paper>
   </retrieved_papers>
-  <review_impact>
-    <dimension>Soundness</dimension>
-    <polarity>weakness</polarity>
-    <severity>major</severity>
-    <score_impact>-1.5</score_impact>
-    <confidence>high</confidence>
-    <rationale>...</rationale>
-  </review_impact>
-</qa_result>
-```
+	  <review_impact>
+	    <dimension>Soundness</dimension>
+	    <polarity>weakness</polarity>
+	    <impact_level>C1</impact_level>
+	    <confidence>high</confidence>
+	  </review_impact>
+	</qa_result>
+	```
 
 `review_impact.polarity` 的候选值：
 
 - `strength`
 - `weakness`
-- `neutral`
-- `mixed`
 
-`review_impact.severity` 的候选值：
+`review_impact.impact_level` 的候选值：
 
-- `minor`
-- `moderate`
-- `major`
-- `critical`
+- `C0`: confirmed hard-gate / non-reviewability issue
+- `C1`: score-driving point
+- `C2`: important but not score-deciding point
+- `C3`: local actionable point
+- `C4`: minor polish, trace-only, or evidence-limitation point
 
-`score_impact` 是局部信号，不等于最终维度分数。维度 Agent 在 `write_review` 时应该综合整个 trajectory，而不是简单累加所有 `score_impact`。
+`impact_level` 是优先级信号，不等于最终维度分数。维度 Agent 在 `write_review` 时应该综合整个 trajectory，而不是简单累加或机械映射这些标签。
 
 ## Summary、Search File 与 Read File 的关系
 
@@ -568,6 +566,7 @@ question + dimension + paper metadata
 retrieval 需要明确区分证据来源：
 
 - 来自当前论文的证据：`source="paper"`
+- 来自 PDF 页面、图表、表格、布局或 VLM 观察的证据：`source="visual"`
 - 来自检索论文的证据：`source="retrieval"`
 - 模型基于证据做出的推断：`source="inference"`
 

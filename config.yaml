@@ -77,7 +77,7 @@ agents:
   contribution:
     model: agent
     answer_model: answer
-    min_qa_turns: 3
+    min_qa_turns: 4
     max_qa_turns: 10
     require_balanced_qa: true
 
@@ -92,7 +92,7 @@ agents:
     model: agent
     answer_model: answer
     vlm_model: vlm
-    min_qa_turns: 2
+    min_qa_turns: 4
     max_qa_turns: 10
     require_balanced_qa: true
     use_vlm: true
@@ -128,7 +128,7 @@ retrieval:
     min_candidates: 15
 
 qa:
-  max_answer_steps: 6
+  max_answer_steps: 8
   max_format_retries: 3
 
 xml:
