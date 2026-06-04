@@ -22,7 +22,9 @@ from typing import Any
 #   outputs/deepreview_bench/runs/20260602_153012_GMT_dev_default/papers
 RUN_DIRS: list[str] = [
     "/root/autodl-tmp/review_agent/Reviewer/outputs/deepreview_bench/dev",
-    "/root/autodl-tmp/review_agent/Reviewer/outputs/deepreview_bench/dev_deepseek_v4_pro"
+    "/root/autodl-tmp/review_agent/Reviewer/outputs/deepreview_bench/dev_deepseek_v4_pro",
+    "/root/autodl-tmp/review_agent/Reviewer/outputs/deepreview_bench/runs/20260603_004356_GMT_dev_kimi_k2_6",
+    "/root/autodl-tmp/review_agent/Reviewer/outputs/deepreview_bench/runs/20260603_002409_GMT_dev_default"
 ]
 
 
@@ -121,7 +123,7 @@ def parse_prediction(paper_dir: str | Path) -> dict[str, Any]:
     paper_dir = Path(paper_dir)
     pred: dict[str, Any] = {}
 
-    final_path = paper_dir / "final_review.xml"
+    final_path = artifact_xml_path(paper_dir, "final_review.xml")
     if final_path.exists():
         root = parse_xml_file(final_path)
         final_score = text_of(root, "final_score")
@@ -133,7 +135,7 @@ def parse_prediction(paper_dir: str | Path) -> dict[str, Any]:
             pred["decision"] = infer_decision_from_score(pred["rating"])
 
     for dim in DIMENSIONS:
-        dim_path = paper_dir / f"{dim}.xml"
+        dim_path = artifact_xml_path(paper_dir, f"{dim}.xml")
         if not dim_path.exists():
             continue
         root = parse_xml_file(dim_path)
@@ -142,6 +144,12 @@ def parse_prediction(paper_dir: str | Path) -> dict[str, Any]:
             pred[dim] = parse_score_value(score)
 
     return pred
+
+
+def artifact_xml_path(paper_dir: Path, name: str) -> Path:
+    """Return canonical XML artifact path, falling back to legacy root layout."""
+    canonical = paper_dir / "xml" / name
+    return canonical if canonical.exists() else paper_dir / name
 
 
 def load_source_rows(split_file: str | Path) -> dict[str, dict[str, Any]]:

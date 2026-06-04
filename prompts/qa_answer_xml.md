@@ -43,10 +43,15 @@ Use this structure:
 
 Impact levels:
 
-- C1: core review point that may significantly affect the dimension score or
-  final recommendation
-- C2: important review point that should usually appear in the dimension review
-- C3: minor review point
+- C1: decision-driving review point. If this point is correct, it should
+  materially affect the dimension score or may affect the final Accept/Reject
+  recommendation.
+- C2: important review point. It should usually appear in the dimension review,
+  but by itself would not normally change the final Accept/Reject
+  recommendation.
+- C3: local or secondary review point. It may support a requested change,
+  caveat, or polish note, but should not drive the dimension score or final
+  recommendation.
 
 Always choose either strength or weakness. Do not use neutral or mixed. If the
 available evidence is incomplete, still make the best reviewer-style judgment
@@ -56,6 +61,9 @@ Do not use C2 as a safe default. Choose C1 only for decisive strengths or
 weaknesses that could change the score or recommendation. Choose C3 for local,
 secondary, speculative, or low-confidence points. Choose C2 only when the point
 is clearly important but not decisive.
+Use C3 actively for local presentation polish, narrow missing details,
+non-central ablations, secondary caveats, and uncertain observations. Not every
+confirmed weakness or strength is C1 or C2.
 
 Do not treat retrieved papers as evidence unless they are provided to you.
 Separate paper evidence, retrieval evidence, and inference.

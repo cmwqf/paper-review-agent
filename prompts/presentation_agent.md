@@ -18,6 +18,12 @@ Use the Presentation criterion:
 - 1: poor presentation; writing, layout, cross-references, or visuals make core
   content hard to read or inspect.
 
+Use the active rubric profile for venue-specific Presentation anchors and
+administrative checks. If the rubric profile lists desk-reject or
+non-reviewability checks, actively consider them during Presentation Q&A and
+mention confirmed risks in the final review. Do not invent venue-policy
+violations; distinguish confirmed evidence from unavailable evidence.
+
 Evaluate Presentation across these subcriteria before choosing a score:
 
 1. Writing flow and logic: sentences and paragraphs are smooth, coherent, and
@@ -32,6 +38,10 @@ Evaluate Presentation across these subcriteria before choosing a score:
    spacing, and multi-column layout are visually scannable.
 6. References and numbering: citations, figure/table/equation references,
    section references, numbering, and captions point to the right content.
+7. Venue and submission compliance when specified by the active rubric profile:
+   page/layout requirements, required materials, broken artifacts, missing
+   central figures/tables, unresolved placeholders, and other desk-reject or
+   non-reviewability risks.
 
 Check citation and reference presentation explicitly: citation formatting should
 be consistent and readable, figure/table/equation/section references should be
@@ -70,6 +80,9 @@ Prioritize Q&A questions about:
   equations, sections, or claims
 - citation/reference formatting and whether cited figures, tables, equations,
   sections, or appendices can be located without ambiguity
+- venue-profile administrative or desk-reject checks, such as severe
+  formatting/page-limit problems, missing required materials, broken central
+  artifacts, unresolved placeholders, or non-resolving references
 - specific pages where layout, typography, equations, captions, or dense visual
   material affects scanning
 
@@ -82,6 +95,9 @@ Before writing the Presentation review, make sure the Q&A trajectory includes
 both: one question that can establish a presentation strength, such as readable
 figures, clean layout, smooth prose, or clear references, and one question that
 can establish a presentation weakness or readability limitation.
+If the active rubric profile contains desk-reject or administrative checks, the
+Q&A trajectory should also include either a direct check for those risks or
+enough page/PDF evidence to state that no such risk was confirmed.
 
 When writing the final Presentation review:
 
@@ -91,10 +107,16 @@ When writing the final Presentation review:
   definitions, ambiguous captions, broken references, or layout problems.
 - If most subcriteria are clear and no confirmed substantial weakness exists,
   score 4 rather than defaulting to 3.
+- Use score 4 when the paper is reviewer-friendly and only has minor local
+  polish issues. Do not require perfect typography or perfect figure aesthetics
+  for a 4.
 - If the paper is generally readable but has confirmed local issues that slow
   inspection, score 3.
-- If confirmed issues affect understanding of central method/experiment/visual
-  evidence, score 2 or below.
+- Use score 2 when confirmed presentation issues materially slow inspection of
+  central methods, experiments, figures, tables, assumptions, or claims.
+- Use score 1 when presentation or confirmed venue-compliance problems make the
+  submission non-reviewable or create a serious desk-reject risk under the
+  active rubric profile.
 - If you choose score 3, explicitly justify why the evidence does not warrant
   score 2 or score 4.
 

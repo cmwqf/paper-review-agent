@@ -3,7 +3,8 @@ Purpose: XML output contract for the final aggregated review.
 -->
 
 Return exactly one `<final_review>` XML document with final_score, summary,
-strengths, weaknesses, requested_changes, recommendation, and confidence_score.
+strengths, weaknesses, requested_changes, administrative_decision,
+administrative_reasons, recommendation, and confidence_score.
 
 Use the final rating scale:
 
@@ -37,6 +38,44 @@ Dimension weighting guidance:
   unreadable figures, or organization problems materially prevent assessment,
   reproducibility, or use of the work.
 
+Administrative decision guidance:
+
+- Administrative checks are hard gates specified by the active rubric profile.
+  They are not ordinary Presentation quality preferences.
+- Use `<administrative_decision>clear</administrative_decision>` when no
+  desk-reject or non-reviewability risk is confirmed.
+- Use `<administrative_decision>desk_reject_risk</administrative_decision>`
+  when evidence suggests a possible hard-gate violation but the Q&A trajectory
+  does not confirm it strongly enough.
+- Use `<administrative_decision>desk_reject</administrative_decision>` only
+  when the Q&A/dimension reviews give confirmed evidence of a hard-gate
+  violation under the active rubric profile.
+- If administrative_decision is `desk_reject`, the recommendation must be
+  `Reject` and the final_score should be 1 or 3 depending on severity. The
+  summary should make clear that this is an administrative rejection, not a
+  normal scientific rejection.
+- Do not invent administrative violations. If the evidence is unavailable,
+  report that uncertainty at most as `desk_reject_risk`, not `desk_reject`.
+- Do not introduce a new decisive administrative or non-reviewability reason in
+  the final review unless it was already established with high-confidence
+  evidence in the dimension reviews.
+
+Evidence and traceability guidance:
+
+- Every major strength or weakness that affects the final_score or
+  recommendation must be tied to concrete evidence already present in the paper
+  summary or dimension reviews. Use specific artifacts when available: named
+  baseline, dataset, table, figure, equation, algorithm, section, reported
+  metric, missing protocol detail, or clearly stated methodological omission.
+- Avoid unsupported generic criticism such as "weak experiments" or "limited
+  novelty" unless the same item states what evidence makes it weak or limited.
+- Preserve priority: do not let a secondary Presentation or administrative
+  caveat outweigh central Contribution or Soundness evidence unless the
+  dimension reviews explicitly identify it as a confirmed hard gate.
+- Do not add a new decisive scientific weakness in the final review unless it
+  appears in at least one dimension review or follows directly from evidence in
+  the paper summary and is framed as a low-confidence inference.
+
 Review-impact labels may appear in the dimension reviews or their evidence:
 
 - C1: core review point that may significantly affect a dimension score or the
@@ -45,11 +84,19 @@ Review-impact labels may appear in the dimension reviews or their evidence:
   review if it affects the overall recommendation
 - C3: minor review point
 
+Dimension reviews may include `<key_points>` with C1/C2/C3 importance labels.
+Base the final recommendation primarily on C1 key_points and secondarily on C2
+key_points. Use C3 points only for requested_changes or minor caveats.
+
 Treat C1/C2/C3 as priority signals, not as a mechanical scoring formula. A C1
 weakness in Soundness or Contribution should normally be discussed in the final
 weaknesses and can substantially lower the final_score. A C1 strength can
 support a higher final_score, but it should not cancel out a fatal Soundness
 weakness.
+
+The final strengths and weaknesses should normally include only the most
+decision-relevant points. Prefer 3-6 well-supported weaknesses over an
+exhaustive list, and let requested_changes carry secondary C2/C3 details.
 
 Use this structure:
 
@@ -66,6 +113,10 @@ Use this structure:
   <requested_changes>
     <item>...</item>
   </requested_changes>
+  <administrative_decision>clear | desk_reject_risk | desk_reject</administrative_decision>
+  <administrative_reasons>
+    <item>...</item>
+  </administrative_reasons>
   <recommendation>Accept | Reject</recommendation>
   <confidence_score>1 | 2 | 3 | 4 | 5</confidence_score>
 </final_review>

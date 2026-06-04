@@ -17,6 +17,8 @@ class FinalReview(BaseModel):
     strengths: list[str] = []
     weaknesses: list[str] = []
     requested_changes: list[str] = []
+    administrative_decision: str = "clear"
+    administrative_reasons: list[str] = []
     confidence_score: int = Field(ge=1, le=5)
     recommendation: str | None = None
 
@@ -52,6 +54,8 @@ def parse_final_review_xml(xml_text: str) -> FinalReview:
         strengths=_items(root, "strengths"),
         weaknesses=_items(root, "weaknesses"),
         requested_changes=_items(root, "requested_changes"),
+        administrative_decision=_text(root, "administrative_decision", "clear"),
+        administrative_reasons=_items(root, "administrative_reasons"),
         confidence_score=int(_text(root, "confidence_score", "3")),
         recommendation=_text(root, "recommendation") or None,
     )

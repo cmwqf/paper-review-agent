@@ -31,6 +31,7 @@ from reviewer.tools.retrieval_tool import RetrievalTool
 from reviewer.tools.visual_inspection_tool import VisualInspectionTool
 from reviewer.tools.xml_validator import extract_xml_document, validate_xml_root
 from reviewer.utils.prompts import load_prompt, load_rubric_prompt
+from reviewer.utils.xml_retry import generate_valid_xml
 
 
 class AnswerAgent(BaseAgent):
@@ -197,6 +198,7 @@ class AnswerAgent(BaseAgent):
             paper_map=paper_map,
             observations=observations,
             retrieved_papers=retrieved_papers,
+            trace_events=trace_events,
         )
         _attach_retrieved_paper_details(result, retrieved_papers)
         result.trace_events = trace_events
@@ -470,9 +472,11 @@ def _write_forced_answer(
     paper_map: str,
     observations: list[str],
     retrieved_papers: list[dict],
+    trace_events: list[dict] | None = None,
 ) -> QAResult:
     """Ask the model to produce a final answer after action budget is exhausted."""
     qa_contract = load_prompt("prompts/qa_answer_xml.md", config=config)
+    max_attempts = int(config.get("xml", {}).get("max_generation_attempts", 5))
     messages = [
         {
             "role": "system",
@@ -491,7 +495,20 @@ def _write_forced_answer(
             ),
         },
     ]
-    return parse_qa_result_xml(client.generate(messages))
+    qa_xml = generate_valid_xml(
+        client=client,
+        messages=messages,
+        root_tag="qa_result",
+        max_attempts=max_attempts,
+        trace_events=trace_events,
+        trace_base={
+            "agent": "answer",
+            "dimension": dimension,
+            "question": question,
+            "forced_answer": True,
+        },
+    )
+    return parse_qa_result_xml(qa_xml)
 
 
 def _child_text(root: ET.Element, name: str) -> str:

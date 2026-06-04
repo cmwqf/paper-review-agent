@@ -80,8 +80,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--reuse-from",
         default=None,
         help=(
-            "Existing benchmark output directory to reuse summary.xml and "
-            "qa_trajectory.json from; only rerun dimension summaries and final review."
+            "Existing benchmark output directory to reuse xml/summary.xml "
+            "(or legacy summary.xml) and qa_trajectory.json from; only rerun "
+            "dimension summaries and final review."
         ),
     )
 
@@ -476,9 +477,9 @@ def _run_one_bench_paper(
                 "title": paper.get("title"),
                 "decision": paper.get("metadata", {}).get("decision"),
                 "output_dir": str(paper_output_dir),
-                "summary_xml": str(paper_output_dir / "summary.xml"),
-                "summary_paper_map": str(paper_output_dir / "summary.md"),
-                "final_review_xml": str(paper_output_dir / "final_review.xml"),
+                "summary_xml": str(_artifact_xml_path(paper_output_dir, "summary.xml")),
+                "summary_paper_map": str(_artifact_markdown_path(paper_output_dir, "summary.md")),
+                "final_review_xml": str(_artifact_xml_path(paper_output_dir, "final_review.xml")),
             },
         }
     except Exception as exc:
@@ -552,13 +553,17 @@ def _run_workflow_from_artifacts(
 
 def _load_existing_artifacts(output_dir: Path, state: ReviewWorkflowState) -> None:
     """Load usable artifacts from a previous partial run into workflow state."""
-    summary_xml = _read_stage_xml(output_dir / "summary.xml", "paper_summary")
+    summary_xml = _read_artifact_xml(output_dir, "summary.xml", "paper_summary")
     if summary_xml:
         state.summary_xml = summary_xml
 
     qa_payload = _read_json_object(output_dir / "qa_trajectory.json")
     for dimension in _DIMENSION_NAMES:
-        review_xml = _read_stage_xml(output_dir / f"{dimension.lower()}.xml", "dimension_review")
+        review_xml = _read_artifact_xml(
+            output_dir,
+            f"{dimension.lower()}.xml",
+            "dimension_review",
+        )
         if review_xml:
             state.dimension_reviews[dimension] = review_xml
         if isinstance(qa_payload.get(dimension), list):
@@ -568,7 +573,7 @@ def _load_existing_artifacts(output_dir: Path, state: ReviewWorkflowState) -> No
     if traces:
         state.traces.update(traces)
 
-    final_xml = _read_stage_xml(output_dir / "final_review.xml", "final_review")
+    final_xml = _read_artifact_xml(output_dir, "final_review.xml", "final_review")
     if final_xml:
         state.final_review_xml = final_xml
 
@@ -580,7 +585,7 @@ def _run_summary_only_from_artifacts(
     output_dir: Path | None = None,
 ) -> ReviewWorkflowState:
     """Reuse existing paper summary and Q&A trajectory; rerun dimension/final summaries."""
-    summary_path = source_dir / "summary.xml"
+    summary_path = _existing_artifact_xml_path(source_dir, "summary.xml")
     qa_path = source_dir / "qa_trajectory.json"
     if not summary_path.exists():
         raise FileNotFoundError(f"Missing reused summary XML: {summary_path}")
@@ -646,15 +651,30 @@ def _load_qa_results(items: list[dict]) -> list[QAResult]:
 
 def _write_review_artifacts(output_dir: Path, state) -> None:
     """Persist workflow XML artifacts for one paper."""
-    write_text(output_dir / "summary.xml", state.summary_xml or "")
-    write_text(output_dir / "summary.md", _summary_paper_map_markdown(state.summary_xml or ""))
+    write_text(_artifact_xml_path(output_dir, "summary.xml"), state.summary_xml or "")
+    write_text(
+        _artifact_markdown_path(output_dir, "summary.md"),
+        _summary_paper_map_markdown(state.summary_xml or ""),
+    )
     for dimension, review_xml in state.dimension_reviews.items():
-        write_text(output_dir / f"{dimension.lower()}.xml", review_xml)
+        name = dimension.lower()
+        write_text(_artifact_xml_path(output_dir, f"{name}.xml"), review_xml)
+        write_text(
+            _artifact_markdown_path(output_dir, f"{name}.md"),
+            _dimension_review_markdown(dimension, review_xml),
+        )
     write_json(output_dir / "qa_trajectory.json", _qa_trajectories_payload(state))
-    write_text(output_dir / "qa_trajectory.md", _qa_trajectories_markdown(state))
+    write_text(
+        _artifact_markdown_path(output_dir, "qa_trajectory.md"),
+        _qa_trajectories_markdown(state),
+    )
     write_json(output_dir / "logs" / "trace.json", getattr(state, "traces", {}))
     write_text(output_dir / "logs" / "trace.md", _trace_markdown(state))
-    write_text(output_dir / "final_review.xml", state.final_review_xml or "")
+    write_text(_artifact_xml_path(output_dir, "final_review.xml"), state.final_review_xml or "")
+    write_text(
+        _artifact_markdown_path(output_dir, "final_review.md"),
+        _final_review_markdown(state.final_review_xml or ""),
+    )
     _write_paper_status(output_dir, state)
 
 
@@ -702,13 +722,13 @@ def _paper_is_complete(paper_dir: Path) -> bool:
 
 def _artifact_stage_status(paper_dir: Path) -> dict[str, bool]:
     """Infer stage completion from artifact files for old runs without status.json."""
-    stages = {"summary": _stage_xml_exists(paper_dir / "summary.xml", "paper_summary")}
+    stages = {"summary": _artifact_xml_exists(paper_dir, "summary.xml", "paper_summary")}
     qa_payload = _read_json_object(paper_dir / "qa_trajectory.json")
     for dimension in _DIMENSION_NAMES:
         key = dimension.lower()
-        stages[key] = _stage_xml_exists(paper_dir / f"{key}.xml", "dimension_review")
+        stages[key] = _artifact_xml_exists(paper_dir, f"{key}.xml", "dimension_review")
         stages[f"{key}_qa"] = isinstance(qa_payload.get(dimension), list)
-    stages["final_review"] = _stage_xml_exists(paper_dir / "final_review.xml", "final_review")
+    stages["final_review"] = _artifact_xml_exists(paper_dir, "final_review.xml", "final_review")
     return stages
 
 
@@ -725,6 +745,41 @@ def _read_stage_xml(path: Path, expected_root: str) -> str | None:
     if not _stage_xml_exists(path, expected_root):
         return None
     return path.read_text(encoding="utf-8")
+
+
+def _artifact_xml_path(paper_dir: Path, name: str) -> Path:
+    """Return the canonical XML artifact path for a paper."""
+    return paper_dir / "xml" / name
+
+
+def _artifact_markdown_path(paper_dir: Path, name: str) -> Path:
+    """Return the canonical Markdown artifact path for a paper."""
+    return paper_dir / "markdown" / name
+
+
+def _existing_artifact_xml_path(paper_dir: Path, name: str) -> Path:
+    """Return canonical XML path when present, otherwise the legacy root path."""
+    canonical = _artifact_xml_path(paper_dir, name)
+    if canonical.exists():
+        return canonical
+    return paper_dir / name
+
+
+def _read_artifact_xml(paper_dir: Path, name: str, expected_root: str) -> str | None:
+    """Read XML from the canonical layout, with legacy root-layout fallback."""
+    for path in [_artifact_xml_path(paper_dir, name), paper_dir / name]:
+        xml = _read_stage_xml(path, expected_root)
+        if xml:
+            return xml
+    return None
+
+
+def _artifact_xml_exists(paper_dir: Path, name: str, expected_root: str) -> bool:
+    """Return whether canonical or legacy XML artifact exists and is valid."""
+    return any(
+        _stage_xml_exists(path, expected_root)
+        for path in [_artifact_xml_path(paper_dir, name), paper_dir / name]
+    )
 
 
 def _stage_xml_exists(path: Path, expected_root: str) -> bool:
@@ -757,6 +812,109 @@ def _summary_paper_map_markdown(summary_xml: str) -> str:
     summary = parse_summary_xml(summary_xml)
     paper_map = render_summary_for_agent(summary)
     return f"# Paper Map\n\n```text\n{paper_map.rstrip()}\n```\n"
+
+
+def _dimension_review_markdown(dimension: str, review_xml: str) -> str:
+    """Render one dimension review XML as human-readable Markdown."""
+    try:
+        root = ET.fromstring(review_xml)
+    except ET.ParseError:
+        return _xml_fallback_markdown(f"{dimension} Review", review_xml)
+
+    title = _xml_text(root, "dimension") or dimension
+    lines = [f"# {title} Review", ""]
+    _append_scalar(lines, "Score", _xml_text(root, "score"))
+    _append_key_points(lines, root)
+    _append_items(lines, "Strengths", _xml_items(root, "strengths"))
+    _append_items(lines, "Weaknesses", _xml_items(root, "weaknesses"))
+    _append_section(lines, "Evidence Summary", _xml_text(root, "evidence_summary"))
+    _append_section(lines, "Rationale", _xml_text(root, "rationale"))
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _final_review_markdown(final_xml: str) -> str:
+    """Render final review XML as human-readable Markdown."""
+    if not final_xml.strip():
+        return "# Final Review\n\nNo final review recorded.\n"
+    try:
+        root = ET.fromstring(final_xml)
+    except ET.ParseError:
+        return _xml_fallback_markdown("Final Review", final_xml)
+
+    lines = ["# Final Review", ""]
+    _append_scalar(lines, "Final Score", _xml_text(root, "final_score"))
+    _append_scalar(lines, "Recommendation", _xml_text(root, "recommendation"))
+    _append_scalar(lines, "Administrative Decision", _xml_text(root, "administrative_decision"))
+    _append_scalar(lines, "Confidence", _xml_text(root, "confidence_score"))
+    _append_section(lines, "Summary", _xml_text(root, "summary"))
+    _append_items(lines, "Strengths", _xml_items(root, "strengths"))
+    _append_items(lines, "Weaknesses", _xml_items(root, "weaknesses"))
+    _append_items(lines, "Requested Changes", _xml_items(root, "requested_changes"))
+    _append_items(lines, "Administrative Reasons", _xml_items(root, "administrative_reasons"))
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _append_scalar(lines: list[str], label: str, value: str) -> None:
+    """Append one Markdown scalar field when present."""
+    if value:
+        lines.extend([f"**{label}:** {value}", ""])
+
+
+def _append_section(lines: list[str], title: str, text: str) -> None:
+    """Append a Markdown section when text is present."""
+    if text:
+        lines.extend([f"## {title}", "", text, ""])
+
+
+def _append_items(lines: list[str], title: str, items: list[str]) -> None:
+    """Append a Markdown bullet-list section when items are present."""
+    if not items:
+        return
+    lines.extend([f"## {title}", ""])
+    lines.extend(f"- {item}" for item in items)
+    lines.append("")
+
+
+def _append_key_points(lines: list[str], root: ET.Element) -> None:
+    """Append prioritized dimension key points when present."""
+    group = root.find("key_points")
+    if group is None:
+        return
+    items = []
+    for item in group.findall("item"):
+        text = "".join(item.itertext()).strip()
+        if not text:
+            continue
+        importance = item.attrib.get("importance", "C2")
+        polarity = item.attrib.get("polarity", "weakness")
+        confidence = item.attrib.get("confidence", "medium")
+        items.append(f"[{importance} {polarity} {confidence}] {text}")
+    _append_items(lines, "Key Points", items)
+
+
+def _xml_text(root: ET.Element, child_name: str) -> str:
+    """Return stripped text from an XML child."""
+    child = root.find(child_name)
+    if child is None:
+        return ""
+    return "".join(child.itertext()).strip()
+
+
+def _xml_items(root: ET.Element, child_name: str) -> list[str]:
+    """Return stripped item texts from an XML item collection."""
+    group = root.find(child_name)
+    if group is None:
+        return []
+    return [
+        "".join(item.itertext()).strip()
+        for item in group.findall("item")
+        if "".join(item.itertext()).strip()
+    ]
+
+
+def _xml_fallback_markdown(title: str, xml_text: str) -> str:
+    """Render malformed XML as fenced text for debugging."""
+    return f"# {title}\n\n```xml\n{xml_text.rstrip()}\n```\n"
 
 
 def _qa_trajectories_payload(state) -> dict:

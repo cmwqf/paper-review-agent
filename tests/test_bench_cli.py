@@ -121,24 +121,33 @@ def test_run_bench_dev_writes_results_and_errors(tmp_path, monkeypatch):
     )
 
     assert counts == {"processed": 1, "skipped": 0, "failed": 1}
-    assert (tmp_path / "out" / "ok" / "summary.xml").read_text(encoding="utf-8") == "<paper_summary />"
-    summary_debug = (tmp_path / "out" / "ok" / "summary.md").read_text(encoding="utf-8")
+    assert (
+        tmp_path / "out" / "ok" / "xml" / "summary.xml"
+    ).read_text(encoding="utf-8") == "<paper_summary />"
+    summary_debug = (tmp_path / "out" / "ok" / "markdown" / "summary.md").read_text(
+        encoding="utf-8"
+    )
     assert "# Paper Map" in summary_debug
     assert "PAPER MAP" in summary_debug
     assert "<paper_summary" not in summary_debug
-    assert (tmp_path / "out" / "ok" / "contribution.xml").exists()
+    assert (tmp_path / "out" / "ok" / "xml" / "contribution.xml").exists()
+    assert (tmp_path / "out" / "ok" / "markdown" / "contribution.md").exists()
     assert (tmp_path / "out" / "ok" / "qa_trajectory.json").exists()
-    assert "Is the method novel?" in (tmp_path / "out" / "ok" / "qa_trajectory.md").read_text(
-        encoding="utf-8"
-    )
-    assert (tmp_path / "out" / "ok" / "final_review.xml").exists()
+    assert "Is the method novel?" in (
+        tmp_path / "out" / "ok" / "markdown" / "qa_trajectory.md"
+    ).read_text(encoding="utf-8")
+    assert (tmp_path / "out" / "ok" / "xml" / "final_review.xml").exists()
+    assert (tmp_path / "out" / "ok" / "markdown" / "final_review.md").exists()
+    assert "Final Review" in (
+        tmp_path / "out" / "ok" / "markdown" / "final_review.md"
+    ).read_text(encoding="utf-8")
     status = json.loads((tmp_path / "out" / "ok" / "status.json").read_text(encoding="utf-8"))
     assert status["complete"] is True
     assert status["stages"]["presentation_qa"] is True
     result = read_jsonl(tmp_path / "out" / "results.jsonl")[0]
     assert result["id"] == "ok"
-    assert result["summary_xml"].endswith("summary.xml")
-    assert result["summary_paper_map"].endswith("summary.md")
+    assert result["summary_xml"].endswith("xml/summary.xml")
+    assert result["summary_paper_map"].endswith("markdown/summary.md")
     assert read_jsonl(tmp_path / "out" / "errors.jsonl")[0]["id"] == "bad"
 
 
@@ -258,7 +267,9 @@ def test_write_run_metrics_saves_outputs_inside_run_dir(tmp_path):
         json.dumps({"split_path": str(split), "split": "dev", "agent": "default"}),
         encoding="utf-8",
     )
-    (paper_dir / "final_review.xml").write_text(
+    xml_dir = paper_dir / "xml"
+    xml_dir.mkdir(parents=True)
+    (xml_dir / "final_review.xml").write_text(
         """
         <final_review>
           <final_score>6</final_score>
@@ -272,7 +283,7 @@ def test_write_run_metrics_saves_outputs_inside_run_dir(tmp_path):
         ("soundness", 3),
         ("presentation", 3),
     ]:
-        (paper_dir / f"{dimension}.xml").write_text(
+        (xml_dir / f"{dimension}.xml").write_text(
             f"<dimension_review><score>{score}</score></dimension_review>",
             encoding="utf-8",
         )
@@ -341,7 +352,7 @@ def test_run_bench_dev_can_write_index_files_to_run_root(tmp_path, monkeypatch):
     assert counts == {"processed": 1, "skipped": 0, "failed": 0}
     assert (tmp_path / "run" / "results.jsonl").exists()
     assert not (tmp_path / "run" / "papers" / "results.jsonl").exists()
-    assert (tmp_path / "run" / "papers" / "ok" / "summary.xml").exists()
+    assert (tmp_path / "run" / "papers" / "ok" / "xml" / "summary.xml").exists()
 
 
 def test_run_bench_dev_cli_uses_configured_paths_and_resumes_by_default():

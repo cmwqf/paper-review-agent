@@ -143,6 +143,63 @@ def test_answer_agent_sees_prior_qa_for_impact_calibration(monkeypatch) -> None:
     assert "detailed evidence should not be rendered here" not in prompt
 
 
+def test_answer_agent_retries_forced_answer_xml_parse_errors(monkeypatch) -> None:
+    """Forced final answers should retry when the model emits invalid XML."""
+    client = FakeClient(
+        [
+            """
+            <qa_result>
+              <question>Are baselines sufficient?</question>
+              <answer>The paper compares A & B without escaping the ampersand.</answer>
+              <evidence><item source="paper">Evidence.</item></evidence>
+              <retrieved_papers></retrieved_papers>
+              <review_impact>
+                <dimension>Soundness</dimension>
+                <polarity>weakness</polarity>
+                <impact_level>C2</impact_level>
+                <confidence>medium</confidence>
+              </review_impact>
+            </qa_result>
+            """,
+            """
+            <qa_result>
+              <question>Are baselines sufficient?</question>
+              <answer>The paper compares A &amp; B after retry.</answer>
+              <evidence><item source="paper">Evidence.</item></evidence>
+              <retrieved_papers></retrieved_papers>
+              <review_impact>
+                <dimension>Soundness</dimension>
+                <polarity>weakness</polarity>
+                <impact_level>C2</impact_level>
+                <confidence>medium</confidence>
+              </review_impact>
+            </qa_result>
+            """,
+        ]
+    )
+    monkeypatch.setattr("reviewer.agents.answer.agent.build_llm", lambda config, model_key: client)
+
+    result = AnswerAgent(
+        {
+            "qa": {"max_answer_steps": 0},
+            "xml": {"max_generation_attempts": 2},
+        }
+    ).run(
+        "Are baselines sufficient?",
+        "Soundness",
+        {"text": "Intro", "metadata": {"title": "Paper"}},
+        SUMMARY_XML,
+    )
+
+    assert result.answer == "The paper compares A & B after retry."
+    assert len(client.calls) == 2
+    assert "Parser error: ParseError" in client.calls[1][-1]["content"]
+    assert any(
+        event.get("forced_answer") and event.get("attempt") == 2
+        for event in result.trace_events
+    )
+
+
 def test_answer_agent_can_inspect_visual_before_answering(monkeypatch, tmp_path) -> None:
     """AnswerAgent should expose inspect_visual as the unified visual tool."""
     client = FakeClient(
@@ -923,6 +980,8 @@ def test_final_review_agent_returns_final_review_xml(monkeypatch) -> None:
               <strengths><item>Useful problem.</item></strengths>
               <weaknesses><item>Weak evidence.</item></weaknesses>
               <requested_changes><item>Add baselines.</item></requested_changes>
+              <administrative_decision>clear</administrative_decision>
+              <administrative_reasons></administrative_reasons>
               <recommendation>Reject</recommendation>
               <confidence_score>4</confidence_score>
             </final_review>
@@ -937,5 +996,6 @@ def test_final_review_agent_returns_final_review_xml(monkeypatch) -> None:
     )
 
     assert "<recommendation>Reject</recommendation>" in output
+    assert "<administrative_decision>clear</administrative_decision>" in output
     assert "<confidence_score>4</confidence_score>" in output
     assert "Active review rubric profile: ICLR" in client.calls[0][0]["content"]

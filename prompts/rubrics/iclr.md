@@ -34,6 +34,54 @@ notation, citations, numbering, cross-references, and visual design. High
 scores mean reviewers can inspect the work with low friction; low scores mean
 presentation problems materially obstruct understanding or verification.
 
+For ICLR-style Presentation scoring, use the full 1-4 range:
+
+- 4: clean and reviewer-friendly. The paper is easy to navigate; central
+  claims, methods, figures, tables, captions, equations, references, and
+  appendix pointers are clear enough that a reviewer can inspect the work with
+  little friction. Minor isolated typos or dense but readable tables do not
+  prevent a 4.
+- 3: generally readable with local friction. The main story is understandable,
+  but some figures/tables/captions/prose/notation/cross-references require
+  extra effort. Use 3 for ordinary acceptable presentation, not as the default
+  when evidence is mixed.
+- 2: materially hard to inspect. Important methods, experiments, assumptions,
+  figures, tables, or claims are difficult to follow because of unclear
+  exposition, missing definitions, overloaded visuals, ambiguous captions,
+  broken references, disorganized layout, or insufficiently self-contained
+  descriptions. A careful reviewer can still infer the main content.
+- 1: poor or non-reviewable presentation. Core content is unreadable,
+  internally disorganized, missing, incorrectly referenced, or visually
+  impossible to inspect, so a reviewer cannot reliably evaluate the paper.
+
+## ICLR-Style Administrative / Desk-Reject Presentation Checks
+
+When there is confirmed evidence, flag possible administrative problems that
+could lead to desk rejection or non-reviewability under an ICLR-style venue.
+These checks are conference-profile specific and should not be treated as
+generic novelty or soundness issues.
+
+Check for:
+
+- Obvious format noncompliance that affects reviewability, such as severe page
+  limit violations, unreadably small fonts, excessive margin/spacing changes,
+  missing required sections, or a PDF/layout that is not inspectable.
+- Missing or inaccessible required review materials when the paper depends on
+  them, such as absent appendices/supplementary details for claims that cannot
+  otherwise be evaluated.
+- Clearly broken submission artifacts, such as missing figures/tables that are
+  referenced as central evidence, empty pages where central content should
+  appear, corrupted rendering, or unresolved placeholders like "TODO" in central
+  sections.
+- Citation/reference problems that affect reviewability, such as references to
+  nonexistent figures/tables/equations/appendices or citation markers that do
+  not resolve in the bibliography.
+
+Do not overstate these checks. Only flag a desk-reject risk when the evidence
+is explicit in the paper/PDF or Q&A observations. If the issue is merely a
+minor typo, ordinary formatting imperfection, or missing related work, treat it
+under the normal dimension boundary instead.
+
 Keep dimension boundaries clear:
 
 - Do not lower Contribution for poor visual polish unless it directly affects

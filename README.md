@@ -95,14 +95,20 @@ logs/reviewer.log
 每篇 paper 目录内会边生成边落盘，例如：
 
 ```text
-summary.xml
-summary.md
-contribution.xml
-soundness.xml
-presentation.xml
+xml/
+  summary.xml
+  contribution.xml
+  soundness.xml
+  presentation.xml
+  final_review.xml
+markdown/
+  summary.md
+  contribution.md
+  soundness.md
+  presentation.md
+  final_review.md
+  qa_trajectory.md
 qa_trajectory.json
-qa_trajectory.md
-final_review.xml
 status.json
 logs/trace.json
 logs/trace.md
@@ -153,10 +159,10 @@ PYTHONPATH=src python -m reviewer.cli --split dev --concurrency 4
 
 续跑规则：
 
-- 已完整生成 `summary.xml`、三个维度 XML、`qa_trajectory.json` 中三个维度记录、`final_review.xml` 的 paper 会跳过。
+- 已完整生成 `xml/summary.xml`、三个维度 XML、`qa_trajectory.json` 中三个维度记录、`xml/final_review.xml` 的 paper 会跳过。
 - 如果某篇 paper 只完成了一部分，会从已有阶段继续补缺失阶段。
 - 如果某个维度 XML 或该维度 Q&A 记录缺失，会重跑该维度。
-- 如果补跑了任一维度，会重新生成 `final_review.xml`，避免最终评分基于旧维度结果。
+- 如果补跑了任一维度，会重新生成 `xml/final_review.xml`，避免最终评分基于旧维度结果。
 - `--fresh` 会忽略这些已有落盘文件，对所选范围重新跑。
 
 只复用已有 Q&A，重跑每个维度最后总结和最终总结：
@@ -172,13 +178,14 @@ PYTHONPATH=src python -m reviewer.cli \
 这个模式会从 `--reuse-from` 指定的旧输出目录中读取：
 
 ```text
-<old_run>/papers/<paper_id>/summary.xml
+<old_run>/papers/<paper_id>/xml/summary.xml
 <old_run>/papers/<paper_id>/qa_trajectory.json
 ```
 
 也兼容旧布局：
 
 ```text
+<old_run>/papers/<paper_id>/summary.xml
 <old_output>/<paper_id>/summary.xml
 <old_output>/<paper_id>/qa_trajectory.json
 ```
@@ -186,10 +193,14 @@ PYTHONPATH=src python -m reviewer.cli \
 然后只重新生成：
 
 ```text
-<new_output>/<paper_id>/contribution.xml
-<new_output>/<paper_id>/soundness.xml
-<new_output>/<paper_id>/presentation.xml
-<new_output>/<paper_id>/final_review.xml
+<new_output>/papers/<paper_id>/xml/contribution.xml
+<new_output>/papers/<paper_id>/xml/soundness.xml
+<new_output>/papers/<paper_id>/xml/presentation.xml
+<new_output>/papers/<paper_id>/xml/final_review.xml
+<new_output>/papers/<paper_id>/markdown/contribution.md
+<new_output>/papers/<paper_id>/markdown/soundness.md
+<new_output>/papers/<paper_id>/markdown/presentation.md
+<new_output>/papers/<paper_id>/markdown/final_review.md
 ```
 
 它不会重新跑 summary agent，也不会重新跑每个维度的 Q&A 检索/回答过程。
