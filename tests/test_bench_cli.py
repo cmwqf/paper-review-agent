@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from reviewer.cli import (
     _load_cli_config,
     _paper_is_complete,
+    _parse_rerun_stages,
     _resolve_bench_paths,
+    _resolve_reuse_rerun_stages,
     _resolve_run_output_dir,
     _reuse_source_dir,
+    _run_summary_only_from_artifacts,
     _set_run_log_file,
     _write_run_metrics,
     _write_review_artifacts,
@@ -219,6 +223,46 @@ def test_write_review_artifacts_marks_incomplete_until_all_stages_land(tmp_path)
     assert status["stages"]["presentation"] is False
     assert _paper_is_complete(tmp_path / "paper") is False
 
+
+def test_final_review_markdown_includes_iclr_review_form_fields(tmp_path):
+    state = FakeState(
+        final_review_xml="""
+        <final_review>
+          <final_score>6</final_score>
+          <summary>Overall summary.</summary>
+          <soundness>3 good - Mostly supported.</soundness>
+          <presentation>2 fair - Hard to inspect.</presentation>
+          <contribution>3 good - Meaningful contribution.</contribution>
+          <strengths><item>Useful idea.</item></strengths>
+          <weaknesses><item>Missing ablations.</item></weaknesses>
+          <questions><item>How sensitive is the method?</item></questions>
+          <suggestions><item>Add a sensitivity study.</item></suggestions>
+          <administrative_decision>clear</administrative_decision>
+          <administrative_reasons><item>No hard-gate issue.</item></administrative_reasons>
+          <recommendation>Accept</recommendation>
+          <confidence_score>4</confidence_score>
+        </final_review>
+        """
+    )
+
+    _write_review_artifacts(tmp_path / "paper", state)
+
+    markdown = (tmp_path / "paper" / "markdown" / "final_review.md").read_text(
+        encoding="utf-8"
+    )
+    assert "## Soundness" in markdown
+    assert "3 good - Mostly supported." in markdown
+    assert "## Presentation" in markdown
+    assert "2 fair - Hard to inspect." in markdown
+    assert "## Contribution" in markdown
+    assert "3 good - Meaningful contribution." in markdown
+    assert "## Questions" in markdown
+    assert "How sensitive is the method?" in markdown
+    assert "## Suggestions" in markdown
+    assert "Add a sensitivity study." in markdown
+
+
+def test_write_review_artifacts_marks_complete_when_all_stages_land(tmp_path):
     _write_review_artifacts(tmp_path / "paper", FakeState())
 
     status = json.loads((tmp_path / "paper" / "status.json").read_text(encoding="utf-8"))
@@ -392,6 +436,53 @@ def test_cli_supports_reuse_from() -> None:
 
     assert args.command is None
     assert args.reuse_from == "outputs/deepreview_bench/dev"
+    assert args.rerun_stages is None
+
+
+def test_cli_supports_reuse_rerun_stages() -> None:
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "--reuse-from",
+            "outputs/deepreview_bench/dev",
+            "--rerun-stages",
+            "soundness,final_review",
+        ]
+    )
+
+    assert args.rerun_stages == "soundness,final_review"
+
+
+def test_resolve_reuse_rerun_stages_defaults_to_all() -> None:
+    parser = build_parser()
+    args = parser.parse_args(["--reuse-from", "outputs/deepreview_bench/dev"])
+
+    assert _resolve_reuse_rerun_stages(args) == {
+        "contribution",
+        "soundness",
+        "presentation",
+        "final_review",
+    }
+
+
+def test_resolve_reuse_rerun_stages_rejects_without_reuse_from() -> None:
+    parser = build_parser()
+    args = parser.parse_args(["--rerun-stages", "final_review"])
+
+    try:
+        _resolve_reuse_rerun_stages(args)
+    except ValueError as exc:
+        assert "--rerun-stages can only be used with --reuse-from" in str(exc)
+    else:
+        raise AssertionError("Expected --rerun-stages without --reuse-from to fail.")
+
+
+def test_parse_rerun_stages_expands_dimensions_and_final_review() -> None:
+    assert _parse_rerun_stages("soundness,presentation") == {
+        "soundness",
+        "presentation",
+        "final_review",
+    }
 
 
 def test_cli_supports_resume_run_dir() -> None:
@@ -500,6 +591,78 @@ def test_reuse_source_dir_supports_run_and_legacy_layouts(tmp_path) -> None:
     assert _reuse_source_dir(legacy_dir, "paper1") == legacy_dir / "paper1"
 
 
+def test_reuse_from_can_rerun_only_final_review(tmp_path, monkeypatch) -> None:
+    source = tmp_path / "source"
+    _write_reuse_source_artifacts(source)
+
+    def fail_dimension_regeneration(**kwargs):
+        raise AssertionError("Dimension summaries should be reused.")
+
+    class FakeFinalAgent:
+        def __init__(self, config):
+            self.trace_events = [{"event": "fake_final"}]
+
+        def run(self, summary_xml, dimension_reviews):
+            assert dimension_reviews["Contribution"].find("old contribution") >= 0
+            return _final_review_xml("new final", recommendation="Accept")
+
+    monkeypatch.setattr("reviewer.cli._write_dimension_review", fail_dimension_regeneration)
+    monkeypatch.setattr("reviewer.cli.FinalReviewAgent", FakeFinalAgent)
+
+    state = _run_summary_only_from_artifacts(
+        {},
+        {"id": "paper1"},
+        source,
+        output_dir=tmp_path / "out",
+        rerun_stages={"final_review"},
+    )
+
+    assert "new final" in state.final_review_xml
+    assert "old contribution" in state.dimension_reviews["Contribution"]
+    assert "new final" in (tmp_path / "out" / "xml" / "final_review.xml").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_reuse_from_defaults_to_rerun_dimensions_and_final_review(tmp_path, monkeypatch) -> None:
+    source = tmp_path / "source"
+    _write_reuse_source_artifacts(source)
+    regenerated = []
+
+    def fake_dimension_regeneration(**kwargs):
+        regenerated.append(kwargs["dimension"])
+        return (
+            "<dimension_review>"
+            f"<dimension>{kwargs['dimension']}</dimension>"
+            "<score>3</score>"
+            f"<rationale>new {kwargs['dimension']}</rationale>"
+            "</dimension_review>"
+        )
+
+    class FakeFinalAgent:
+        def __init__(self, config):
+            self.trace_events = [{"event": "fake_final"}]
+
+        def run(self, summary_xml, dimension_reviews):
+            assert "new Contribution" in dimension_reviews["Contribution"]
+            return _final_review_xml("new final", recommendation="Accept")
+
+    monkeypatch.setattr("reviewer.cli._write_dimension_review", fake_dimension_regeneration)
+    monkeypatch.setattr("reviewer.cli.FinalReviewAgent", FakeFinalAgent)
+    monkeypatch.setattr("reviewer.cli.build_llm", lambda config, model_key: object())
+
+    state = _run_summary_only_from_artifacts(
+        {},
+        {"id": "paper1"},
+        source,
+        output_dir=tmp_path / "out",
+    )
+
+    assert regenerated == ["Contribution", "Soundness", "Presentation"]
+    assert "new final" in state.final_review_xml
+    assert "new Contribution" in state.dimension_reviews["Contribution"]
+
+
 def test_set_run_log_file_routes_logs_to_run_dir(tmp_path) -> None:
     config = {"logging": {"level": "INFO", "log_file": "outputs/logs/reviewer.log"}}
     run_dir = tmp_path / "run"
@@ -507,6 +670,56 @@ def test_set_run_log_file_routes_logs_to_run_dir(tmp_path) -> None:
     _set_run_log_file(config, run_dir)
 
     assert config["logging"]["log_file"] == str(run_dir / "logs" / "reviewer.log")
+
+
+def _write_reuse_source_artifacts(source: Path) -> None:
+    (source / "xml").mkdir(parents=True)
+    (source / "xml" / "summary.xml").write_text(
+        """
+        <paper_summary>
+          <metadata>
+            <title>Paper</title>
+            <authors>unknown</authors>
+            <venue>unknown</venue>
+            <submission_date>2024-01-01</submission_date>
+          </metadata>
+          <paper_map></paper_map>
+          <global_index></global_index>
+        </paper_summary>
+        """,
+        encoding="utf-8",
+    )
+    (source / "qa_trajectory.json").write_text(
+        json.dumps({"Contribution": [], "Soundness": [], "Presentation": []}),
+        encoding="utf-8",
+    )
+    for dimension in ("contribution", "soundness", "presentation"):
+        title = dimension.title()
+        (source / "xml" / f"{dimension}.xml").write_text(
+            (
+                "<dimension_review>"
+                f"<dimension>{title}</dimension>"
+                "<score>3</score>"
+                f"<rationale>old {dimension}</rationale>"
+                "</dimension_review>"
+            ),
+            encoding="utf-8",
+        )
+    (source / "xml" / "final_review.xml").write_text(
+        _final_review_xml("old final", recommendation="Reject"),
+        encoding="utf-8",
+    )
+
+
+def _final_review_xml(summary: str, *, recommendation: str) -> str:
+    return (
+        "<final_review>"
+        "<final_score>6</final_score>"
+        f"<summary>{summary}</summary>"
+        f"<recommendation>{recommendation}</recommendation>"
+        "<confidence_score>4</confidence_score>"
+        "</final_review>"
+    )
 
 
 def test_write_run_metadata_writes_manifest_and_config(tmp_path) -> None:

@@ -177,8 +177,7 @@ PYTHONPATH=src python -m reviewer.cli --split dev --concurrency 4
 PYTHONPATH=src python -m reviewer.cli \
   --agent deepseek_v4_pro \
   --split dev \
-  --reuse-from outputs/deepreview_bench/runs/20260602_153012_GMT_dev_default \
-  --fresh
+  --reuse-from outputs/deepreview_bench/runs/20260602_153012_GMT_dev_default
 ```
 
 这个模式会从 `--reuse-from` 指定的旧输出目录中读取：
@@ -213,6 +212,45 @@ PYTHONPATH=src python -m reviewer.cli \
 这适合快速比较不同 `--agent` 在“维度总结”和“最终综合总结”上的影响。
 如果模型输出的 XML 不合法，Reviewer 会把解析错误反馈给模型并重新生成，
 直到 XML 合法或达到 `xml.max_generation_attempts` 上限。
+
+`--reuse-from` 可以配合 `--rerun-stages` 控制复用粒度。这个参数只在
+`--reuse-from` 模式下有效；不传时默认等价于 `--rerun-stages all`。
+可用值用逗号分隔：
+
+```text
+contribution
+soundness
+presentation
+final_review
+dimensions   # 等价于 contribution,soundness,presentation
+all          # 等价于 contribution,soundness,presentation,final_review
+```
+
+如果重跑任一维度总结，Reviewer 会自动重跑 `final_review`，避免最终总结基于
+旧维度结果。常见用法：
+
+```bash
+# 固定 summary、Q&A 和三个维度总结，只重跑最终综合 review。
+PYTHONPATH=src python -m reviewer.cli \
+  --agent deepseek_v4_pro \
+  --split dev \
+  --reuse-from outputs/deepreview_bench/runs/20260602_153012_GMT_dev_default \
+  --rerun-stages final_review
+
+# 固定 summary 和 Q&A，只重跑三个维度总结，并自动重跑 final_review。
+PYTHONPATH=src python -m reviewer.cli \
+  --agent deepseek_v4_pro \
+  --split dev \
+  --reuse-from outputs/deepreview_bench/runs/20260602_153012_GMT_dev_default \
+  --rerun-stages dimensions
+
+# 只重跑 Soundness 维度总结，并自动重跑 final_review。
+PYTHONPATH=src python -m reviewer.cli \
+  --agent deepseek_v4_pro \
+  --split dev \
+  --reuse-from outputs/deepreview_bench/runs/20260602_153012_GMT_dev_default \
+  --rerun-stages soundness
+```
 
 输出目录命名规则：
 

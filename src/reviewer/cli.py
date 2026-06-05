@@ -33,6 +33,14 @@ from reviewer.workflow.review_workflow import ReviewWorkflow
 from reviewer.workflow.state import ReviewWorkflowState
 
 _DIMENSION_NAMES = ("Contribution", "Soundness", "Presentation")
+_RERUN_STAGE_ALIASES = {
+    "contribution": {"contribution"},
+    "soundness": {"soundness"},
+    "presentation": {"presentation"},
+    "final_review": {"final_review"},
+    "dimensions": {"contribution", "soundness", "presentation"},
+    "all": {"contribution", "soundness", "presentation", "final_review"},
+}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -83,6 +91,15 @@ def build_parser() -> argparse.ArgumentParser:
             "Existing benchmark output directory to reuse xml/summary.xml "
             "(or legacy summary.xml) and qa_trajectory.json from; only rerun "
             "dimension summaries and final review."
+        ),
+    )
+    parser.add_argument(
+        "--rerun-stages",
+        default=None,
+        help=(
+            "Comma-separated stages to regenerate when --reuse-from is set. "
+            "Allowed: contribution,soundness,presentation,final_review,dimensions,all. "
+            "Defaults to all with --reuse-from."
         ),
     )
 
@@ -141,6 +158,10 @@ def main() -> None:
 
     if args.command is None:
         config = _load_cli_config(args)
+        try:
+            rerun_stages = _resolve_reuse_rerun_stages(args)
+        except ValueError as exc:
+            parser.error(str(exc))
         split_path, bench_root, output_base = _resolve_bench_paths(config, args.split)
         run_dir, papers_output_dir = _resolve_run_output_dir(
             config=config,
@@ -169,6 +190,7 @@ def main() -> None:
             resume=not args.fresh,
             concurrency=args.concurrency,
             reuse_from=args.reuse_from,
+            rerun_stages=rerun_stages,
         )
         _write_run_metrics(run_dir)
         print(run_dir)
@@ -185,6 +207,36 @@ def _load_cli_config(args: argparse.Namespace) -> dict:
         config["model_profile"] = selected_agent
         config["_selected_agent"] = selected_agent
     return config
+
+
+def _resolve_reuse_rerun_stages(args: argparse.Namespace) -> set[str] | None:
+    """Resolve --rerun-stages for --reuse-from runs."""
+    raw = getattr(args, "rerun_stages", None)
+    if raw and not getattr(args, "reuse_from", None):
+        raise ValueError("--rerun-stages can only be used with --reuse-from.")
+    if not getattr(args, "reuse_from", None):
+        return None
+    return _parse_rerun_stages(raw or "all")
+
+
+def _parse_rerun_stages(raw: str) -> set[str]:
+    """Parse a comma-separated reuse rerun stage list."""
+    stages: set[str] = set()
+    for item in raw.split(","):
+        key = item.strip().lower().replace("-", "_")
+        if not key:
+            continue
+        if key not in _RERUN_STAGE_ALIASES:
+            allowed = ", ".join(sorted(_RERUN_STAGE_ALIASES))
+            raise ValueError(
+                f"Unknown --rerun-stages value: {item.strip()!r}. Allowed: {allowed}."
+            )
+        stages.update(_RERUN_STAGE_ALIASES[key])
+    if not stages:
+        raise ValueError("--rerun-stages must include at least one stage.")
+    if stages & {"contribution", "soundness", "presentation"}:
+        stages.add("final_review")
+    return stages
 
 
 def _resolve_bench_paths(config: dict, split_name: str) -> tuple[str | Path, str | Path, Path]:
@@ -284,6 +336,7 @@ def _write_run_metadata(
             "concurrency": args.concurrency,
             "fresh": bool(args.fresh),
             "reuse_from": args.reuse_from,
+            "rerun_stages": args.rerun_stages,
             "resume": args.resume,
         }
         write_json(manifest_path, manifest)
@@ -361,6 +414,7 @@ def run_bench_dev(
     resume: bool = False,
     concurrency: int | None = None,
     reuse_from: str | Path | None = None,
+    rerun_stages: set[str] | None = None,
     index_dir: str | Path | None = None,
 ) -> dict[str, int]:
     """Run ReviewWorkflow over a DeepReview-Bench split."""
@@ -409,6 +463,7 @@ def run_bench_dev(
                 offset,
                 row,
                 reuse_from,
+                rerun_stages,
                 resume,
             ): (
                 offset,
@@ -443,6 +498,7 @@ def _run_one_bench_paper(
     offset: int,
     row: dict,
     reuse_from: str | Path | None = None,
+    rerun_stages: set[str] | None = None,
     resume: bool = False,
 ) -> dict:
     """Run and persist artifacts for one DeepReview-Bench paper."""
@@ -456,6 +512,7 @@ def _run_one_bench_paper(
                 paper,
                 _reuse_source_dir(Path(reuse_from), paper_id),
                 output_dir=paper_output_dir,
+                rerun_stages=rerun_stages,
             )
         elif resume and paper_output_dir.exists():
             state = _run_workflow_from_artifacts(config, paper, paper_output_dir)
@@ -583,8 +640,10 @@ def _run_summary_only_from_artifacts(
     paper: dict,
     source_dir: Path,
     output_dir: Path | None = None,
+    rerun_stages: set[str] | None = None,
 ) -> ReviewWorkflowState:
-    """Reuse existing paper summary and Q&A trajectory; rerun dimension/final summaries."""
+    """Reuse existing paper summary and Q&A trajectory; rerun selected summaries."""
+    rerun_stages = set(rerun_stages or _parse_rerun_stages("all"))
     summary_path = _existing_artifact_xml_path(source_dir, "summary.xml")
     qa_path = source_dir / "qa_trajectory.json"
     if not summary_path.exists():
@@ -596,8 +655,6 @@ def _run_summary_only_from_artifacts(
     state.summary_xml = summary_path.read_text(encoding="utf-8")
     if output_dir:
         _write_review_artifacts(output_dir, state)
-    summary = parse_summary_xml(state.summary_xml)
-    paper_map = render_summary_for_agent(summary)
     qa_payload = json.loads(qa_path.read_text(encoding="utf-8"))
 
     dimensions = [
@@ -605,34 +662,73 @@ def _run_summary_only_from_artifacts(
         ("Soundness", "soundness"),
         ("Presentation", "presentation"),
     ]
+    needs_dimension_regeneration = bool(
+        rerun_stages & {"contribution", "soundness", "presentation"}
+    )
+    paper_map = None
+    if needs_dimension_regeneration:
+        summary = parse_summary_xml(state.summary_xml)
+        paper_map = render_summary_for_agent(summary)
+
     for dimension, agent_name in dimensions:
         qa_results = _load_qa_results(qa_payload.get(dimension, []))
-        model_key = config.get("agents", {}).get(agent_name, {}).get("model", "agent")
-        client = build_llm(config, model_key)
-        review_xml = _write_dimension_review(
-            client=client,
-            config=config,
-            dimension=dimension,
-            paper_map=paper_map,
-            qa_results=qa_results,
-        )
+        if agent_name in rerun_stages:
+            model_key = config.get("agents", {}).get(agent_name, {}).get("model", "agent")
+            client = build_llm(config, model_key)
+            review_xml = _write_dimension_review(
+                client=client,
+                config=config,
+                dimension=dimension,
+                paper_map=paper_map or "",
+                qa_results=qa_results,
+            )
+            state.traces[f"{dimension}.dimension_summary"] = [
+                {
+                    "agent": agent_name,
+                    "event": "reuse_qa_summary_regenerated",
+                    "dimension": dimension,
+                    "model_key": model_key,
+                    "qa_count": len(qa_results),
+                }
+            ]
+        else:
+            review_xml = _read_artifact_xml(source_dir, f"{agent_name}.xml", "dimension_review")
+            if not review_xml:
+                raise FileNotFoundError(
+                    f"Missing reused {agent_name} XML: "
+                    f"{_existing_artifact_xml_path(source_dir, f'{agent_name}.xml')}"
+                )
+            state.traces[f"{dimension}.dimension_summary"] = [
+                {
+                    "agent": agent_name,
+                    "event": "reuse_qa_summary_reused",
+                    "dimension": dimension,
+                    "qa_count": len(qa_results),
+                }
+            ]
         state.dimension_reviews[dimension] = review_xml
         state.qa_trajectories[dimension] = qa_results
-        state.traces[f"{dimension}.dimension_summary"] = [
-            {
-                "agent": agent_name,
-                "event": "reuse_qa_summary_regenerated",
-                "dimension": dimension,
-                "model_key": model_key,
-                "qa_count": len(qa_results),
-            }
-        ]
         if output_dir:
             _write_review_artifacts(output_dir, state)
 
-    final_agent = FinalReviewAgent(config)
-    state.final_review_xml = final_agent.run(state.summary_xml, state.dimension_reviews)
-    state.traces["final_review"] = getattr(final_agent, "trace_events", [])
+    if "final_review" in rerun_stages:
+        final_agent = FinalReviewAgent(config)
+        state.final_review_xml = final_agent.run(state.summary_xml, state.dimension_reviews)
+        state.traces["final_review"] = getattr(final_agent, "trace_events", [])
+    else:
+        final_xml = _read_artifact_xml(source_dir, "final_review.xml", "final_review")
+        if not final_xml:
+            raise FileNotFoundError(
+                f"Missing reused final review XML: "
+                f"{_existing_artifact_xml_path(source_dir, 'final_review.xml')}"
+            )
+        state.final_review_xml = final_xml
+        state.traces["final_review"] = [
+            {
+                "agent": "final",
+                "event": "reuse_final_review_reused",
+            }
+        ]
     if output_dir:
         _write_review_artifacts(output_dir, state)
     return state
@@ -847,8 +943,13 @@ def _final_review_markdown(final_xml: str) -> str:
     _append_scalar(lines, "Administrative Decision", _xml_text(root, "administrative_decision"))
     _append_scalar(lines, "Confidence", _xml_text(root, "confidence_score"))
     _append_section(lines, "Summary", _xml_text(root, "summary"))
+    _append_section(lines, "Soundness", _xml_text(root, "soundness"))
+    _append_section(lines, "Presentation", _xml_text(root, "presentation"))
+    _append_section(lines, "Contribution", _xml_text(root, "contribution"))
     _append_items(lines, "Strengths", _xml_items(root, "strengths"))
     _append_items(lines, "Weaknesses", _xml_items(root, "weaknesses"))
+    _append_items(lines, "Questions", _xml_items(root, "questions"))
+    _append_items(lines, "Suggestions", _xml_items(root, "suggestions"))
     _append_items(lines, "Requested Changes", _xml_items(root, "requested_changes"))
     _append_items(lines, "Administrative Reasons", _xml_items(root, "administrative_reasons"))
     return "\n".join(lines).rstrip() + "\n"
