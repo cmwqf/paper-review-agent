@@ -33,6 +33,14 @@ strongly affect the dimension score unless the Q&A trajectory gives clear
 counterevidence. In `rationale`, state which C0/C1/C2 key_points determined the
 score. If a C0 or C1 point is not reflected in the score, briefly explain why.
 
+Use the full 1-4 scale and keep the 2/3 boundary calibrated. Do not upgrade a
+dimension to `3 good` merely because the paper is useful, timely, readable, or
+well motivated. A `3 good` score means the dimension remains mostly convincing
+after accounting for the most important C1/C2 weaknesses. If important C1
+weaknesses remain unresolved and materially affect this dimension's central
+claim, prefer `2 fair` unless the Q&A evidence clearly shows why those
+weaknesses are limited or non-decisive.
+
 Each key point must include `evidence_status`:
 
 - confirmed: directly supported by paper text, visual inspection, retrieval, or

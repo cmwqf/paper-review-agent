@@ -661,6 +661,15 @@ def test_reuse_from_defaults_to_rerun_dimensions_and_final_review(tmp_path, monk
     assert regenerated == ["Contribution", "Soundness", "Presentation"]
     assert "new final" in state.final_review_xml
     assert "new Contribution" in state.dimension_reviews["Contribution"]
+    reused_qa = json.loads((tmp_path / "out" / "reused_qa_trajectory.json").read_text())
+    assert reused_qa["Contribution"][0]["question"] == "Old contribution question?"
+    reused_qa_md = (tmp_path / "out" / "markdown" / "reused_qa_trajectory.md").read_text()
+    assert "Old contribution answer." in reused_qa_md
+    reused_trace = json.loads((tmp_path / "out" / "logs" / "reused_qa_trace.json").read_text())
+    assert sorted(reused_trace) == [
+        "Contribution.answer_agent",
+        "Contribution.dimension_agent",
+    ]
 
 
 def test_set_run_log_file_routes_logs_to_run_dir(tmp_path) -> None:
@@ -689,8 +698,39 @@ def _write_reuse_source_artifacts(source: Path) -> None:
         """,
         encoding="utf-8",
     )
+    qa_result = QAResult(
+        question="Old contribution question?",
+        answer="Old contribution answer.",
+        evidence=["paper: old evidence"],
+        review_impact=ReviewImpact(
+            dimension="Contribution",
+            polarity="strength",
+            impact_level="C2",
+            confidence="medium",
+        ),
+    )
     (source / "qa_trajectory.json").write_text(
-        json.dumps({"Contribution": [], "Soundness": [], "Presentation": []}),
+        json.dumps(
+            {
+                "Contribution": [
+                    qa_result.model_dump() if hasattr(qa_result, "model_dump") else qa_result.dict()
+                ],
+                "Soundness": [],
+                "Presentation": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (source / "logs").mkdir(parents=True)
+    (source / "logs" / "trace.json").write_text(
+        json.dumps(
+            {
+                "summary": [{"event": "old_summary"}],
+                "Contribution.dimension_agent": [{"event": "ask_question"}],
+                "Contribution.answer_agent": [{"event": "tool_call"}],
+                "final_review": [{"event": "old_final"}],
+            }
+        ),
         encoding="utf-8",
     )
     for dimension in ("contribution", "soundness", "presentation"):

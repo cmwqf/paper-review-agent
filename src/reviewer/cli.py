@@ -656,6 +656,11 @@ def _run_summary_only_from_artifacts(
     if output_dir:
         _write_review_artifacts(output_dir, state)
     qa_payload = json.loads(qa_path.read_text(encoding="utf-8"))
+    state.reused_qa_payload = qa_payload
+    state.reused_qa_source = str(qa_path)
+    reused_qa_trace = _read_reused_qa_trace(source_dir)
+    if reused_qa_trace:
+        state.reused_qa_trace = reused_qa_trace
 
     dimensions = [
         ("Contribution", "contribution"),
@@ -734,6 +739,24 @@ def _run_summary_only_from_artifacts(
     return state
 
 
+def _read_reused_qa_trace(source_dir: Path) -> dict:
+    """Load Q&A-related trace events from a reused run, when available."""
+    trace_path = source_dir / "logs" / "trace.json"
+    if not trace_path.exists():
+        return {}
+    try:
+        trace_payload = json.loads(trace_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(trace_payload, dict):
+        return {}
+    return {
+        name: events
+        for name, events in trace_payload.items()
+        if name.endswith(".dimension_agent") or name.endswith(".answer_agent")
+    }
+
+
 def _load_qa_results(items: list[dict]) -> list[QAResult]:
     """Load QAResult objects from serialized qa_trajectory.json entries."""
     results = []
@@ -764,6 +787,7 @@ def _write_review_artifacts(output_dir: Path, state) -> None:
         _artifact_markdown_path(output_dir, "qa_trajectory.md"),
         _qa_trajectories_markdown(state),
     )
+    _write_reused_qa_artifacts(output_dir, state)
     write_json(output_dir / "logs" / "trace.json", getattr(state, "traces", {}))
     write_text(output_dir / "logs" / "trace.md", _trace_markdown(state))
     write_text(_artifact_xml_path(output_dir, "final_review.xml"), state.final_review_xml or "")
@@ -772,6 +796,20 @@ def _write_review_artifacts(output_dir: Path, state) -> None:
         _final_review_markdown(state.final_review_xml or ""),
     )
     _write_paper_status(output_dir, state)
+
+
+def _write_reused_qa_artifacts(output_dir: Path, state) -> None:
+    """Persist source Q&A artifacts for reuse runs."""
+    reused_payload = getattr(state, "reused_qa_payload", None)
+    if reused_payload is not None:
+        write_json(output_dir / "reused_qa_trajectory.json", reused_payload)
+        write_text(
+            _artifact_markdown_path(output_dir, "reused_qa_trajectory.md"),
+            _qa_payload_markdown(reused_payload, source=getattr(state, "reused_qa_source", "")),
+        )
+    reused_trace = getattr(state, "reused_qa_trace", None)
+    if reused_trace:
+        write_json(output_dir / "logs" / "reused_qa_trace.json", reused_trace)
 
 
 def _write_paper_status(output_dir: Path, state) -> None:
@@ -1069,6 +1107,29 @@ def _qa_trajectories_markdown(state) -> str:
         return "# Q&A Trajectory\n\nNo Q&A results recorded.\n"
 
     lines = ["# Q&A Trajectory", ""]
+    _append_qa_markdown(lines, trajectories)
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _qa_payload_markdown(payload: dict, *, source: str = "") -> str:
+    """Render a serialized Q&A payload copied from a reused run."""
+    if not payload:
+        return "# Reused Q&A Trajectory\n\nNo reused Q&A results recorded.\n"
+
+    trajectories = {
+        dimension: _load_qa_results(items)
+        for dimension, items in payload.items()
+        if isinstance(items, list)
+    }
+    lines = ["# Reused Q&A Trajectory", ""]
+    if source:
+        lines.extend([f"Source: `{source}`", ""])
+    _append_qa_markdown(lines, trajectories)
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _append_qa_markdown(lines: list[str], trajectories: dict) -> None:
+    """Append rendered Q&A trajectories to a Markdown line buffer."""
     for dimension, qa_results in trajectories.items():
         lines.extend([f"## {dimension}", ""])
         if not qa_results:
@@ -1105,7 +1166,6 @@ def _qa_trajectories_markdown(state) -> str:
                     parts = [part for part in [title, str(year), url, relevance] if part]
                     lines.append(f"- {' | '.join(parts)}")
                 lines.append("")
-    return "\n".join(lines).rstrip() + "\n"
 
 
 if __name__ == "__main__":
