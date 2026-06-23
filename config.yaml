@@ -8,13 +8,13 @@ review:
   rubric_profile: ICLR
 
 bench:
-  root: ../DeepReview-Bench
+  root: /home/jiaxiaohan/DeepReview-Bench
   output_dir: outputs/deepreview_bench
   splits:
-    dev: ../DeepReview-Bench/splits/deepreview13k_test_dev.jsonl
-    lite: ../DeepReview-Bench/splits/deepreview13k_test_lite.jsonl
-    test: ../DeepReview-Bench/splits/deepreview13k_test.jsonl
-    all: ../DeepReview-Bench/splits/all.jsonl
+    dev: /home/jiaxiaohan/DeepReview-Bench/splits/deepreview13k_test_dev_clean100.jsonl
+    lite: /home/jiaxiaohan/DeepReview-Bench/splits/deepreview13k_test_lite.jsonl
+    test: /home/jiaxiaohan/DeepReview-Bench/splits/deepreview13k_test.jsonl
+    all: /home/jiaxiaohan/DeepReview-Bench/splits/all.jsonl
   concurrency: 8
 
 network:
@@ -90,23 +90,23 @@ agents:
     model: agent
     answer_model: answer
     min_qa_turns: 4
-    max_qa_turns: 10
-    require_balanced_qa: true
+    max_qa_turns: 6
+    require_balanced_qa: false
 
   soundness:
     model: agent
     answer_model: answer
     min_qa_turns: 4
-    max_qa_turns: 10
-    require_balanced_qa: true
+    max_qa_turns: 7
+    require_balanced_qa: false
 
   presentation:
     model: agent
     answer_model: answer
     vlm_model: vlm
     min_qa_turns: 4
-    max_qa_turns: 10
-    require_balanced_qa: true
+    max_qa_turns: 5
+    require_balanced_qa: false
     use_vlm: true
     require_pdf: true
 

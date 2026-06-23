@@ -78,6 +78,29 @@ def test_get_model_config_applies_active_profile_overrides() -> None:
     assert model_config["temperature"] == 0.1
 
 
+def test_get_model_config_resolves_separator_insensitive_profile_alias() -> None:
+    """CLI profile labels should tolerate slug-style separators."""
+    config = {
+        "model_profile": "gpt_5_5",
+        "models": {
+            "default": {
+                "model": "default-model",
+                "base_url": "http://localhost:8000/v1",
+            },
+            "agent": {},
+            "profiles": {
+                "gpt-5.5": {
+                    "agent": {"model": "openai/gpt-5.5"},
+                }
+            },
+        },
+    }
+
+    model_config = get_model_config(config, "agent")
+
+    assert model_config["model"] == "openai/gpt-5.5"
+
+
 def test_runtime_model_profile_overrides_config_active_profile() -> None:
     """Runtime profile selection should take precedence over config defaults."""
     config = {

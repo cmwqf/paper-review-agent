@@ -15,7 +15,7 @@ import yaml
 from tqdm.auto import tqdm
 
 from reviewer.agents.contribution.agent import ContributionAgent
-from reviewer.agents.dimension_base import _write_dimension_review
+from reviewer.agents.dimension_base import _render_qa_for_dimension_review, _write_dimension_review
 from reviewer.agents.final.agent import FinalReviewAgent
 from reviewer.agents.presentation.agent import PresentationAgent
 from reviewer.agents.soundness.agent import SoundnessAgent
@@ -34,12 +34,24 @@ from reviewer.workflow.state import ReviewWorkflowState
 
 _DIMENSION_NAMES = ("Contribution", "Soundness", "Presentation")
 _RERUN_STAGE_ALIASES = {
+    "summary": {"summary"},
+    "qa": {"qa"},
     "contribution": {"contribution"},
     "soundness": {"soundness"},
     "presentation": {"presentation"},
     "final_review": {"final_review"},
     "dimensions": {"contribution", "soundness", "presentation"},
-    "all": {"contribution", "soundness", "presentation", "final_review"},
+    # 'all' reuses only the summary and reruns Q&A + reviews + final.
+    "all": {"qa", "contribution", "soundness", "presentation", "final_review"},
+    # 'everything' also regenerates the summary.
+    "everything": {
+        "summary",
+        "qa",
+        "contribution",
+        "soundness",
+        "presentation",
+        "final_review",
+    },
 }
 
 
@@ -97,9 +109,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--rerun-stages",
         default=None,
         help=(
-            "Comma-separated stages to regenerate when --reuse-from is set. "
-            "Allowed: contribution,soundness,presentation,final_review,dimensions,all. "
-            "Defaults to all with --reuse-from."
+            "Comma-separated stages to regenerate when --reuse-from is set; every "
+            "other stage is reused from that run. Allowed: summary, qa, "
+            "contribution, soundness, presentation, final_review, dimensions, all, "
+            "everything. 'qa' reruns the Q&A trajectory (and the reviews built on "
+            "it) from scratch; 'summary' regenerates the paper summary; 'all' "
+            "(the default) reuses only the summary and reruns qa+reviews+final; "
+            "'everything' reruns summary too. Omitting 'summary' means the summary "
+            "is reused (not rerun)."
         ),
     )
 
@@ -503,15 +520,15 @@ def _run_one_bench_paper(
 ) -> dict:
     """Run and persist artifacts for one DeepReview-Bench paper."""
     paper_id = str(row.get("id") or f"row-{offset}")
-    paper_output_dir = output_path / paper_id
+    paper_output_dir = output_dir = output_path / paper_id
     try:
         paper = load_bench_paper(row, bench_root)
         if reuse_from:
-            state = _run_summary_only_from_artifacts(
+            state = _run_from_reuse(
                 config,
                 paper,
                 _reuse_source_dir(Path(reuse_from), paper_id),
-                output_dir=paper_output_dir,
+                output_dir,
                 rerun_stages=rerun_stages,
             )
         elif resume and paper_output_dir.exists():
@@ -560,6 +577,53 @@ def _reuse_source_dir(reuse_from: Path, paper_id: str) -> Path:
     return reuse_from / paper_id
 
 
+def _run_from_reuse(
+    config: dict,
+    paper: dict,
+    source_dir: Path,
+    output_dir: Path,
+    rerun_stages: set[str] | None = None,
+) -> ReviewWorkflowState:
+    """Reuse artifacts from a prior run; rerun only the stages in rerun_stages.
+
+    Stages: summary, qa, contribution, soundness, presentation, final_review.
+    - 'summary' absent from rerun_stages -> reuse the paper summary (generated
+      only when the source has none, so mixed/new papers still run).
+    - 'qa' present -> rerun the Q&A trajectory (and the reviews + final built on
+      it) from scratch with the current prompts.
+    - 'qa' absent -> reuse the cached Q&A trajectory and only re-synthesize the
+      dimension reviews / final review listed in rerun_stages.
+    """
+    rerun = set(rerun_stages or _parse_rerun_stages("all"))
+    if "summary" in rerun:
+        summary_xml: str | None = None  # generated fresh below
+    else:
+        summary_path = _existing_artifact_xml_path(source_dir, "summary.xml")
+        summary_xml = summary_path.read_text(encoding="utf-8") if summary_path.exists() else None
+
+    if "qa" in rerun:
+        # Fresh Q&A + dimension reviews + final, reusing the summary when present.
+        return ReviewWorkflow(config).run(
+            paper,
+            artifact_callback=lambda current_state: _write_review_artifacts(
+                output_dir, current_state
+            ),
+            summary_xml=summary_xml,
+        )
+
+    # Reuse cached Q&A: only re-synthesize selected dimension reviews / final.
+    if summary_xml is None:
+        summary_xml = SummaryAgent(config).run(paper)
+    return _run_summary_only_from_artifacts(
+        config,
+        paper,
+        source_dir,
+        output_dir=output_dir,
+        rerun_stages=rerun,
+        summary_xml=summary_xml,
+    )
+
+
 def _run_workflow_from_artifacts(
     config: dict,
     paper: dict,
@@ -601,7 +665,11 @@ def _run_workflow_from_artifacts(
         or not _all_stages_complete(_state_stage_status(state))
     ):
         final_agent = FinalReviewAgent(config)
-        state.final_review_xml = final_agent.run(state.summary_xml, state.dimension_reviews)
+        state.final_review_xml = final_agent.run(
+            state.summary_xml,
+            state.dimension_reviews,
+            state.qa_trajectories,
+        )
         state.traces["final_review"] = getattr(final_agent, "trace_events", [])
         _write_review_artifacts(output_dir, state)
 
@@ -641,26 +709,27 @@ def _run_summary_only_from_artifacts(
     source_dir: Path,
     output_dir: Path | None = None,
     rerun_stages: set[str] | None = None,
+    summary_xml: str | None = None,
 ) -> ReviewWorkflowState:
-    """Reuse existing paper summary and Q&A trajectory; rerun selected summaries."""
+    """Reuse cached Q&A trajectory; re-synthesize the selected dimension reviews
+    and final review from it. The summary is taken from ``summary_xml`` when
+    provided, otherwise read from the source dir."""
     rerun_stages = set(rerun_stages or _parse_rerun_stages("all"))
-    summary_path = _existing_artifact_xml_path(source_dir, "summary.xml")
     qa_path = source_dir / "qa_trajectory.json"
-    if not summary_path.exists():
-        raise FileNotFoundError(f"Missing reused summary XML: {summary_path}")
     if not qa_path.exists():
         raise FileNotFoundError(f"Missing reused Q&A trajectory: {qa_path}")
 
     state = ReviewWorkflowState(paper=paper)
-    state.summary_xml = summary_path.read_text(encoding="utf-8")
+    if summary_xml is not None:
+        state.summary_xml = summary_xml
+    else:
+        summary_path = _existing_artifact_xml_path(source_dir, "summary.xml")
+        if not summary_path.exists():
+            raise FileNotFoundError(f"Missing reused summary XML: {summary_path}")
+        state.summary_xml = summary_path.read_text(encoding="utf-8")
     if output_dir:
         _write_review_artifacts(output_dir, state)
     qa_payload = json.loads(qa_path.read_text(encoding="utf-8"))
-    state.reused_qa_payload = qa_payload
-    state.reused_qa_source = str(qa_path)
-    reused_qa_trace = _read_reused_qa_trace(source_dir)
-    if reused_qa_trace:
-        state.reused_qa_trace = reused_qa_trace
 
     dimensions = [
         ("Contribution", "contribution"),
@@ -718,7 +787,11 @@ def _run_summary_only_from_artifacts(
 
     if "final_review" in rerun_stages:
         final_agent = FinalReviewAgent(config)
-        state.final_review_xml = final_agent.run(state.summary_xml, state.dimension_reviews)
+        state.final_review_xml = final_agent.run(
+            state.summary_xml,
+            state.dimension_reviews,
+            state.qa_trajectories,
+        )
         state.traces["final_review"] = getattr(final_agent, "trace_events", [])
     else:
         final_xml = _read_artifact_xml(source_dir, "final_review.xml", "final_review")
@@ -739,32 +812,18 @@ def _run_summary_only_from_artifacts(
     return state
 
 
-def _read_reused_qa_trace(source_dir: Path) -> dict:
-    """Load Q&A-related trace events from a reused run, when available."""
-    trace_path = source_dir / "logs" / "trace.json"
-    if not trace_path.exists():
-        return {}
-    try:
-        trace_payload = json.loads(trace_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return {}
-    if not isinstance(trace_payload, dict):
-        return {}
-    return {
-        name: events
-        for name, events in trace_payload.items()
-        if name.endswith(".dimension_agent") or name.endswith(".answer_agent")
-    }
-
-
 def _load_qa_results(items: list[dict]) -> list[QAResult]:
     """Load QAResult objects from serialized qa_trajectory.json entries."""
     results = []
-    for item in items:
+    for index, item in enumerate(items, 1):
         if hasattr(QAResult, "model_validate"):
-            results.append(QAResult.model_validate(item))
+            result = QAResult.model_validate(item)
         else:
-            results.append(QAResult.parse_obj(item))
+            result = QAResult.parse_obj(item)
+        if not getattr(result, "id", None):
+            dimension = getattr(result.review_impact, "dimension", "") or "QA"
+            result.id = _qa_id(dimension, index)
+        results.append(result)
     return results
 
 
@@ -782,12 +841,17 @@ def _write_review_artifacts(output_dir: Path, state) -> None:
             _artifact_markdown_path(output_dir, f"{name}.md"),
             _dimension_review_markdown(dimension, review_xml),
         )
+    for dimension, qa_results in getattr(state, "qa_trajectories", {}).items():
+        name = dimension.lower()
+        write_text(
+            _artifact_markdown_path(output_dir, f"{name}_qa.md"),
+            _dimension_qa_markdown(dimension, qa_results),
+        )
     write_json(output_dir / "qa_trajectory.json", _qa_trajectories_payload(state))
     write_text(
         _artifact_markdown_path(output_dir, "qa_trajectory.md"),
         _qa_trajectories_markdown(state),
     )
-    _write_reused_qa_artifacts(output_dir, state)
     write_json(output_dir / "logs" / "trace.json", getattr(state, "traces", {}))
     write_text(output_dir / "logs" / "trace.md", _trace_markdown(state))
     write_text(_artifact_xml_path(output_dir, "final_review.xml"), state.final_review_xml or "")
@@ -796,20 +860,6 @@ def _write_review_artifacts(output_dir: Path, state) -> None:
         _final_review_markdown(state.final_review_xml or ""),
     )
     _write_paper_status(output_dir, state)
-
-
-def _write_reused_qa_artifacts(output_dir: Path, state) -> None:
-    """Persist source Q&A artifacts for reuse runs."""
-    reused_payload = getattr(state, "reused_qa_payload", None)
-    if reused_payload is not None:
-        write_json(output_dir / "reused_qa_trajectory.json", reused_payload)
-        write_text(
-            _artifact_markdown_path(output_dir, "reused_qa_trajectory.md"),
-            _qa_payload_markdown(reused_payload, source=getattr(state, "reused_qa_source", "")),
-        )
-    reused_trace = getattr(state, "reused_qa_trace", None)
-    if reused_trace:
-        write_json(output_dir / "logs" / "reused_qa_trace.json", reused_trace)
 
 
 def _write_paper_status(output_dir: Path, state) -> None:
@@ -957,11 +1007,13 @@ def _dimension_review_markdown(dimension: str, review_xml: str) -> str:
 
     title = _xml_text(root, "dimension") or dimension
     lines = [f"# {title} Review", ""]
+    _append_dimension_evidence_trace(lines, root)
+    _append_decisive_issues(lines, root)
+    _append_dimension_judgment(lines, root)
     _append_scalar(lines, "Score", _xml_text(root, "score"))
     _append_key_points(lines, root)
     _append_items(lines, "Strengths", _xml_items(root, "strengths"))
     _append_items(lines, "Weaknesses", _xml_items(root, "weaknesses"))
-    _append_section(lines, "Evidence Summary", _xml_text(root, "evidence_summary"))
     _append_section(lines, "Rationale", _xml_text(root, "rationale"))
     return "\n".join(lines).rstrip() + "\n"
 
@@ -976,6 +1028,9 @@ def _final_review_markdown(final_xml: str) -> str:
         return _xml_fallback_markdown("Final Review", final_xml)
 
     lines = ["# Final Review", ""]
+    _append_final_decision_ledger(lines, root)
+    _append_score_boundary_reasoning(lines, root)
+    _append_reviewer_judgment(lines, root)
     _append_scalar(lines, "Final Score", _xml_text(root, "final_score"))
     _append_scalar(lines, "Recommendation", _xml_text(root, "recommendation"))
     _append_scalar(lines, "Administrative Decision", _xml_text(root, "administrative_decision"))
@@ -1031,6 +1086,130 @@ def _append_key_points(lines: list[str], root: ET.Element) -> None:
     _append_items(lines, "Key Points", items)
 
 
+def _append_decisive_issues(lines: list[str], root: ET.Element) -> None:
+    """Append dimension-review decisive issues when present."""
+    group = root.find("decisive_issues")
+    if group is None:
+        return
+    items = []
+    for item in group.findall("item"):
+        text = "".join(item.itertext()).strip()
+        if not text:
+            continue
+        qa_ids = item.attrib.get("qa_ids", "")
+        cap = item.attrib.get("dimension_score_cap", "")
+        issue_type = item.attrib.get("issue_type", "")
+        attrs = " ".join(part for part in [qa_ids, issue_type, f"cap={cap}" if cap else ""] if part)
+        items.append(f"[{attrs}] {text}" if attrs else text)
+    _append_items(lines, "Decisive Issues", items)
+
+
+def _append_dimension_judgment(lines: list[str], root: ET.Element) -> None:
+    """Append dimension-review judgment thesis when present."""
+    judgment = root.find("dimension_judgment")
+    if judgment is None:
+        return
+    lines.extend(["## Dimension Judgment", ""])
+    for child_name, label in [
+        ("judgment_posture", "Judgment Posture"),
+        ("main_thesis", "Main Thesis"),
+        ("why_this_judgment_follows_from_evidence", "Why This Judgment Follows From Evidence"),
+        ("what_would_change_this_judgment", "What Would Change This Judgment"),
+    ]:
+        value = _xml_text(judgment, child_name)
+        if value:
+            lines.extend([f"**{label}:** {value}", ""])
+
+
+def _append_dimension_evidence_trace(lines: list[str], root: ET.Element) -> None:
+    """Append dimension-review evidence trace when present."""
+    trace = root.find("evidence_trace")
+    if trace is None:
+        return
+    lines.extend(["## Evidence Trace", ""])
+    for child_name, label in [
+        ("supporting_qas", "Supporting Q&As"),
+        ("decisive_qas", "Decisive Q&As"),
+        ("why_not_higher", "Why Not Higher"),
+        ("why_not_lower", "Why Not Lower"),
+        ("score_upper_bound", "Score Upper Bound"),
+        ("score_lower_bound", "Score Lower Bound"),
+    ]:
+        value = _xml_text(trace, child_name)
+        if value:
+            lines.extend([f"**{label}:** {value}", ""])
+
+
+def _append_final_decision_ledger(lines: list[str], root: ET.Element) -> None:
+    """Append final-review decision ledger when present."""
+    ledger = root.find("final_decision_ledger")
+    if ledger is None:
+        return
+    lines.extend(["## Final Decision Ledger", ""])
+    for child_name, label in [
+        ("acceptance_case", "Acceptance Case"),
+        ("rejection_case", "Rejection Case"),
+        ("decisive_issues", "Decisive Issues"),
+        ("rebuttal_critical_uncertainties", "Rebuttal-Critical Uncertainties"),
+    ]:
+        items = []
+        group = ledger.find(child_name)
+        if group is not None:
+            for item in group.findall("item"):
+                text = "".join(item.itertext()).strip()
+                if not text:
+                    continue
+                dimension = item.attrib.get("source_dimension", "")
+                qa_ids = item.attrib.get("qa_ids", "")
+                cap = item.attrib.get("final_score_cap", "")
+                attrs = " ".join(
+                    part
+                    for part in [
+                        dimension,
+                        qa_ids,
+                        f"cap={cap}" if cap else "",
+                    ]
+                    if part
+                )
+                items.append(f"[{attrs}] {text}" if attrs else text)
+        _append_items(lines, label, items)
+
+
+def _append_score_boundary_reasoning(lines: list[str], root: ET.Element) -> None:
+    """Append final-review score boundary reasoning when present."""
+    boundary = root.find("score_boundary_reasoning")
+    if boundary is None:
+        return
+    lines.extend(["## Score Boundary Reasoning", ""])
+    for child_name, label in [
+        ("highest_plausible_score", "Highest Plausible Score"),
+        ("lowest_plausible_score", "Lowest Plausible Score"),
+        ("why_not_higher", "Why Not Higher"),
+        ("why_not_lower", "Why Not Lower"),
+        ("final_decision_rule", "Final Decision Rule"),
+    ]:
+        value = _xml_text(boundary, child_name)
+        if value:
+            lines.extend([f"**{label}:** {value}", ""])
+
+
+def _append_reviewer_judgment(lines: list[str], root: ET.Element) -> None:
+    """Append final-review judgment posture when present."""
+    judgment = root.find("reviewer_judgment")
+    if judgment is None:
+        return
+    lines.extend(["## Reviewer Judgment", ""])
+    for child_name, label in [
+        ("judgment_posture", "Judgment Posture"),
+        ("main_thesis", "Main Thesis"),
+        ("why_this_posture_follows_from_evidence", "Why This Posture Follows From Evidence"),
+        ("what_would_change_my_mind", "What Would Change My Mind"),
+    ]:
+        value = _xml_text(judgment, child_name)
+        if value:
+            lines.extend([f"**{label}:** {value}", ""])
+
+
 def _xml_text(root: ET.Element, child_name: str) -> str:
     """Return stripped text from an XML child."""
     child = root.find(child_name)
@@ -1060,13 +1239,28 @@ def _qa_trajectories_payload(state) -> dict:
     """Serialize Q&A trajectories for JSON artifact output."""
     payload = {}
     for dimension, qa_results in getattr(state, "qa_trajectories", {}).items():
-        payload[dimension] = [
-            result.model_dump(exclude_none=True, exclude={"trace_events"})
-            if hasattr(result, "model_dump")
-            else result
-            for result in qa_results
-        ]
+        serialized = []
+        for index, result in enumerate(qa_results, 1):
+            if not getattr(result, "id", None):
+                result.id = _qa_id(dimension, index)
+            serialized.append(
+                result.model_dump(exclude_none=True, exclude={"trace_events"})
+                if hasattr(result, "model_dump")
+                else result
+            )
+        payload[dimension] = serialized
     return payload
+
+
+def _qa_id(dimension: str, index: int) -> str:
+    """Return the canonical Q&A evidence id for a dimension and sequence."""
+    prefixes = {
+        "Contribution": "CONTRIB",
+        "Soundness": "SOUND",
+        "Presentation": "PRES",
+    }
+    prefix = prefixes.get(dimension, dimension.upper().replace(" ", "_") or "QA")
+    return f"{prefix}-{index:03d}"
 
 
 def _trace_markdown(state) -> str:
@@ -1111,21 +1305,11 @@ def _qa_trajectories_markdown(state) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def _qa_payload_markdown(payload: dict, *, source: str = "") -> str:
-    """Render a serialized Q&A payload copied from a reused run."""
-    if not payload:
-        return "# Reused Q&A Trajectory\n\nNo reused Q&A results recorded.\n"
-
-    trajectories = {
-        dimension: _load_qa_results(items)
-        for dimension, items in payload.items()
-        if isinstance(items, list)
-    }
-    lines = ["# Reused Q&A Trajectory", ""]
-    if source:
-        lines.extend([f"Source: `{source}`", ""])
-    _append_qa_markdown(lines, trajectories)
-    return "\n".join(lines).rstrip() + "\n"
+def _dimension_qa_markdown(dimension: str, qa_results: list[QAResult]) -> str:
+    """Render the dimension-specific Q&A ledger used by the review writer."""
+    title = f"{dimension} Q&A Evidence"
+    body = _render_qa_for_dimension_review(dimension, qa_results)
+    return f"# {title}\n\n```text\n{body.rstrip()}\n```\n"
 
 
 def _append_qa_markdown(lines: list[str], trajectories: dict) -> None:
@@ -1139,7 +1323,7 @@ def _append_qa_markdown(lines: list[str], trajectories: dict) -> None:
             impact = result.review_impact
             lines.extend(
                 [
-                    f"### Q{index}",
+                    f"### {getattr(result, 'id', None) or _qa_id(dimension, index)}",
                     "",
                     f"**Question:** {result.question}",
                     "",

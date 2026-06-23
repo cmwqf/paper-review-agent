@@ -1,6 +1,13 @@
 <!-- Purpose: Fixture for dimension review XML output tests. -->
 <dimension_review>
   <dimension>Soundness</dimension>
+  <decisive_issues>
+    <item qa_ids="SOUND-001" dimension_score_cap="3">Missing one important baseline limits the soundness score.</item>
+  </decisive_issues>
+  <dimension_judgment>
+    <judgment_posture>mostly_supported</judgment_posture>
+    <main_thesis>The setup is clear, but one missing baseline limits the soundness judgment.</main_thesis>
+  </dimension_judgment>
   <score>3</score>
   <key_points>
     <item importance="C2" polarity="weakness" confidence="medium" evidence_status="confirmed">Missing one important baseline.</item>
@@ -11,6 +18,5 @@
   <weaknesses>
     <item>Missing one important baseline.</item>
   </weaknesses>
-  <evidence_summary>Baseline coverage is incomplete.</evidence_summary>
   <rationale>The C2 weakness limits the score.</rationale>
 </dimension_review>

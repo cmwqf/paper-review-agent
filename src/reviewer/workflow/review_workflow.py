@@ -24,12 +24,21 @@ class ReviewWorkflow:
         self,
         paper: dict,
         artifact_callback: Callable[[ReviewWorkflowState], None] | None = None,
+        summary_xml: str | None = None,
     ) -> ReviewWorkflowState:
-        """Execute Summary -> dimensions -> Final Review for one paper."""
+        """Execute Summary -> dimensions -> Final Review for one paper.
+
+        If ``summary_xml`` is provided, it is reused as-is and the Summary stage
+        is skipped (used by --reuse-from when 'summary' is not in --rerun-stages);
+        otherwise the Summary agent generates it.
+        """
         state = ReviewWorkflowState(paper=paper)
-        summary_agent = SummaryAgent(self.config)
-        state.summary_xml = summary_agent.run(paper)
-        state.traces["summary"] = getattr(summary_agent, "trace_events", [])
+        if summary_xml:
+            state.summary_xml = summary_xml
+        else:
+            summary_agent = SummaryAgent(self.config)
+            state.summary_xml = summary_agent.run(paper)
+            state.traces["summary"] = getattr(summary_agent, "trace_events", [])
         if artifact_callback:
             artifact_callback(state)
 
@@ -51,6 +60,7 @@ class ReviewWorkflow:
         state.final_review_xml = final_agent.run(
             state.summary_xml,
             state.dimension_reviews,
+            state.qa_trajectories,
         )
         state.traces["final_review"] = getattr(final_agent, "trace_events", [])
         if artifact_callback:

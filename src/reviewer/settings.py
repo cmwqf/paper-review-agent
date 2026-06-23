@@ -72,6 +72,30 @@ def _merge_model_config(*configs: Any) -> dict[str, Any]:
     return merged
 
 
+def _profile_lookup_key(value: Any) -> str:
+    """Normalize profile labels for tolerant CLI lookup."""
+    return re.sub(r"[^a-z0-9]+", "", str(value).lower())
+
+
+def _resolve_model_profile(profiles: dict[str, Any], active_profile: Any) -> tuple[str, dict[str, Any]]:
+    """Resolve a model profile by exact name, then by separator-insensitive alias."""
+    active_profile_name = str(active_profile)
+    exact_profile = profiles.get(active_profile_name)
+    if isinstance(exact_profile, dict):
+        return active_profile_name, exact_profile
+
+    lookup_key = _profile_lookup_key(active_profile_name)
+    matches = [
+        (name, profile)
+        for name, profile in profiles.items()
+        if _profile_lookup_key(name) == lookup_key
+    ]
+    if len(matches) == 1 and isinstance(matches[0][1], dict):
+        return matches[0]
+
+    raise ConfigError(f"Active model profile not found: models.profiles.{active_profile}")
+
+
 def get_model_config(config: dict[str, Any], model_key: str) -> dict[str, Any]:
     """Return one model config with default and active-profile inheritance."""
     models = config.get("models")
@@ -90,15 +114,13 @@ def get_model_config(config: dict[str, Any], model_key: str) -> dict[str, Any]:
         profiles = models.get("profiles", {})
         if not isinstance(profiles, dict):
             raise ConfigError("models.profiles must be a mapping when active_profile is set.")
-        profile = profiles.get(str(active_profile))
-        if not isinstance(profile, dict):
-            raise ConfigError(f"Active model profile not found: models.profiles.{active_profile}")
+        profile_name, profile = _resolve_model_profile(profiles, active_profile)
         profile_default = profile.get("default", {})
         profile_model = profile.get(model_key, {})
         if profile_default and not isinstance(profile_default, dict):
-            raise ConfigError(f"models.profiles.{active_profile}.default must be a mapping.")
+            raise ConfigError(f"models.profiles.{profile_name}.default must be a mapping.")
         if profile_model and not isinstance(profile_model, dict):
-            raise ConfigError(f"models.profiles.{active_profile}.{model_key} must be a mapping.")
+            raise ConfigError(f"models.profiles.{profile_name}.{model_key} must be a mapping.")
 
     merged = _merge_model_config(base_config, model_config, profile_default, profile_model)
     if not merged:

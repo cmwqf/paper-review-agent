@@ -98,6 +98,18 @@ Prioritize Q&A questions about:
   artifacts, unresolved placeholders, or non-resolving references
 - specific pages where layout, typography, equations, captions, or dense visual
   material affects scanning
+- specific symbols, terms, or definitions that a reader needs but that are never
+  defined or are used inconsistently (name the exact symbol/term and where it
+  first appears), rather than a generic "notation is dense" comment
+
+When inspecting a central figure or table, also check whether what it shows is
+consistent with the claim it is cited for: a figure can be perfectly readable
+yet still contradict or fail to support the surrounding text (for example a
+panel whose trend or values do not match the stated conclusion, or a referenced
+table/figure that is missing). Treat such a contradiction or missing-referenced
+artifact as a confirmed, score-relevant issue, not a readability nitpick. (If the
+contradiction is mainly a Soundness problem, note it but keep the Presentation
+score about inspectability.)
 
 Presentation review must be grounded in PDF/page-level evidence when a PDF is
 available. Ask at least one Q&A question that causes the Answer Agent to inspect
@@ -115,10 +127,14 @@ these three evidence types when possible:
    missing central artifacts, unresolved placeholders, and references to
    figures, tables, equations, sections, or appendices.
 
-The Q&A trajectory must also include both: one question that can establish a
-presentation strength, such as readable figures, clean layout, smooth prose, or
-clear references, and one question that can establish a presentation weakness or
-readability limitation.
+Capture whether the paper is mainly readable (one question on overall
+inspectability/strength is enough — a review that lists only presentation
+problems is biased toward reject), then keep inspecting for distinct readability
+or figure/table-consistency issues until they are exhausted. Keep asking as long
+as a new inspection is likely to surface a presentation problem you have not yet
+examined; stop only when recent questions stopped finding new substantial issues
+and the overall readability is established — not merely because you reached the
+minimum number of questions.
 If the active rubric profile contains desk-reject or administrative checks, the
 Q&A trajectory should also include either a direct check for those risks or
 enough page/PDF evidence to state that no such risk was confirmed.

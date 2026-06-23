@@ -15,8 +15,17 @@ def load_bench_split(path: str | Path) -> list[dict[str, Any]]:
     with split_path.open("r", encoding="utf-8") as handle:
         for line in handle:
             if line.strip():
-                rows.append(json.loads(line))
+                rows.append(_sanitize_split_row(json.loads(line)))
     return rows
+
+
+def _sanitize_split_row(row: dict[str, Any]) -> dict[str, Any]:
+    """Remove machine-local source paths that should not be accessed at runtime."""
+    sanitized = dict(row)
+    source_file = sanitized.get("source_file")
+    if source_file and str(source_file).startswith("/root/"):
+        sanitized["source_file"] = Path(str(source_file)).name
+    return sanitized
 
 
 def load_bench_paper(row: dict[str, Any], bench_root: str | Path) -> dict[str, Any]:

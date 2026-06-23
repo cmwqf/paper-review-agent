@@ -638,13 +638,19 @@ def test_dimension_agent_asks_question_then_writes_review(monkeypatch) -> None:
             """
             <dimension_review>
               <dimension>Contribution</dimension>
+              <decisive_issues>
+                <item qa_ids="CONTRIB-001" dimension_score_cap="2">Limited novelty evidence caps the contribution score.</item>
+              </decisive_issues>
+              <dimension_judgment>
+                <judgment_posture>limited_but_useful</judgment_posture>
+                <main_thesis>Evidence supports a limited dimension judgment.</main_thesis>
+              </dimension_judgment>
               <score>2</score>
               <key_points>
                 <item importance="C2" polarity="weakness" confidence="medium" evidence_status="confirmed">Limited novelty evidence.</item>
               </key_points>
               <strengths><item>Interesting task.</item></strengths>
               <weaknesses><item>Limited novelty evidence.</item></weaknesses>
-              <evidence_summary>One QA result.</evidence_summary>
               <rationale>Mixed contribution.</rationale>
             </dimension_review>
             """,
@@ -677,6 +683,76 @@ def test_dimension_agent_asks_question_then_writes_review(monkeypatch) -> None:
     assert len(client.calls) == 2
 
 
+def test_dimension_agent_recovers_from_malformed_action_xml(monkeypatch) -> None:
+    """A malformed <dimension_action> turn is reprompted, not allowed to crash the paper."""
+    client = FakeClient(
+        [
+            # Turn 0: unescaped '<' makes the action XML not well-formed.
+            """
+            <dimension_action>
+              <action>ask_question</action>
+              <question>Is x < y in all cases?</question>
+              <rationale>Check the bound.</rationale>
+            </dimension_action>
+            """,
+            # Reprompt produces a valid action.
+            """
+            <dimension_action>
+              <action>ask_question</action>
+              <question>Is x less than y in all cases?</question>
+              <rationale>Check the bound.</rationale>
+            </dimension_action>
+            """,
+            # Turn 1: write the review.
+            """
+            <dimension_review>
+              <dimension>Contribution</dimension>
+              <decisive_issues>
+                <item qa_ids="CONTRIB-001" dimension_score_cap="2">Limited novelty evidence caps the contribution score.</item>
+              </decisive_issues>
+              <dimension_judgment>
+                <judgment_posture>limited_but_useful</judgment_posture>
+                <main_thesis>Evidence supports a limited dimension judgment.</main_thesis>
+              </dimension_judgment>
+              <score>2</score>
+              <key_points>
+                <item importance="C2" polarity="weakness" confidence="medium" evidence_status="confirmed">Limited novelty evidence.</item>
+              </key_points>
+              <strengths><item>Interesting task.</item></strengths>
+              <weaknesses><item>Limited novelty evidence.</item></weaknesses>
+              <rationale>Mixed contribution.</rationale>
+            </dimension_review>
+            """,
+        ]
+    )
+    monkeypatch.setattr("reviewer.agents.dimension_base.build_llm", lambda config, model_key: client)
+    monkeypatch.setattr(
+        "reviewer.agents.dimension_base.AnswerAgent.run",
+        lambda self, question, dimension, paper, paper_summary, **kwargs: QAResult(
+            question=question,
+            answer="One baseline is mentioned.",
+            evidence=["paper: baseline line"],
+            review_impact=ReviewImpact(
+                dimension=dimension,
+                polarity="weakness",
+                impact_level="C2",
+                confidence="medium",
+            ),
+        ),
+    )
+
+    review_xml = ContributionAgent(
+        {"agents": {"contribution": {"max_qa_turns": 2, "require_balanced_qa": False}}}
+    ).run(
+        {"text": "paper", "metadata": {"title": "Paper"}},
+        SUMMARY_XML,
+    )
+
+    assert "<dimension>Contribution</dimension>" in review_xml
+    # malformed action + reprompt + review = 3 model calls; the bad turn did not crash.
+    assert len(client.calls) == 3
+
+
 def test_dimension_agent_enforces_min_qa_turns(monkeypatch) -> None:
     """A dimension agent should not write a review before the configured minimum Q&A count."""
     client = FakeClient(
@@ -698,13 +774,19 @@ def test_dimension_agent_enforces_min_qa_turns(monkeypatch) -> None:
             """
             <dimension_review>
               <dimension>Contribution</dimension>
+              <decisive_issues>
+                <item qa_ids="CONTRIB-001" dimension_score_cap="2">Novelty uncertainty caps the contribution score.</item>
+              </decisive_issues>
+              <dimension_judgment>
+                <judgment_posture>limited_but_useful</judgment_posture>
+                <main_thesis>Evidence supports a limited dimension judgment.</main_thesis>
+              </dimension_judgment>
               <score>2</score>
               <key_points>
                 <item importance="C2" polarity="weakness" confidence="medium" evidence_status="confirmed">Novelty is unclear.</item>
               </key_points>
               <strengths><item>Useful task.</item></strengths>
               <weaknesses><item>Novelty is unclear.</item></weaknesses>
-              <evidence_summary>One QA result.</evidence_summary>
               <rationale>Enough evidence.</rationale>
             </dimension_review>
             """,
@@ -718,13 +800,19 @@ def test_dimension_agent_enforces_min_qa_turns(monkeypatch) -> None:
             """
             <dimension_review>
               <dimension>Contribution</dimension>
+              <decisive_issues>
+                <item qa_ids="CONTRIB-001" dimension_score_cap="2">Novelty and impact limitations cap the contribution score.</item>
+              </decisive_issues>
+              <dimension_judgment>
+                <judgment_posture>limited_but_useful</judgment_posture>
+                <main_thesis>Evidence supports a limited dimension judgment.</main_thesis>
+              </dimension_judgment>
               <score>2</score>
               <key_points>
                 <item importance="C2" polarity="weakness" confidence="medium" evidence_status="confirmed">Novelty and impact are limited.</item>
               </key_points>
               <strengths><item>Useful task.</item></strengths>
               <weaknesses><item>Novelty and impact are limited.</item></weaknesses>
-              <evidence_summary>Two QA results.</evidence_summary>
               <rationale>Minimum evidence met.</rationale>
             </dimension_review>
             """,
@@ -798,13 +886,19 @@ def test_dimension_agent_prompt_includes_configured_qa_limits(monkeypatch) -> No
             """
             <dimension_review>
               <dimension>Contribution</dimension>
+              <decisive_issues>
+                <item qa_ids="CONTRIB-001" dimension_score_cap="2">Limited novelty evidence caps the contribution score.</item>
+              </decisive_issues>
+              <dimension_judgment>
+                <judgment_posture>limited_but_useful</judgment_posture>
+                <main_thesis>Evidence supports a limited dimension judgment.</main_thesis>
+              </dimension_judgment>
               <score>2</score>
               <key_points>
                 <item importance="C2" polarity="weakness" confidence="medium" evidence_status="confirmed">Limited novelty evidence.</item>
               </key_points>
               <strengths><item>Useful task.</item></strengths>
               <weaknesses><item>Limited novelty evidence.</item></weaknesses>
-              <evidence_summary>Prompt only test.</evidence_summary>
               <rationale>Done.</rationale>
             </dimension_review>
             """,
@@ -883,6 +977,13 @@ def test_dimension_agent_enforces_strength_and_weakness_qa(monkeypatch) -> None:
             """
             <dimension_review>
               <dimension>Contribution</dimension>
+              <decisive_issues>
+                <item qa_ids="CONTRIB-001" dimension_score_cap="3">Balanced evidence supports but caps the contribution score.</item>
+              </decisive_issues>
+              <dimension_judgment>
+                <judgment_posture>limited_but_useful</judgment_posture>
+                <main_thesis>Evidence supports a limited dimension judgment.</main_thesis>
+              </dimension_judgment>
               <score>3</score>
               <key_points>
                 <item importance="C2" polarity="strength" confidence="medium" evidence_status="confirmed">Strong positive contribution.</item>
@@ -890,7 +991,6 @@ def test_dimension_agent_enforces_strength_and_weakness_qa(monkeypatch) -> None:
               </key_points>
               <strengths><item>Strong positive contribution.</item></strengths>
               <weaknesses><item>Some limitation.</item></weaknesses>
-              <evidence_summary>Balanced evidence.</evidence_summary>
               <rationale>Balanced evidence met.</rationale>
             </dimension_review>
             """,
@@ -943,13 +1043,19 @@ def test_presentation_agent_does_not_preload_visual_evidence(monkeypatch, tmp_pa
             """
             <dimension_review>
               <dimension>Presentation</dimension>
+              <decisive_issues>
+                <item qa_ids="PRES-001" dimension_score_cap="3">Readable structure supports ordinary presentation quality.</item>
+              </decisive_issues>
+              <dimension_judgment>
+                <judgment_posture>limited_but_useful</judgment_posture>
+                <main_thesis>Evidence supports a limited dimension judgment.</main_thesis>
+              </dimension_judgment>
               <score>3</score>
               <key_points>
                 <item importance="C2" polarity="strength" confidence="medium" evidence_status="confirmed">Readable structure.</item>
               </key_points>
               <strengths><item>Readable structure.</item></strengths>
               <weaknesses></weaknesses>
-              <evidence_summary>Review used available evidence.</evidence_summary>
               <rationale>Presentation is clear enough.</rationale>
             </dimension_review>
             """,

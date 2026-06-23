@@ -457,7 +457,9 @@ def test_resolve_reuse_rerun_stages_defaults_to_all() -> None:
     parser = build_parser()
     args = parser.parse_args(["--reuse-from", "outputs/deepreview_bench/dev"])
 
+    # Default 'all' reuses only the summary and reruns Q&A + reviews + final.
     assert _resolve_reuse_rerun_stages(args) == {
+        "qa",
         "contribution",
         "soundness",
         "presentation",
@@ -602,7 +604,7 @@ def test_reuse_from_can_rerun_only_final_review(tmp_path, monkeypatch) -> None:
         def __init__(self, config):
             self.trace_events = [{"event": "fake_final"}]
 
-        def run(self, summary_xml, dimension_reviews):
+        def run(self, summary_xml, dimension_reviews, qa_trajectories=None):
             assert dimension_reviews["Contribution"].find("old contribution") >= 0
             return _final_review_xml("new final", recommendation="Accept")
 
@@ -643,7 +645,7 @@ def test_reuse_from_defaults_to_rerun_dimensions_and_final_review(tmp_path, monk
         def __init__(self, config):
             self.trace_events = [{"event": "fake_final"}]
 
-        def run(self, summary_xml, dimension_reviews):
+        def run(self, summary_xml, dimension_reviews, qa_trajectories=None):
             assert "new Contribution" in dimension_reviews["Contribution"]
             return _final_review_xml("new final", recommendation="Accept")
 
@@ -661,15 +663,13 @@ def test_reuse_from_defaults_to_rerun_dimensions_and_final_review(tmp_path, monk
     assert regenerated == ["Contribution", "Soundness", "Presentation"]
     assert "new final" in state.final_review_xml
     assert "new Contribution" in state.dimension_reviews["Contribution"]
-    reused_qa = json.loads((tmp_path / "out" / "reused_qa_trajectory.json").read_text())
-    assert reused_qa["Contribution"][0]["question"] == "Old contribution question?"
-    reused_qa_md = (tmp_path / "out" / "markdown" / "reused_qa_trajectory.md").read_text()
-    assert "Old contribution answer." in reused_qa_md
-    reused_trace = json.loads((tmp_path / "out" / "logs" / "reused_qa_trace.json").read_text())
-    assert sorted(reused_trace) == [
-        "Contribution.answer_agent",
-        "Contribution.dimension_agent",
-    ]
+    qa = json.loads((tmp_path / "out" / "qa_trajectory.json").read_text())
+    assert qa["Contribution"][0]["question"] == "Old contribution question?"
+    assert not (tmp_path / "out" / "reused_qa_trajectory.json").exists()
+    assert not (tmp_path / "out" / "markdown" / "reused_qa_trajectory.md").exists()
+    assert not (tmp_path / "out" / "logs" / "reused_qa_trace.json").exists()
+    contribution_qa_md = (tmp_path / "out" / "markdown" / "contribution_qa.md").read_text()
+    assert "Old contribution answer." in contribution_qa_md
 
 
 def test_set_run_log_file_routes_logs_to_run_dir(tmp_path) -> None:

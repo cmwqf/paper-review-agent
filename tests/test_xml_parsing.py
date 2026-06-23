@@ -174,7 +174,6 @@ def test_parse_dimension_review_xml_reads_key_points() -> None:
           </key_points>
           <strengths><item>Clear setup.</item></strengths>
           <weaknesses><item>Missing ablations.</item></weaknesses>
-          <evidence_summary>Table 1 lacks the ablation.</evidence_summary>
           <rationale>C1 weakness determines the score.</rationale>
         </dimension_review>
         """

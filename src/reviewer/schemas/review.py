@@ -27,7 +27,6 @@ class DimensionReview(BaseModel):
     key_points: list[ReviewKeyPoint] = Field(default_factory=list)
     strengths: list[str] = Field(default_factory=list)
     weaknesses: list[str] = Field(default_factory=list)
-    evidence_summary: str | None = None
     rationale: str
 
 
@@ -86,6 +85,5 @@ def parse_dimension_review_xml(xml_text: str) -> DimensionReview:
         key_points=_key_points(root),
         strengths=_items(root, "strengths"),
         weaknesses=_items(root, "weaknesses"),
-        evidence_summary=_text(root, "evidence_summary") or None,
         rationale=_text(root, "rationale"),
     )

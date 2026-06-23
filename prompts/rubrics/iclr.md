@@ -8,25 +8,50 @@ Use this profile when scoring the current benchmark. The workflow remains
 conference-agnostic, but this run should align scores and final recommendations
 with the ICLR-style review form.
 
+ICLR 2026 reviewer guidance asks reviewers to judge whether a submission brings
+sufficient value to the community and contributes new knowledge. The key
+decision questions are whether the approach is well motivated and well placed in
+the literature, whether the paper supports its claims with scientifically
+rigorous evidence, and whether the work contributes new, relevant, impactful
+knowledge. State-of-the-art results are not required by themselves; lack of SOTA
+is not a standalone rejection reason. Additional experiments can be requested,
+but requested experiments should usually be limited in scope and aimed at more
+thoroughly validating existing results.
+
 ## Dimension Scores
 
 Each dimension uses a 1-4 scale:
 
-- 4: excellent
-- 3: good
-- 2: fair
-- 1: poor
+- 4: excellent. This dimension is clearly strong by ICLR standards. It does
+  not need to be flawless; minor local caveats or improvement suggestions are
+  compatible with 4 when the core dimension judgment is strong.
+- 3: good. This dimension is mostly convincing and supports the paper's value,
+  with limitations that a reviewer should mention but that do not materially
+  undermine the dimension.
+- 2: fair. This dimension has real support, but important limitations materially
+  weaken the dimension judgment or leave the paper's value only partly
+  convincing.
+- 1: poor. This dimension is weak enough to substantially undermine the paper:
+  little supported contribution, invalid or unsupported central claims, or
+  presentation problems that prevent reliable assessment.
 
 Contribution evaluates the significance, originality, positioning, and likely
-impact of the work relative to prior research. High scores require a clearly
-meaningful contribution; low scores reflect incremental, narrow, weakly
-positioned, or low-impact work.
+impact of the work relative to prior research. A good contribution can be
+empirical, theoretical, methodological, practical, diagnostic, or artifact-based
+when it convincingly demonstrates new and relevant knowledge for the ICLR
+community. Incremental work is not automatically low-scoring when it is
+well-motivated, useful, and supported by convincing evidence; low scores reflect
+work whose new knowledge, significance, positioning, or likely value remains
+weak.
 
 Soundness evaluates whether the paper's claims are technically correct and
 supported by appropriate methods, assumptions, experiments, baselines,
 ablations, metrics, statistics, or analysis. High scores require reliable
-evidence for the main claims; low scores reflect unsupported claims, flawed
-methodology, weak comparisons, or serious missing validation.
+evidence for the main claims. Low scores reflect unsupported central claims,
+flawed methodology, invalid evaluation, or missing validation that materially
+changes the paper's main conclusion. Ordinary requests for more ablations,
+statistics, or broader comparisons should lower Soundness only in proportion to
+how directly they affect the central claims.
 
 Presentation evaluates whether the paper is easy to read, follow, and inspect.
 It covers writing flow, logical exposition, layout, figures, tables, captions,
@@ -114,19 +139,47 @@ Keep dimension boundaries clear:
 
 Use the final score scale:
 
-- 10: strong accept, should be highlighted at the conference
-- 8: accept, good paper
-- 6: marginally above the acceptance threshold
-- 5: marginally below the acceptance threshold
-- 3: reject, not good enough
-- 1: strong reject
+- 10: strong accept, should be highlighted at the conference. Use for rare
+  submissions with exceptional supported value.
+- 8: accept, good paper. Use when the paper is clearly above the acceptance
+  threshold: it makes a well-supported and valuable contribution, even if it has
+  ordinary limitations.
+- 6: marginally above the acceptance threshold. Use for a weak accept when the
+  positive case is sufficient but not clearly strong.
+- 5: marginally below the acceptance threshold. Use for a weak reject when the
+  paper is interesting but the supported positive case is not sufficient.
+- 3: reject, not good enough. Use when the paper is clearly below the threshold,
+  not merely borderline.
+- 1: strong reject. Use for severe scientific, reviewability, or administrative
+  problems.
 
-Soundness has veto power: a core technical flaw, unsupported main claim, or
-invalid evaluation can justify rejection even when Contribution or Presentation
-is strong. Contribution controls the upside: a sound but incremental paper
-should usually not receive a high final score. Presentation affects the final
-score when readability, missing details, unreadable visuals, or organization
-materially prevent assessment, reproducibility, or use of the work.
+Soundness is often the most decision-critical dimension: a core technical flaw,
+unsupported main claim, or invalid evaluation can justify rejection even when
+Contribution or Presentation is strong. Contribution controls the upside: a
+sound but incremental paper may have limited upside, but it can still be above
+the acceptance threshold when it provides sufficient new and useful knowledge
+for the community and its main claims are supported. Presentation affects the
+final score when readability, missing details, unreadable visuals, or
+organization materially prevent assessment, reproducibility, or use of the work.
+
+Final-score calibration:
+
+- Use the full scale. Do not collapse all papers to 5/6. Reserve 5/6 for
+  genuinely borderline submissions.
+- Use 3 when the paper is clearly below the ICLR threshold because supported
+  contribution, soundness, or reviewability is insufficient.
+- Use 8 when the paper is clearly a good ICLR paper with a supported valuable
+  contribution and no central flaw that invalidates its main value.
+- 6 is a weak accept, not a strong accept. Use it when the paper is marginally
+  above the acceptance threshold because its supported contribution brings
+  sufficient value despite known limitations.
+- 5 is a weak reject. Use it when the paper is interesting but important
+  concerns leave it marginally below the threshold.
+- Do not reject solely because the paper lacks state-of-the-art results, lacks
+  broad extra experiments, or has limited scope, unless those issues prevent the
+  paper from supporting its main claims or contributing sufficient value.
+- Do not accept solely because the topic is useful or timely; the review should
+  identify supported new knowledge or community value.
 
 ## Confidence
 

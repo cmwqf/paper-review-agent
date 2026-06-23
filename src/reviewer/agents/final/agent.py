@@ -13,8 +13,19 @@ class FinalReviewAgent(BaseAgent):
 
     name = "final"
 
-    def run(self, summary_xml: str, dimension_reviews: dict[str, str]) -> str:
-        """Return `<final_review>` XML for the paper."""
+    def run(
+        self,
+        summary_xml: str,
+        dimension_reviews: dict[str, str],
+        qa_trajectories: dict[str, list] | None = None,
+    ) -> str:
+        """Return `<final_review>` XML for the paper.
+
+        ``qa_trajectories`` is accepted for call-site compatibility but no longer
+        fed to the model: the raw Q&A bank is redundant with each dimension
+        review's own ``<evidence_trace>`` (which carries the supporting Q&A ids),
+        so the final stage aggregates the three dimension reviews directly.
+        """
         model_key = self.config.get("agents", {}).get("final", {}).get("model", "final_review")
         client = build_llm(self.config, model_key)
         prompt = load_prompt("prompts/final_review_xml.md", config=self.config)
@@ -41,7 +52,9 @@ class FinalReviewAgent(BaseAgent):
                     "role": "user",
                     "content": (
                         f"Paper summary XML:\n{summary_xml}\n\n"
-                        "Dimension review XML documents:\n"
+                        "Dimension review XML documents (your primary inputs; each "
+                        "already carries its own <evidence_trace> with the supporting "
+                        "Q&A ids, plus <decisive_issues> and <key_points>):\n"
                         f"{_render_dimension_reviews(dimension_reviews)}"
                     ),
                 },

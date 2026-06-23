@@ -52,7 +52,7 @@ def test_review_workflow_calls_artifact_callback_after_each_stage(monkeypatch) -
         def __init__(self, config):
             self.trace_events = [{"event": "final"}]
 
-        def run(self, summary_xml, dimension_reviews):
+        def run(self, summary_xml, dimension_reviews, qa_trajectories=None):
             return "<final_review><summary>done</summary></final_review>"
 
     monkeypatch.setattr("reviewer.workflow.review_workflow.SummaryAgent", FakeSummaryAgent)
@@ -143,7 +143,7 @@ def test_review_workflow_runs_dimensions_concurrently(monkeypatch) -> None:
         def __init__(self, config):
             self.trace_events = [{"event": "final"}]
 
-        def run(self, summary_xml, dimension_reviews):
+        def run(self, summary_xml, dimension_reviews, qa_trajectories=None):
             return "<final_review><summary>done</summary></final_review>"
 
     monkeypatch.setattr("reviewer.workflow.review_workflow.SummaryAgent", FakeSummaryAgent)

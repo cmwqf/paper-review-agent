@@ -154,23 +154,51 @@ def artifact_xml_path(paper_dir: Path, name: str) -> Path:
 
 def load_source_rows(split_file: str | Path) -> dict[str, dict[str, Any]]:
     """Load split rows and their original DeepReview review rows."""
+    split_path = Path(split_file)
+    bench_root = split_path.parent.parent
     rows_by_id: dict[str, dict[str, Any]] = {}
     source_cache: dict[str, list[dict[str, Any]]] = {}
-    for split_row in read_jsonl(split_file):
+    for split_row in read_jsonl(split_path):
         source_file = split_row.get("source_file")
         source_index = split_row.get("source_index")
         row = None
-        if source_file and source_index is not None and Path(source_file).exists():
-            if source_file not in source_cache:
-                source_cache[source_file] = read_jsonl(source_file)
-            source_rows = source_cache[source_file]
+        source_path = resolve_source_file(source_file, split_path)
+        if source_path and source_index is not None and source_path.exists():
+            cache_key = str(source_path)
+            if cache_key not in source_cache:
+                source_cache[cache_key] = read_jsonl(source_path)
+            source_rows = source_cache[cache_key]
             if 0 <= int(source_index) < len(source_rows):
                 row = source_rows[int(source_index)]
+        if row is None:
+            review_path = bench_root / "papers" / str(split_row["id"]) / "review.json"
+            if review_path.exists():
+                row = json.loads(review_path.read_text(encoding="utf-8"))
         if row is None:
             row = split_row
         row = {**row, "decision": row.get("decision", split_row.get("decision", ""))}
         rows_by_id[split_row["id"]] = row
     return rows_by_id
+
+
+def resolve_source_file(source_file: Any, split_path: Path) -> Path | None:
+    """Resolve legacy source_file values from a split row."""
+    if not source_file:
+        return None
+    source_path = Path(str(source_file))
+    if source_path.is_absolute():
+        return source_path
+    candidates = [
+        Path.cwd() / source_path,
+        split_path.parent / source_path,
+        split_path.parent.parent / source_path,
+        split_path.parent.parent / "source" / source_path,
+        split_path.parent.parent / "sources" / source_path,
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return source_path
 
 
 def resolve_output_dir(path: str | Path) -> Path:
@@ -234,7 +262,7 @@ def infer_split_file(output_dir: str | Path) -> Path:
 
 def human_targets(row: dict[str, Any]) -> dict[str, Any]:
     """Compute human-review proxy targets from DeepReview review rows."""
-    reviews = row.get("review") or []
+    reviews = row.get("review") or row.get("reviews") or []
     targets: dict[str, Any] = {}
     for field in NUMERIC_FIELDS:
         values = []

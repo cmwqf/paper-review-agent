@@ -205,7 +205,12 @@ PYTHONPATH=src python -m reviewer.cli \
 <new_output>/papers/<paper_id>/markdown/contribution.md
 <new_output>/papers/<paper_id>/markdown/soundness.md
 <new_output>/papers/<paper_id>/markdown/presentation.md
+<new_output>/papers/<paper_id>/markdown/contribution_qa.md
+<new_output>/papers/<paper_id>/markdown/soundness_qa.md
+<new_output>/papers/<paper_id>/markdown/presentation_qa.md
+<new_output>/papers/<paper_id>/markdown/qa_trajectory.md
 <new_output>/papers/<paper_id>/markdown/final_review.md
+<new_output>/papers/<paper_id>/qa_trajectory.json
 ```
 
 它不会重新跑 summary agent，也不会重新跑每个维度的 Q&A 检索/回答过程。
@@ -215,6 +220,10 @@ PYTHONPATH=src python -m reviewer.cli \
 
 `--reuse-from` 可以配合 `--rerun-stages` 控制复用粒度。这个参数只在
 `--reuse-from` 模式下有效；不传时默认等价于 `--rerun-stages all`。
+也就是说，如果用了 `--reuse-from` 但不加 `--rerun-stages`，系统会复用
+summary 和 `qa_trajectory.json`，然后重跑 Contribution、Soundness、
+Presentation 三个维度 review，并重跑 `final_review`。它不会重新跑 summary
+agent，也不会重新跑 Q&A 检索/回答。
 可用值用逗号分隔：
 
 ```text
@@ -257,6 +266,38 @@ PYTHONPATH=src python -m reviewer.cli \
 ```text
 outputs/deepreview_bench/runs/YYYYMMDD_HHMMSS_GMT_<split>_<agent>/
 ```
+
+当前推荐的 Q&A 复用评测命令示例：
+
+```bash
+PYTHONPATH=src python -m reviewer.cli \
+  --split dev \
+  --agent gpt-5.5 \
+  --reuse-from outputs/deepreview_bench/runs/20260605_070951_GMT_dev_gpt-5_5 \
+  --rerun-stages dimensions
+```
+
+注意：输出目录名会把 profile 名 slug 化，例如 `gpt-5.5` 会出现在目录名里成为 `gpt_5_5`；命令行里的 `--agent` 推荐仍使用 `config.yaml` 中的原始 profile 名。
+
+当前框架说明见 `docs/CURRENT_REVIEW_FRAMEWORK.md`。核心逻辑是：
+
+```text
+summary -> per-dimension Q&A -> per-dimension review -> final review
+```
+
+每个维度 review 只看到该维度的 Q&A。Q&A 会渲染成按 C0/C1/C2 等
+review impact 分组的完整 evidence ledger，并保存到：
+
+```text
+markdown/contribution_qa.md
+markdown/soundness_qa.md
+markdown/presentation_qa.md
+```
+
+这些文件展示了维度 review model 实际使用的 Q&A 输入格式。原始
+`qa_trajectory.json` 仍保留完整 Q&A、evidence 和 retrieved_papers；
+但 review model 输入中不包含 `retrieved_papers`，避免 related-work 检索结果
+干扰维度聚合。`reused_qa_trajectory.*` 不再写出。
 
 例如默认模型：
 

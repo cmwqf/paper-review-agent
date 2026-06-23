@@ -21,6 +21,7 @@ class ReviewImpact(BaseModel):
 class QAResult(BaseModel):
     """Structured result returned by QATool.ask."""
 
+    id: str | None = None
     question: str
     answer: str
     evidence: list[str] = Field(default_factory=list)
