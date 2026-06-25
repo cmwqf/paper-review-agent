@@ -26,7 +26,7 @@ class DimensionAgent(BaseAgent):
         return review_xml
 
     def run_with_qa(self, paper: dict, summary_xml: str) -> tuple[str, list[QAResult]]:
-        """Run Q&A turns until the agent writes a dimension review XML."""
+        """Run Q&A turns until the agent ends questions and writes a review XML."""
         model_key = self.config.get("agents", {}).get(self.name, {}).get("model", "agent")
         client = build_llm(self.config, model_key)
         summary = parse_summary_xml(summary_xml)
@@ -70,24 +70,8 @@ class DimensionAgent(BaseAgent):
                     "raw_output": raw_output,
                 }
             )
-            review_xml = extract_xml_document(raw_output, "dimension_review")
-            if review_xml != raw_output.strip() or raw_output.strip().startswith("<dimension_review"):
-                missing_feedback = _missing_qa_feedback(qa_results, min_turns, require_balanced_qa)
-                if missing_feedback and turn_index < max_turns:
-                    feedback = missing_feedback
-                    continue
-                clean_review_xml = validate_xml_root(review_xml, "dimension_review")
-                try:
-                    _validate_dimension_review_contract(clean_review_xml)
-                except ValueError as exc:
-                    if turn_index < max_turns:
-                        feedback = str(exc)
-                        continue
-                    raise
-                return clean_review_xml, qa_results
-
             try:
-                action = _parse_dimension_action(
+                action = _parse_dimension_tool_call(
                     raw_output,
                     client=client,
                     base_messages=base_messages,
@@ -95,7 +79,7 @@ class DimensionAgent(BaseAgent):
                     trace_events=self.trace_events,
                 )
             except (ET.ParseError, ValueError):
-                # Persistent malformed <dimension_action> XML (e.g. an unescaped
+                # Persistent malformed <tool_call> XML (e.g. an unescaped
                 # '<' in an inequality). Don't lose the whole paper: write the
                 # review from the Q&A gathered so far.
                 review_xml = _write_dimension_review(
@@ -107,10 +91,19 @@ class DimensionAgent(BaseAgent):
                 )
                 return review_xml, qa_results
             missing_feedback = _missing_qa_feedback(qa_results, min_turns, require_balanced_qa)
-            if action["action"] == "write_review" and missing_feedback and turn_index < max_turns:
+            self.trace_events.append(
+                {
+                    "agent": self.name,
+                    "event": "tool_call",
+                    "turn": turn_index,
+                    "dimension": self.dimension.value,
+                    "action": action,
+                }
+            )
+            if action["action"] == "end_questions" and missing_feedback and turn_index < max_turns:
                 feedback = missing_feedback
                 continue
-            if action["action"] == "write_review" or turn_index >= max_turns:
+            if action["action"] == "end_questions" or turn_index >= max_turns:
                 review_xml = _write_dimension_review(
                     client=client,
                     config=self.config,
@@ -120,7 +113,7 @@ class DimensionAgent(BaseAgent):
                 )
                 return review_xml, qa_results
             if action["action"] != "ask_question":
-                raise ValueError(f"Unsupported dimension action: {action['action']}")
+                raise ValueError(f"Unsupported dimension tool: {action['action']}")
             question = action["question"]
             if not question:
                 if missing_feedback and turn_index < max_turns:
@@ -171,11 +164,10 @@ class DimensionAgent(BaseAgent):
 
 
 def _dimension_system_prompt(config: dict, agent_name: str) -> str:
-    """Build the dimension agent system prompt with the action/review XML contracts."""
-    prompt_path = f"prompts/{agent_name}_agent.md"
+    """Build the dimension agent system prompt with the question tool-call contract."""
+    prompt_path = f"prompts/{agent_name}_question_agent_guidance.md"
     prompt = load_prompt(prompt_path, config=config)
     rubric_prompt = load_rubric_prompt(config)
-    review_contract = load_prompt("prompts/dimension_review_xml.md", config=config)
     agent_config = config.get("agents", {}).get(agent_name, {})
     min_turns = int(agent_config.get("min_qa_turns", 0))
     max_turns = int(agent_config.get("max_qa_turns", 5))
@@ -183,7 +175,7 @@ def _dimension_system_prompt(config: dict, agent_name: str) -> str:
     balanced_rule = (
         "You must also collect at least one Q&A result whose review_impact "
         "polarity is `strength` and at least one whose polarity is `weakness` "
-        "before writing the review."
+        "before ending questions."
         if require_balanced_qa
         else (
             "Balanced strength/weakness coverage is not mechanically enforced, but "
@@ -194,31 +186,47 @@ def _dimension_system_prompt(config: dict, agent_name: str) -> str:
         )
     )
     action_contract = f"""
-For intermediate turns, return exactly one `<dimension_action>` XML document:
+QUESTION TOOL-CALL STAGE
 
-<dimension_action>
-  <action>ask_question | write_review</action>
-  <question>Focused question for the Answer Agent. Leave empty for write_review.</question>
-  <rationale>Why this question is needed, or why the review is ready.</rationale>
-</dimension_action>
+Every response in this stage must be exactly one `<tool_call>` XML document and
+nothing else. Do not output `<dimension_action>`, `<dimension_review>`, markdown
+fences, explanatory text, or multiple XML documents.
+
+Choose exactly one tool per turn. Use `ask_question` to ask the Answer Agent one
+focused evidence question. Use `end_questions` when Q&A evidence is saturated;
+after a valid `end_questions`, the runtime exits this question stage and invokes
+the separate dimension-review writer.
+
+For `ask_question`:
+<tool_call>
+  <tool_name>ask_question</tool_name>
+  <question>Focused question for the Answer Agent.</question>
+  <rationale>Why this question is needed.</rationale>
+</tool_call>
+
+For `end_questions`, include only `tool_name` and `rationale`:
+<tool_call>
+  <tool_name>end_questions</tool_name>
+  <rationale>Why question gathering is complete.</rationale>
+</tool_call>
 
 Ask at most one question per turn. You must collect at least {min_turns} Q&A
-result(s) before writing the review, and you may ask up to {max_turns} question(s).
+result(s) before ending questions, and you may ask up to {max_turns} question(s).
 {balanced_rule}
-Do not return `write_review` or `<dimension_review>` before the Q&A trajectory
+Do not use `end_questions` or output `<dimension_review>` before the Q&A trajectory
 contains at least {min_turns} result(s).
 
 Decide when to stop by saturation, not by the minimum. After the minimum is
-reached, do NOT write the review just because you hit the minimum. Keep asking
+reached, do NOT end questions just because you hit the minimum. Keep asking
 while a new question is likely to surface a NEW, distinct weakness you have not
-yet examined (or to capture the main strength if you have not). Write the review
+yet examined (or to capture the main strength if you have not). End questions
 only when both: (a) your most recent question(s) stopped surfacing new
 score-relevant weaknesses, so the main weaknesses a careful human reviewer would
 raise are exhausted; and (b) the paper's main strength is captured. Use as many
 of the up-to-{max_turns} questions as the paper's distinct weaknesses warrant;
 papers with many real issues should use more questions than papers with few.
 """
-    return f"{rubric_prompt}\n\n{prompt}\n\n{action_contract}\n\n{review_contract}"
+    return f"{rubric_prompt}\n\n{prompt}\n\n{action_contract}"
 
 
 def _dimension_context(
@@ -243,7 +251,7 @@ def _dimension_context(
         f"Current Q&A polarity coverage: {_qa_polarity_coverage(qa_results)}\n"
         f"Current Q&A results: {len(qa_results)}\n"
         f"Stop decision: if a distinct, score-relevant weakness area still looks "
-        f"unexamined, ask one more question about it. Only write the review once "
+        f"unexamined, ask one more question about it. Only end questions once "
         f"your recent questions stopped finding new weaknesses (the main weaknesses "
         f"are exhausted) and the paper's main strength is captured. Do not stop just "
         f"because the minimum is reached.\n"
@@ -291,7 +299,7 @@ def _missing_qa_feedback(
             missing.append("ask a question that can identify a weakness")
     if not missing:
         return ""
-    return "You cannot write the review yet: " + "; ".join(missing) + "."
+    return "You cannot end questions yet: " + "; ".join(missing) + "."
 
 
 def _render_qa_result(result: QAResult, index: int) -> str:
@@ -433,7 +441,7 @@ def _qa_id(dimension: str, index: int) -> str:
     return f"{prefix}-{index:03d}"
 
 
-def _parse_dimension_action(
+def _parse_dimension_tool_call(
     raw_output: str,
     *,
     client=None,
@@ -441,7 +449,7 @@ def _parse_dimension_action(
     max_retries: int = 0,
     trace_events: list | None = None,
 ) -> dict[str, str]:
-    """Parse `<dimension_action>` XML, reprompting the model on malformed XML.
+    """Parse one question-stage `<tool_call>`, reprompting on malformed XML.
 
     Per-turn action XML occasionally contains unescaped ``&``, ``<``, or ``>``
     (e.g. an inequality inside a question), which makes the parser raise
@@ -453,12 +461,29 @@ def _parse_dimension_action(
     current = raw_output
     for attempt in range(max(0, max_retries) + 1):
         try:
-            action_xml = validate_xml_root(current, "dimension_action")
+            action_xml = _validate_dimension_tool_call_xml(current)
             root = ET.fromstring(action_xml)
+            tool_name = _child_text(root, "tool_name")
+            question = _child_text(root, "question")
+            rationale = _child_text(root, "rationale")
+            if tool_name not in {"ask_question", "end_questions"}:
+                raise ValueError(f"Unsupported dimension tool_name: {tool_name!r}")
+            if not rationale:
+                raise ValueError(f"{tool_name} requires a non-empty <rationale>.")
+            if tool_name == "ask_question" and not question:
+                raise ValueError("ask_question requires a non-empty <question>.")
+            allowed_children = {"tool_name", "question", "rationale"}
+            if tool_name == "end_questions":
+                allowed_children = {"tool_name", "rationale"}
+                if root.find("question") is not None:
+                    raise ValueError("end_questions must not include <question>; only <rationale>.")
+            extras = [child.tag for child in root if child.tag not in allowed_children]
+            if extras:
+                raise ValueError(f"{tool_name} received unsupported field(s): {', '.join(extras)}.")
             return {
-                "action": _child_text(root, "action"),
-                "question": _child_text(root, "question"),
-                "rationale": _child_text(root, "rationale"),
+                "action": tool_name,
+                "question": question,
+                "rationale": rationale,
             }
         except (ET.ParseError, ValueError) as exc:
             if client is None or base_messages is None or attempt >= max_retries:
@@ -466,7 +491,8 @@ def _parse_dimension_action(
             if trace_events is not None:
                 trace_events.append(
                     {
-                        "event": "dimension_action_retry",
+                        "event": "stage_contract_violation",
+                        "stage": "question_tool_call",
                         "attempt": attempt + 1,
                         "error": f"{type(exc).__name__}: {exc}",
                     }
@@ -478,16 +504,35 @@ def _parse_dimension_action(
                     {
                         "role": "user",
                         "content": (
-                            "The previous output was not valid <dimension_action> XML.\n"
+                            "The previous output was not valid question-stage <tool_call> XML.\n"
                             f"Parser error: {type(exc).__name__}: {exc}\n\n"
-                            "Output only one valid <dimension_action> XML document. "
-                            "Do not wrap it in markdown fences. Escape every literal "
-                            "&, <, and > in text content as &amp;, &lt;, and &gt;."
+                            "Output exactly one <tool_call> XML document and nothing else. "
+                            "Use tool_name=ask_question or tool_name=end_questions. "
+                            "For end_questions include only <tool_name> and <rationale>. "
+                            "Do not output <dimension_action> or <dimension_review>. "
+                            "Do not wrap it in markdown fences. Escape every literal &, "
+                            "<, and > in text content as &amp;, &lt;, and &gt;."
                         ),
                     },
                 ]
             )
-    raise RuntimeError("dimension action retry loop exited unexpectedly")
+    raise RuntimeError("dimension tool-call retry loop exited unexpectedly")
+
+
+def _validate_dimension_tool_call_xml(raw_output: str) -> str:
+    """Require exactly one question-stage tool call and no other stage root."""
+    expected_count = raw_output.count("<tool_call")
+    if expected_count != 1:
+        raise ValueError(f"Expected exactly one <tool_call> document, found {expected_count}.")
+    for disallowed in ("dimension_action", "dimension_review"):
+        if raw_output.count(f"<{disallowed}"):
+            raise ValueError(
+                f"Invalid state output: question tool-call stage must not contain <{disallowed}>."
+            )
+    extracted = extract_xml_document(raw_output, "tool_call")
+    if raw_output.strip() != extracted.strip():
+        raise ValueError("Output must contain only the <tool_call> XML document.")
+    return validate_xml_root(extracted, "tool_call")
 
 
 def _write_dimension_review(
@@ -499,7 +544,8 @@ def _write_dimension_review(
     qa_results: list[QAResult],
 ) -> str:
     """Ask the dimension model to write the final dimension review XML."""
-    review_contract = load_prompt("prompts/dimension_review_xml.md", config=config)
+    review_guidance = _load_dimension_review_prompt(config, dimension)
+    review_contract = load_prompt("prompts/dimension_review_output_contract.md", config=config)
     rubric_prompt = load_rubric_prompt(config)
     qa_text = _render_qa_for_dimension_review(dimension, qa_results)
     max_attempts = int(config.get("xml", {}).get("max_generation_attempts", 5))
@@ -515,6 +561,7 @@ def _write_dimension_review(
                     f"Write the final {dimension} dimension review now. "
                         "Use only the paper map and this dimension's Q&A evidence ledger.\n\n"
                         f"{rubric_prompt}\n\n"
+                        f"{review_guidance}\n\n"
                         f"{review_contract}"
                 ),
             },
@@ -529,6 +576,15 @@ def _write_dimension_review(
             },
         ],
     )
+
+
+def _load_dimension_review_prompt(config: dict, dimension: str) -> str:
+    """Load dimension-specific review-writer guidance."""
+    prompt_name = f"prompts/{dimension.lower()}_review_writer_guidance.md"
+    try:
+        return load_prompt(prompt_name, config=config).strip()
+    except FileNotFoundError:
+        return ""
 
 
 def _dimension_calibration_guidance(dimension: str) -> str:

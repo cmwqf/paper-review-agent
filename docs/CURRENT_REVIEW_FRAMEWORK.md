@@ -76,6 +76,10 @@ dimension review writer 需要选择真正 decision-critical 的 Q&A findings，
 - `rationale`
 - `evidence_trace`
 
+Contribution、Soundness、Presentation 使用各自的 review-writer prompt 来决定
+哪些证据真正影响该维度判断；`dimension_review_output_contract.md` 只提供共享 XML schema
+和通用 evidence-ledger/score-boundary 约束。
+
 `evidence_trace` 记录 `supporting_qas`、`decisive_qas`、
 `why_not_higher`、`why_not_lower` 和 score bounds。它是 final review 用来
 审计该维度如何利用 Q&A 的接口。

@@ -2,17 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
-
-@dataclass
-class AgentContext:
-    """Common context passed to agents."""
-
-    config: dict
-    paper: dict
-    summary_xml: str | None = None
-
 
 class BaseAgent:
     """Minimal base class for future LLM-backed agents."""
@@ -21,4 +10,3 @@ class BaseAgent:
 
     def __init__(self, config: dict):
         self.config = config
-

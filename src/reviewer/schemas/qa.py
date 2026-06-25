@@ -19,7 +19,7 @@ class ReviewImpact(BaseModel):
 
 
 class QAResult(BaseModel):
-    """Structured result returned by QATool.ask."""
+    """Structured result returned by the Answer Agent."""
 
     id: str | None = None
     question: str

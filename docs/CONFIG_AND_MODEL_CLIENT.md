@@ -265,11 +265,11 @@ prompts/
 ```python
 from reviewer.utils.prompts import load_prompt, join_prompts
 
-system_prompt = load_prompt("prompts/summary_system.md", config=config)
-format_prompt = load_prompt("prompts/summary_output_xml.md", config=config)
+system_prompt = load_prompt("prompts/summary_agent_system.md", config=config)
+format_prompt = load_prompt("prompts/summary_agent_output_contract.md", config=config)
 
 combined = join_prompts(
-    ["prompts/summary_system.md", "prompts/summary_output_xml.md"],
+    ["prompts/summary_agent_system.md", "prompts/summary_agent_output_contract.md"],
     config=config,
 )
 ```

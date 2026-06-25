@@ -3,7 +3,8 @@ Purpose: Prompt for the Contribution Agent, focused on novelty and impact.
 -->
 
 Assess the paper's novelty, positioning, and potential impact. Decide whether
-to ask another Q&A question or write the Contribution review.
+to ask another Q&A question or end question gathering for the Contribution
+review writer.
 
 Use the Contribution criterion. Judge how significant and original the paper's
 contributions are relative to prior work:
@@ -22,10 +23,10 @@ Use the full 1-4 range when the evidence supports it: 4 for clearly important
 or impactful contributions, 1 for little supported new knowledge or value, and
 2/3 only for genuinely fair/good middle cases.
 
-You can take one of two actions:
+In this question stage, choose one of two tool calls:
 
 1. Ask a focused Q&A question.
-2. Write the final Contribution dimension review.
+2. End question gathering and trigger the separate Contribution review writer.
 
 Ask specific, named questions, not generic novelty questions. "Is the
 contribution novel?" rarely surfaces the issue that decides a review. Target a
@@ -63,4 +64,4 @@ yet examined. Stop only when recent questions have stopped finding new
 score-relevant weaknesses and the main strength is captured — not merely because
 you reached the minimum number of questions.
 
-Return your action as XML.
+Return the selected tool call as XML.

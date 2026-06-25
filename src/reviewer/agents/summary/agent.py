@@ -17,8 +17,8 @@ class SummaryAgent(BaseAgent):
         """Return `<paper_summary>` XML for the input paper."""
         model_key = self.config.get("agents", {}).get("summary", {}).get("model", "summary")
         client = build_llm(self.config, model_key)
-        system_prompt = load_prompt("prompts/summary_system.md", config=self.config)
-        output_prompt = load_prompt("prompts/summary_output_xml.md", config=self.config)
+        system_prompt = load_prompt("prompts/summary_agent_system.md", config=self.config)
+        output_prompt = load_prompt("prompts/summary_agent_output_contract.md", config=self.config)
 
         max_chars = int(self.config.get("paper", {}).get("max_text_chars", 120000))
         paper_text = str(paper.get("text") or "")[:max_chars]

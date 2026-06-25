@@ -7,10 +7,8 @@ external retrieval evidence, or both before writing the final QAResult.
 Planned loop:
 
 1. Observe question, dimension, paper map, and compact prior context.
-2. Choose a tool_call: search_file, read_file, inspect_visual, search_scholar,
-   or write qa_result.
-3. Use tools to gather evidence.
-4. Write `<qa_result>` with answer, evidence summary, trace refs, and review impact.
+2. Write exactly one `<tool_call>`.
+3. Execute the requested evidence tool, or finish when the tool is `end_answer`.
 
 Raw paper chunks and retrieval results should be stored in the full trace, not
 blindly carried into the next Agent prompt.
@@ -20,6 +18,7 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 from xml.etree.ElementTree import ParseError
+from typing import Any
 
 from reviewer.agents.base import BaseAgent
 from reviewer.models.factory import build_llm
@@ -32,7 +31,6 @@ from reviewer.tools.retrieval_tool import RetrievalTool
 from reviewer.tools.visual_inspection_tool import VisualInspectionTool
 from reviewer.tools.xml_validator import extract_xml_document, validate_xml_root
 from reviewer.utils.prompts import load_prompt, load_rubric_prompt
-from reviewer.utils.xml_retry import generate_valid_xml
 
 
 class AnswerAgent(BaseAgent):
@@ -50,9 +48,9 @@ class AnswerAgent(BaseAgent):
     ) -> QAResult:
         """Answer one review question with evidence and review impact.
 
-        The agent repeatedly asks the LLM for one tool call. Tool observations
-        are appended to the next step. The loop stops when the model emits a
-        `<qa_result>` document.
+        The agent repeatedly asks the LLM for exactly one `<tool_call>`.
+        Evidence tools add observations to the next step. The special
+        `end_answer` tool carries the final answer fields and exits this run.
         """
         model_key = self.config.get("agents", {}).get(dimension.lower(), {}).get(
             "answer_model", "answer"
@@ -63,111 +61,55 @@ class AnswerAgent(BaseAgent):
         trace_events: list[dict] = []
         format_feedback = ""
         prior_qa_results = prior_qa_results or []
-        max_steps = int(self.config.get("qa", {}).get("max_answer_steps", 6))
-        max_format_retries = int(self.config.get("qa", {}).get("max_format_retries", 3))
-        format_retry_count = 0
+        qa_config = self.config.get("qa", {})
+        max_steps = int(qa_config.get("max_answer_steps", 6))
+        max_format_retries = int(qa_config.get("max_format_retries", 3))
+        max_format_attempts = max(1, max_format_retries + 1)
         paper_map = _render_paper_summary(paper_summary)
         system_prompt = _answer_system_prompt(self.config, dimension)
 
         step_index = 0
         while step_index < max_steps:
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {
-                    "role": "user",
-                    "content": _build_action_context(
-                        question=question,
-                        dimension=dimension,
-                        paper=paper,
-                        paper_map=paper_map,
-                        observations=observations,
-                        retrieved_papers=retrieved_papers,
-                        prior_qa_results=prior_qa_results,
-                        format_feedback=format_feedback,
-                    ),
-                },
-            ]
-            raw_output = client.generate(messages)
-            format_feedback = ""
-            trace_events.append(
-                {
-                    "agent": "answer",
-                    "event": "model_output",
-                    "step": step_index + 1,
-                    "dimension": dimension,
-                    "question": question,
-                    "raw_output": raw_output,
-                }
+            context = _build_answer_context(
+                question=question,
+                dimension=dimension,
+                paper=paper,
+                paper_map=paper_map,
+                observations=observations,
+                retrieved_papers=retrieved_papers,
+                prior_qa_results=prior_qa_results,
+                format_feedback=format_feedback,
             )
-            fallback_feedback = ""
-            violation = _output_contract_violation(raw_output)
-            if violation:
-                format_retry_count += 1
-                format_feedback = violation
-                trace_events.append(
-                    {
-                        "agent": "answer",
-                        "event": "output_contract_violation",
-                        "step": step_index + 1,
-                        "dimension": dimension,
-                        "question": question,
-                        "feedback": violation,
-                        "format_retry": format_retry_count,
-                    }
-                )
-                fallback_output = _fallback_first_tool_call(raw_output)
-                if fallback_output:
-                    trace_events.append(
-                        {
-                            "agent": "answer",
-                            "event": "output_contract_fallback",
-                            "step": step_index + 1,
-                            "dimension": dimension,
-                            "question": question,
-                            "feedback": violation,
-                            "format_retry": format_retry_count,
-                        }
-                    )
-                    raw_output = fallback_output
-                    fallback_feedback = violation
-                    format_retry_count = 0
-                else:
-                    if format_retry_count <= max_format_retries:
-                        continue
-                    break
             try:
-                action_xml = extract_xml_document(raw_output, "tool_call")
-                has_tool_call = (
-                    action_xml != raw_output.strip() or raw_output.strip().startswith("<tool_call")
-                )
-                if has_tool_call:
-                    action = _parse_action(action_xml)
-                else:
-                    qa_xml = extract_xml_document(raw_output, "qa_result")
-                    if qa_xml != raw_output.strip() or raw_output.strip().startswith("<qa_result"):
-                        result = parse_qa_result_xml(qa_xml)
-                        _attach_retrieved_paper_details(result, retrieved_papers)
-                        result.trace_events = trace_events
-                        return result
-                    action = _parse_action(raw_output)
-            except (ValueError, ParseError):
-                format_retry_count += 1
-                trace_events.append(
-                    {
+                action_xml = _write_tool_call(
+                    client=client,
+                    system_prompt=system_prompt,
+                    context=context,
+                    max_attempts=max_format_attempts,
+                    trace_events=trace_events,
+                    trace_base={
                         "agent": "answer",
-                        "event": "parse_error",
+                        "stage": "tool_call",
                         "step": step_index + 1,
                         "dimension": dimension,
                         "question": question,
-                        "format_retry": format_retry_count,
+                    },
+                )
+            except (RuntimeError, ValueError, ParseError) as exc:
+                trace_events.append(
+                    {
+                        "agent": "answer",
+                        "event": "tool_call_failed",
+                        "stage": "tool_call",
+                        "step": step_index + 1,
+                        "dimension": dimension,
+                        "question": question,
+                        "error": str(exc),
                     }
                 )
-                if format_retry_count <= max_format_retries:
-                    continue
                 break
-            format_retry_count = 0
-            format_feedback = fallback_feedback
-            observation, new_retrieved = _run_action(action, self.config, paper, question)
+
+            action = _parse_action(action_xml)
             trace_events.append(
                 {
                     "agent": "answer",
@@ -178,6 +120,14 @@ class AnswerAgent(BaseAgent):
                     "action": action,
                 }
             )
+            if action["action"] == "end_answer":
+                result = _parse_end_answer(action_xml)
+                _attach_retrieved_paper_details(result, retrieved_papers)
+                result.trace_events = trace_events
+                return result
+
+            format_feedback = ""
+            observation, new_retrieved = _run_action(action, self.config, paper, question)
             trace_events.append(
                 {
                     "agent": "answer",
@@ -196,6 +146,7 @@ class AnswerAgent(BaseAgent):
 
         result = _write_forced_answer(
             client=client,
+            system_prompt=system_prompt,
             config=self.config,
             question=question,
             dimension=dimension,
@@ -209,19 +160,31 @@ class AnswerAgent(BaseAgent):
         return result
 
 
-def _answer_system_prompt(config: dict, dimension: str) -> str:
-    """Build the Answer Agent system prompt with the action XML contract."""
-    prompt = load_prompt("prompts/answer_agent.md", config=config)
+def _answer_guidance_prompt(config: dict, dimension: str) -> str:
+    """Build shared reviewer guidance without any output schema."""
+    prompt = load_prompt("prompts/answer_agent_shared_guidance.md", config=config).strip()
     rubric_prompt = load_rubric_prompt(config)
     dimension_prompt = _load_dimension_answer_prompt(config, dimension)
-    qa_contract = load_prompt("prompts/qa_answer_xml.md", config=config)
-    action_contract = """
-For tool-use steps, return exactly one `<tool_call>` XML document. A response
-with more than one `<tool_call>` is invalid. A response that contains both
-`<tool_call>` and `<qa_result>` is invalid.
+    return f"{rubric_prompt}\n\n{prompt}\n\n{dimension_prompt}"
+
+
+def _answer_system_prompt(config: dict, dimension: str) -> str:
+    """Build the Answer Agent prompt with the single tool-call XML contract."""
+    guidance = _answer_guidance_prompt(config, dimension)
+    tool_contract = """
+TOOL-CALL STAGE
+
+Every response must be exactly one `<tool_call>` XML document and nothing else.
+Do not output `<qa_result>`, `<answer_decision>`, markdown fences, explanatory
+text, or multiple XML documents.
+
+Choose exactly one tool per turn. Use evidence tools when more evidence is
+needed. Use `end_answer` when the current observations are enough; after a
+valid `end_answer`, this AnswerAgent run exits and the dimension agent may ask
+the next query.
 
 <tool_call>
-  <tool_name>search_file | read_file | inspect_visual | search_scholar | run_python</tool_name>
+  <tool_name>search_file | read_file | inspect_visual | search_scholar | run_python | end_answer</tool_name>
   <keyword>keyword or short phrase for search_file</keyword>
   <start_line>1-based start line for read_file</start_line>
   <num_lines>number of lines for read_file, max 50</num_lines>
@@ -231,8 +194,38 @@ with more than one `<tool_call>` is invalid. A response that contains both
   <code><![CDATA[
 small self-contained Python code for run_python
 ]]></code>
+
+  <!-- end_answer fields; use these only when tool_name is end_answer -->
+  <question>repeat the active question</question>
+  <answer>final answer grounded in evidence</answer>
+  <evidence>
+    <item source="paper">paper text evidence</item>
+    <item source="visual">visual/PDF evidence</item>
+    <item source="retrieval">retrieved prior-work evidence</item>
+    <item source="inference">carefully marked reviewer inference</item>
+  </evidence>
+  <retrieved_papers>
+    <paper>
+      <title>...</title>
+      <abstract>...</abstract>
+      <year>...</year>
+      <relevance>...</relevance>
+    </paper>
+  </retrieved_papers>
+  <review_impact>
+    <dimension>Contribution | Soundness | Presentation</dimension>
+    <polarity>strength | weakness</polarity>
+    <impact_level>C0 | C1 | C2 | C3 | C4</impact_level>
+    <confidence>low | medium | high</confidence>
+  </review_impact>
+
   <rationale>why this action is needed</rationale>
 </tool_call>
+
+For evidence tools, include only the tool_name, that tool's arguments, and
+rationale. Do not include answer, evidence, retrieved_papers, or review_impact.
+For `end_answer`, include question, answer, evidence, retrieved_papers,
+review_impact, and rationale. Do not include evidence-tool arguments.
 
 Tool-use policy:
 
@@ -267,25 +260,29 @@ Tool-use policy:
   inspection. If you need paper evidence, use `search_file`/`read_file` first.
   If you need prior-work evidence, use `search_scholar`.
 
-When you have enough evidence, return `<qa_result>` directly.
-
 Examples of search_scholar query style:
 
 - Bad: a full review question with many authors, metrics, and claims
 - Good: finite-sum variational inequality variance reduction
 - Good: language model calibration RLHF confidence
 
-Return exactly one XML document and nothing else. Never return multiple
-`<tool_call>` documents. Never return both `<tool_call>` and `<qa_result>` in
-the same response. If several tools seem useful, choose only the single
-highest-value next tool.
+Impact levels for `end_answer`:
+
+- C0: confirmed hard-gate or non-reviewability issue.
+- C1: decisive score-driving point.
+- C2: important review point that should usually appear in the dimension review.
+- C3: local actionable point.
+- C4: minor polish, speculative/low-confidence, or trace-only note.
+
+Always choose either strength or weakness. Do not use neutral or mixed. Do not
+use C2 as a safe default.
 """
-    return f"{rubric_prompt}\n\n{prompt}\n\n{dimension_prompt}\n\n{action_contract}\n\n{qa_contract}"
+    return f"{guidance}\n\n{tool_contract}"
 
 
 def _load_dimension_answer_prompt(config: dict, dimension: str) -> str:
     """Load dimension-specific Answer Agent guidance."""
-    prompt_name = f"prompts/answer_{dimension.lower()}_agent.md"
+    prompt_name = f"prompts/answer_agent_{dimension.lower()}_guidance.md"
     try:
         return load_prompt(prompt_name, config=config)
     except FileNotFoundError:
@@ -301,7 +298,7 @@ def _render_paper_summary(paper_summary: dict | str) -> str:
     return str(paper_summary)
 
 
-def _build_action_context(
+def _build_answer_context(
     *,
     question: str,
     dimension: str,
@@ -312,7 +309,7 @@ def _build_action_context(
     prior_qa_results: list[QAResult] | None = None,
     format_feedback: str = "",
 ) -> str:
-    """Build the model-visible state for one Answer Agent step."""
+    """Build the model-visible evidence state for one Answer Agent step."""
     observed = "\n\n".join(observations[-8:]) if observations else "No observations yet."
     retrieved = "\n\n".join(_format_retrieved_paper(paper) for paper in retrieved_papers[:8])
     if not retrieved:
@@ -367,33 +364,162 @@ def _format_visual_assets(paper: dict) -> str:
     return "\n".join(lines) if lines else "No extracted figure assets are listed."
 
 
-def _output_contract_violation(raw_output: str) -> str:
-    """Return retry feedback when a model emits more than one XML document."""
-    tool_call_count = raw_output.count("<tool_call")
-    qa_result_count = raw_output.count("<qa_result")
-    if tool_call_count > 1:
-        return (
-            "Invalid output: you returned multiple <tool_call> documents. "
-            "Return exactly one XML document: either one <tool_call> or one <qa_result>, never more."
-        )
-    if tool_call_count and qa_result_count:
-        return (
-            "Invalid output: you returned both <tool_call> and <qa_result>. "
-            "Return exactly one XML document. If more evidence is needed, return one <tool_call>; "
-            "otherwise return one <qa_result>."
-        )
-    if qa_result_count > 1:
-        return "Invalid output: you returned multiple <qa_result> documents. Return exactly one."
-    return ""
+def _write_tool_call(
+    *,
+    client: Any,
+    system_prompt: str,
+    context: str,
+    max_attempts: int,
+    trace_events: list[dict],
+    trace_base: dict[str, Any],
+) -> str:
+    """Ask the model for exactly one AnswerAgent tool call."""
+    return _generate_stage_xml(
+        client=client,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user",
+                "content": (
+                    f"{context}\n\n"
+                    "Return exactly one <tool_call> XML document. Choose one "
+                    "evidence tool, or choose tool_name=end_answer to finish."
+                ),
+            },
+        ],
+        root_tag="tool_call",
+        disallowed_roots=("answer_decision", "qa_result"),
+        max_attempts=max_attempts,
+        trace_events=trace_events,
+        trace_base=trace_base,
+        validator=_validate_tool_call_xml,
+    )
 
 
-def _fallback_first_tool_call(raw_output: str) -> str:
-    """Return the first tool_call only for pure multi-tool-call outputs."""
-    tool_call_count = raw_output.count("<tool_call")
-    qa_result_count = raw_output.count("<qa_result")
-    if tool_call_count <= 1 or qa_result_count:
-        return ""
-    return extract_xml_document(raw_output, "tool_call")
+def _generate_stage_xml(
+    *,
+    client: Any,
+    messages: list[dict[str, Any]],
+    root_tag: str,
+    disallowed_roots: tuple[str, ...],
+    max_attempts: int,
+    trace_events: list[dict] | None = None,
+    trace_base: dict[str, Any] | None = None,
+    validator=None,
+) -> str:
+    """Generate one strict XML document for a runtime stage."""
+    current_messages = list(messages)
+    last_error: Exception | None = None
+    last_output = ""
+    for attempt in range(1, max(1, int(max_attempts)) + 1):
+        raw_output = client.generate(current_messages)
+        last_output = raw_output
+        if trace_events is not None:
+            trace_events.append(
+                {
+                    **(trace_base or {}),
+                    "event": "model_output",
+                    "attempt": attempt,
+                    "raw_output": raw_output,
+                }
+            )
+        try:
+            clean_xml = _validate_single_stage_xml(raw_output, root_tag, disallowed_roots)
+            if validator is not None:
+                validator(clean_xml)
+            return clean_xml
+        except Exception as exc:
+            last_error = exc
+            if trace_events is not None:
+                trace_events.append(
+                    {
+                        **(trace_base or {}),
+                        "event": "stage_contract_violation",
+                        "attempt": attempt,
+                        "error": str(exc),
+                    }
+                )
+            if attempt >= max(1, int(max_attempts)):
+                break
+            current_messages = [
+                *messages,
+                {"role": "assistant", "content": raw_output},
+                {
+                    "role": "user",
+                    "content": (
+                        f"The previous output was not valid <{root_tag}> stage XML.\n"
+                        f"Parser error: {type(exc).__name__}: {exc}\n\n"
+                        f"Regenerate exactly one <{root_tag}> document and nothing else. "
+                        f"Do not include any of these tags: {', '.join(disallowed_roots)}. "
+                        "Do not wrap it in markdown fences. Escape all literal &, <, and > "
+                        "characters in text content as XML entities."
+                    ),
+                },
+            ]
+    assert last_error is not None
+    raise RuntimeError(
+        f"Could not generate valid <{root_tag}> stage XML after {max_attempts} attempts: "
+        f"{type(last_error).__name__}: {last_error}\nLast output:\n{last_output}"
+    )
+
+
+def _validate_single_stage_xml(
+    raw_output: str,
+    root_tag: str,
+    disallowed_roots: tuple[str, ...],
+) -> str:
+    """Require exactly one expected XML root and no other stage roots."""
+    expected_count = raw_output.count(f"<{root_tag}")
+    if expected_count != 1:
+        raise ValueError(f"Expected exactly one <{root_tag}> document, found {expected_count}.")
+    for disallowed in disallowed_roots:
+        if raw_output.count(f"<{disallowed}"):
+            raise ValueError(
+                f"Invalid state output: <{root_tag}> stage must not contain <{disallowed}>."
+            )
+    extracted = extract_xml_document(raw_output, root_tag)
+    if raw_output.strip() != extracted.strip():
+        raise ValueError(f"Output must contain only the <{root_tag}> XML document.")
+    return validate_xml_root(extracted, root_tag)
+
+
+def _validate_tool_call_xml(xml_text: str, *, force_end_answer: bool = False) -> None:
+    """Validate the single tool_call contract, including end_answer arguments."""
+    root = ET.fromstring(xml_text)
+    tool_name = _child_text(root, "tool_name").strip()
+    valid_tools = {
+        "search_file",
+        "read_file",
+        "inspect_visual",
+        "search_scholar",
+        "run_python",
+        "end_answer",
+    }
+    if tool_name not in valid_tools:
+        raise ValueError(f"Unsupported AnswerAgent tool_name: {tool_name!r}")
+    if force_end_answer and tool_name != "end_answer":
+        raise ValueError("Tool budget exhausted; tool_name must be end_answer.")
+
+    final_fields = ("question", "answer", "evidence", "retrieved_papers", "review_impact")
+    tool_arg_fields = ("keyword", "start_line", "num_lines", "target", "focus", "query", "code")
+    if tool_name == "end_answer":
+        for field in ("question", "answer", "review_impact"):
+            if root.find(field) is None or not "".join(root.find(field).itertext()).strip():
+                raise ValueError(f"end_answer requires <{field}>.")
+        impact = root.find("review_impact")
+        for field in ("dimension", "polarity", "impact_level", "confidence"):
+            if not _child_text(impact, field):
+                raise ValueError(f"end_answer review_impact requires <{field}>.")
+        for field in tool_arg_fields:
+            child = root.find(field)
+            if child is not None and "".join(child.itertext()).strip():
+                raise ValueError(f"end_answer must not include tool argument <{field}>.")
+        return
+
+    for field in final_fields:
+        child = root.find(field)
+        if child is not None and "".join(child.itertext()).strip():
+            raise ValueError(f"{tool_name} must not include final answer field <{field}>.")
 
 
 def _parse_action(raw_output: str) -> dict[str, str]:
@@ -411,6 +537,21 @@ def _parse_action(raw_output: str) -> dict[str, str]:
         "code": _child_text(root, "code"),
         "rationale": _child_text(root, "rationale"),
     }
+
+
+def _parse_end_answer(raw_output: str) -> QAResult:
+    """Parse an end_answer `<tool_call>` into the QAResult schema."""
+    action_xml = validate_xml_root(raw_output, "tool_call")
+    _validate_tool_call_xml(action_xml)
+    root = ET.fromstring(action_xml)
+    if _child_text(root, "tool_name") != "end_answer":
+        raise ValueError("Expected end_answer tool_call.")
+    root.tag = "qa_result"
+    for child_name in ("tool_name", "rationale"):
+        child = root.find(child_name)
+        if child is not None:
+            root.remove(child)
+    return parse_qa_result_xml(ET.tostring(root, encoding="unicode"))
 
 
 def _run_action(
@@ -499,6 +640,7 @@ def _attach_retrieved_paper_details(result: QAResult, retrieved_papers: list[dic
 def _write_forced_answer(
     *,
     client,
+    system_prompt: str,
     config: dict,
     question: str,
     dimension: str,
@@ -508,40 +650,42 @@ def _write_forced_answer(
     trace_events: list[dict] | None = None,
 ) -> QAResult:
     """Ask the model to produce a final answer after action budget is exhausted."""
-    qa_contract = load_prompt("prompts/qa_answer_xml.md", config=config)
     max_attempts = int(config.get("xml", {}).get("max_generation_attempts", 5))
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "Write the final Q&A answer now. Do not request more tools.\n\n"
-                f"{qa_contract}"
-            ),
-        },
-        {
-            "role": "user",
-            "content": (
-                f"Review dimension: {dimension}\nQuestion: {question}\n\n"
-                f"Paper map:\n{paper_map}\n\n"
-                f"Observations:\n{chr(10).join(observations)}\n\n"
-                f"Retrieved papers:\n{retrieved_papers[:8]}"
-            ),
-        },
-    ]
-    qa_xml = generate_valid_xml(
+    observations_text = "\n".join(observations) if observations else "No observations were collected."
+    action_xml = _generate_stage_xml(
         client=client,
-        messages=messages,
-        root_tag="qa_result",
+        messages=[
+            {
+                "role": "system",
+                "content": system_prompt,
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"Review dimension: {dimension}\nQuestion: {question}\n\n"
+                    f"Paper map:\n{paper_map}\n\n"
+                    f"Observations:\n{observations_text}\n\n"
+                    f"Retrieved papers:\n{retrieved_papers[:8]}\n\n"
+                    "The AnswerAgent tool budget is exhausted. Return exactly one "
+                    "<tool_call> with <tool_name>end_answer</tool_name>. Do not "
+                    "request another evidence tool."
+                ),
+            },
+        ],
+        root_tag="tool_call",
+        disallowed_roots=("answer_decision", "qa_result"),
         max_attempts=max_attempts,
         trace_events=trace_events,
         trace_base={
             "agent": "answer",
+            "stage": "forced_end_answer",
             "dimension": dimension,
             "question": question,
             "forced_answer": True,
         },
+        validator=lambda xml_text: _validate_tool_call_xml(xml_text, force_end_answer=True),
     )
-    return parse_qa_result_xml(qa_xml)
+    return _parse_end_answer(action_xml)
 
 
 def _child_text(root: ET.Element, name: str) -> str:

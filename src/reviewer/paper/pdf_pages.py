@@ -5,17 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 
-def render_pdf_pages(pdf_path: str | Path, output_dir: str | Path, max_pages: int, dpi: int = 160) -> list[str]:
-    """Render up to max_pages PDF pages to PNG images."""
-    return render_pdf_page_range(
-        pdf_path,
-        output_dir,
-        start_page=1,
-        num_pages=max_pages,
-        dpi=dpi,
-    )
-
-
 def render_pdf_page_range(
     pdf_path: str | Path,
     output_dir: str | Path,

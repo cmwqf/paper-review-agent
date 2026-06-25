@@ -28,7 +28,7 @@ def load_prompt(path: str | Path, *, config: dict | None = None) -> str:
     """Load one UTF-8 prompt file.
 
     Relative paths are resolved from the repo root, so callers can use stable
-    paths such as `prompts/summary_system.md`.
+    paths such as `prompts/summary_agent_system.md`.
     """
     prompt_path = Path(path)
     if not prompt_path.is_absolute():
@@ -51,7 +51,7 @@ def load_rubric_prompt(config: dict | None = None) -> str:
     profile = str((config or {}).get("review", {}).get("rubric_profile") or "ICLR").strip()
     if not profile:
         profile = "generic"
-    prompt_path = get_repo_root(config) / "prompts" / "rubrics" / f"{profile.lower()}.md"
+    prompt_path = get_repo_root(config) / "prompts" / "rubrics" / f"{profile.lower()}_review_profile.md"
     if not prompt_path.exists():
         return (
             f"Active review rubric profile: {profile}\n\n"

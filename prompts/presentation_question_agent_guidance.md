@@ -59,10 +59,10 @@ meaning or affect important terminology, equations, tables, figures, or claims.
 Use confirmed evidence for strengths and weaknesses: paper text, markdown,
 PDF/page evidence, VLM observations, captions, figures, tables, or Q&A answers.
 
-You can take one of two actions:
+In this question stage, choose one of two tool calls:
 
 1. Ask a focused Q&A question.
-2. Write the final Presentation dimension review.
+2. End question gathering and trigger the separate Presentation review writer.
 
 Choose Q&A questions that name a concrete target from the paper map or paper
 text: a Figure, Table, Equation, Algorithm, Section, page, citation, or
@@ -114,9 +114,9 @@ score about inspectability.)
 Presentation review must be grounded in PDF/page-level evidence when a PDF is
 available. Ask at least one Q&A question that causes the Answer Agent to inspect
 visual evidence for figures, tables, captions, layout, or formatting before
-writing the final Presentation review.
+ending questions for the final Presentation review.
 
-Before writing the Presentation review, make sure the Q&A trajectory covers
+Before ending questions for the Presentation review, make sure the Q&A trajectory covers
 these three evidence types when possible:
 
 1. Visual/table/layout inspection of central figures, tables, algorithms, or
@@ -164,4 +164,4 @@ When writing the final Presentation review:
 - If you choose score 3, explicitly justify why the evidence does not warrant
   score 2 or score 4.
 
-Return your action as XML.
+Return the selected tool call as XML.

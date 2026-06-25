@@ -383,14 +383,14 @@ review:
   rubric_profile: ICLR
 ```
 
-运行时会把 `prompts/rubrics/iclr.md` 注入到 Contribution、Soundness、
+运行时会把 `prompts/rubrics/iclr_review_profile.md` 注入到 Contribution、Soundness、
 Presentation、Answer Agent 和 Final Review 的 prompt 中。这个文件包含当前
 会议的维度定义、1-4 维度分数说明、final score 说明和 confidence 说明。
 
 如果之后要适配其他会议，新增一个文件，例如：
 
 ```text
-prompts/rubrics/neurips.md
+prompts/rubrics/neurips_review_profile.md
 ```
 
 然后把配置改成：

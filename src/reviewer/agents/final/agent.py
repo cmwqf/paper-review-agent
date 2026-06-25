@@ -28,7 +28,7 @@ class FinalReviewAgent(BaseAgent):
         """
         model_key = self.config.get("agents", {}).get("final", {}).get("model", "final_review")
         client = build_llm(self.config, model_key)
-        prompt = load_prompt("prompts/final_review_xml.md", config=self.config)
+        prompt = load_prompt("prompts/final_review_output_contract.md", config=self.config)
         rubric_prompt = load_rubric_prompt(self.config)
         self.trace_events = []
         max_attempts = int(self.config.get("xml", {}).get("max_generation_attempts", 5))

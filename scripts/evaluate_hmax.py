@@ -17,6 +17,7 @@ from tqdm.auto import tqdm
 
 from reviewer.models.factory import build_llm
 from reviewer.settings import load_config
+from reviewer.tools.retrieval_tool import RetrievalTool
 
 
 DIMENSIONS = (
@@ -43,6 +44,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-summary-chars", type=int, default=5000, help="Max chars from summary.md fallback.")
     parser.add_argument("--resume", action="store_true", help="Skip papers already in hmax_papers.jsonl.")
     parser.add_argument("--dry-run", action="store_true", help="Only inspect inputs; do not call the model.")
+    parser.add_argument(
+        "--no-retrieval",
+        dest="retrieval",
+        action="store_false",
+        help="Disable Semantic Scholar pre-retrieval for the Novelty dimension.",
+    )
+    parser.add_argument(
+        "--max-retrieved",
+        type=int,
+        default=8,
+        help="Max candidate prior-work papers injected into the judge prompt.",
+    )
+    parser.set_defaults(retrieval=True)
     return parser
 
 
@@ -70,6 +84,11 @@ def main() -> None:
     if args.limit is not None:
         jobs = jobs[: args.limit]
 
+    retrieval_enabled = bool(args.retrieval) and bool(
+        config.get("retrieval", {}).get("enabled", True)
+    )
+    retrieval_tool = RetrievalTool(config) if retrieval_enabled else None
+
     manifest = {
         "protocol": "ScholarPeer Appendix H.1 H-Max Score",
         "run_dir": str(run_dir),
@@ -81,6 +100,8 @@ def main() -> None:
         "dimensions": list(DIMENSIONS),
         "num_papers": len(jobs),
         "dry_run": args.dry_run,
+        "retrieval_enabled": retrieval_enabled,
+        "max_retrieved": args.max_retrieved if retrieval_enabled else 0,
     }
     write_json(output_dir / "hmax_manifest.json", manifest)
 
@@ -93,6 +114,8 @@ def main() -> None:
                 "paper_text_chars": len(job["paper_text"]),
                 "final_review_chars": len(job["generated_review"]),
                 "cutoff_date": job["cutoff_date"],
+                "submission_date": job["submission_date"],
+                "retrieval_queries": build_retrieval_queries(job) if retrieval_enabled else [],
             }
             for job in jobs
         ]
@@ -115,7 +138,14 @@ def main() -> None:
     detail_rows: list[dict[str, Any]] = []
     with ThreadPoolExecutor(max_workers=max(1, args.concurrency)) as executor:
         futures = {
-            executor.submit(evaluate_paper, config, args.model_key, job): job
+            executor.submit(
+                evaluate_paper,
+                config,
+                args.model_key,
+                job,
+                retrieval_tool,
+                args.max_retrieved,
+            ): job
             for job in jobs
         }
         for future in tqdm(as_completed(futures), total=len(futures), desc="H-Max"):
@@ -205,6 +235,7 @@ def collect_jobs(
                 "title": source.get("title") or paper_id,
                 "human_decision": normalize_decision(source.get("decision", "")),
                 "cutoff_date": cutoff_date,
+                "submission_date": iso_date_or_none(cutoff_date),
                 "paper_text": paper_text,
                 "generated_review": read_text_limited(final_path, max_review_chars),
                 "human_reviews": [
@@ -220,7 +251,10 @@ def evaluate_paper(
     config: dict[str, Any],
     model_key: str,
     job: dict[str, Any],
+    retrieval_tool: RetrievalTool | None = None,
+    max_retrieved: int = 8,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
+    prior_work = retrieve_prior_work(retrieval_tool, job, max_retrieved)
     client = build_llm(config, model_key)
     raw = client.generate(
         [
@@ -231,12 +265,14 @@ def evaluate_paper(
                     paper_text=job["paper_text"],
                     ai_review=job["generated_review"],
                     human_reviews=render_all_human_reviews(job["human_reviews"]),
+                    prior_work=render_prior_work(prior_work, job["cutoff_date"]),
                 ),
             },
         ]
     )
     parsed = parse_judge_json(raw)
     detail = normalize_evaluation(job, parsed, raw)
+    detail["Retrieved Prior Work"] = prior_work
     paper_row = {
         "paper_id": job["paper_id"],
         "title": job["title"],
@@ -269,11 +305,82 @@ def normalize_evaluation(job: dict[str, Any], parsed: dict[str, Any], raw: str) 
     return row
 
 
+def build_retrieval_queries(job: dict[str, Any]) -> list[str]:
+    """Derive deterministic Semantic Scholar queries for the Novelty dimension."""
+    queries: list[str] = []
+    title = str(job.get("title") or "").strip()
+    if title and title != job.get("paper_id"):
+        queries.append(title)
+    return queries
+
+
+def retrieve_prior_work(
+    retrieval_tool: RetrievalTool | None,
+    job: dict[str, Any],
+    max_retrieved: int,
+) -> list[dict[str, Any]]:
+    """Pre-retrieve time-filtered candidate prior work for novelty grounding."""
+    if retrieval_tool is None or max_retrieved <= 0:
+        return []
+    paper_metadata = {"submission_date": job.get("submission_date")}
+    seen: set[str] = set()
+    collected: list[dict[str, Any]] = []
+    for query in build_retrieval_queries(job):
+        try:
+            results = retrieval_tool.search(query, paper_metadata)
+        except Exception:
+            results = []
+        for paper in results:
+            key = (paper.get("url") or paper.get("title") or "").strip().lower()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            collected.append(paper)
+            if len(collected) >= max_retrieved:
+                return collected
+    return collected
+
+
+def render_prior_work(prior_work: list[dict[str, Any]], cutoff_date: str) -> str:
+    """Render retrieved candidates as a citable list for the judge prompt."""
+    if not prior_work:
+        return (
+            "No external candidates were retrieved. Rely only on your own knowledge "
+            f"of work published on or before {cutoff_date}."
+        )
+    lines = []
+    for index, paper in enumerate(prior_work, start=1):
+        date = paper.get("publication_date") or paper.get("year") or "n.d."
+        citations = paper.get("citation_count")
+        header = f"[{index}] {paper.get('title') or 'Untitled'} ({date})"
+        if citations is not None:
+            header += f" — citations: {citations}"
+        if paper.get("url"):
+            header += f" — {paper['url']}"
+        abstract = normalize_text(paper.get("abstract"))
+        if abstract:
+            abstract = truncate(abstract, 600)
+            lines.append(f"{header}\n{abstract}")
+        else:
+            lines.append(header)
+    return "\n\n".join(lines)
+
+
+def iso_date_or_none(value: Any) -> str | None:
+    """Return value as an ISO date string when it parses, else None."""
+    text = str(value or "").strip()
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
+        return text
+    return None
+
+
 def scholarpeer_hmax_system_prompt(cutoff_date: str) -> str:
     """ScholarPeer Appendix H.1 H-Max judge prompt, adapted only for API formatting."""
     return f"""You are an expert area chair evaluating an AI Reviewer Assistant. Your role is to determine if the AI provides value beyond what expert human reviewers provided.
 
 Special Instruction for evaluating "Novelty and Significance Assessment": You must only search for and consider information available on or before the cutoff date: {cutoff_date}. The cutoff date represents the date on which the paper was published; information after this date is irrelevant to the review.
+
+To support this, you are given a pre-retrieved list of candidate prior work under "#### Retrieved Prior Work ####", obtained from Semantic Scholar and already filtered to papers published on or before {cutoff_date}. Treat this list as your external search results: ground your Novelty and Significance Assessment in it, and cite the specific entries you rely on in "Novelty and Significance Assessment External Sources Used". You may also draw on your own knowledge of work published on or before {cutoff_date}, but never rely on or cite anything published after it.
 
 Follow the steps below for each evaluation:
 1. Thoroughly understand the paper by analyzing:
@@ -317,6 +424,8 @@ For each of the above aspects and overall judgment, you must:
 <AI Review>
 #### Human Reviews (Ground Truth): ####
 <Human Reviews>
+#### Retrieved Prior Work (published on or before the cutoff date): ####
+<Candidate prior work from Semantic Scholar>
 
 **Respond in the following format:**
 THOUGHT:
@@ -355,7 +464,9 @@ In <JSON>, provide the evaluation in JSON format with the following fields in th
 This JSON will be automatically parsed, so ensure the format is precise and scores are integers."""
 
 
-def scholarpeer_hmax_user_prompt(*, paper_text: str, ai_review: str, human_reviews: str) -> str:
+def scholarpeer_hmax_user_prompt(
+    *, paper_text: str, ai_review: str, human_reviews: str, prior_work: str
+) -> str:
     return f"""#### Paper Text: ####
 {paper_text}
 
@@ -363,7 +474,10 @@ def scholarpeer_hmax_user_prompt(*, paper_text: str, ai_review: str, human_revie
 {ai_review}
 
 #### Human Reviews: ####
-{human_reviews}"""
+{human_reviews}
+
+#### Retrieved Prior Work: ####
+{prior_work}"""
 
 
 def parse_judge_json(raw: str) -> dict[str, Any]:

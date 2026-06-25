@@ -178,25 +178,21 @@ agents/
 └── final/
 ```
 
-每个 Agent 目录一般包含：
+每个 Agent 目录一般只包含：
 
 - `agent.py`
 
   该 Agent 的控制逻辑。
 
-- `prompts.py`
-
-  该 Agent 使用的 prompt 路径或 prompt 加载逻辑。
-
-- `schema.py`
-
-  该 Agent 专属的 schema alias 或扩展。
+Prompt Markdown 统一放在仓库根目录的 `prompts/` 下，由 `utils/prompts.py`
+加载；跨 Agent 传递的数据结构统一放在 `schemas/` 下，避免每个 Agent
+目录保留一层没有额外字段的 schema alias。
 
 公共 Agent 逻辑放在：
 
 - `agents/base.py`
 
-  所有 Agent 共享的基础类和上下文对象。
+  所有 Agent 共享的基础类。
 
 - `agents/dimension_base.py`
 
@@ -212,20 +208,23 @@ Answer Agent 是 Q&A 流程中的证据获取和回答模块。它不是一个�
 
 - Dimension Agent 决定要问什么 review question。
 - Answer Agent 决定为了回答这个问题，需要哪些 evidence。
-- Answer Agent 可以调用 `search_file`、`read_file` 和外部 `retrieval`。
-- Answer Agent 最终输出结构化 `<qa_result>`，其中包含 answer、evidence summary、trace refs 和 review impact。
+- Answer Agent 可以调用 `search_file`、`read_file`、`inspect_visual`、`search_scholar` 和 `run_python`。
+- Answer Agent 每轮只能输出一个 `<tool_call>`。
+- Answer Agent 用 `tool_name=end_answer` 结束当前回答；该 tool call 携带 answer、evidence、retrieved papers 和 review impact，运行时再解析成内部 `QAResult`。
 
 预期 action loop：
 
 ```text
 question + dimension + paper_map + compact context
-  -> choose action
+  -> output exactly one <tool_call>
      -> search_file
      -> read_file
+     -> inspect_visual
      -> search_scholar
-     -> write_answer
-  -> when write_answer:
-       output QAResult
+     -> run_python
+     -> end_answer
+  -> when end_answer:
+       parse tool_call into QAResult and return to the Dimension Agent
 ```
 
 Answer Agent 不应该只凭 Summary 回答需要证据的问题。Summary 是导航图，不是唯一事实来源。
@@ -242,34 +241,16 @@ Answer Agent 不应该只凭 Summary 回答需要证据的问题。Summary 是�
 
   执行完整流程：Summary -> 三个维度 Agent -> Final Review。
 
-- `workflow/trace.py`
-
-  保存每个 Agent 的 Q&A trajectory、action、answer 和中间结果。
+Trace 事件保存在 `ReviewWorkflowState.traces` 中，由 workflow 在每个阶段
+完成后汇总。
 
 ## Tools 模块
 
 `tools/` 是 Agent 可以调用的公共工具层。
 
-### QATool
-
-文件位置：
-
-```text
-tools/qa_tool.py
-```
-
-职责：
-
-- 接收一个维度相关的 review question
-- 接收当前 dimension
-- 接收是否需要 retrieval
-- 如果需要 retrieval，调用 RetrievalTool
-- 调用 Answer model 回答问题
-- 返回结构化 `QAResult`
-
-QATool 的输出不仅要有 answer，还必须包含这个 answer 对当前维度 review 的影响。
-
-后续实现中，`QATool` 可以作为薄 wrapper：Dimension Agent 调用 `QATool.ask(...)`，而 `QATool` 内部调用 Answer Agent 完成证据获取和回答。这样可以保留外层“Q&A tool”接口，同时让 answer 过程具备 Agent 行为。
+Dimension Agent 需要证据时直接调用 Answer Agent。Answer Agent 内部再按
+tool-call 状态机选择 read/search/retrieve/visual/python 等工具，最后通过
+`end_answer` 返回结构化 `QAResult`。
 
 ### RetrievalTool
 
@@ -281,7 +262,7 @@ tools/retrieval_tool.py
 
 职责：
 
-- 调用 query generator 生成 search tags / queries
+- 使用 Answer Agent 传入的检索 query
 - 调用 Semantic Scholar 搜索相关论文
 - 根据投稿时间做 time filter
 - 对候选论文 rerank
@@ -351,10 +332,6 @@ tools/xml_validator.py
 
 `retrieval/` 负责 scholarly search 的内部细节。
 
-- `query_generator.py`
-
-  将 review question 转成 search tags 和 expanded queries。
-
 - `semantic_scholar.py`
 
   Semantic Scholar Graph API client。
@@ -409,10 +386,6 @@ tools/xml_validator.py
 
   将 PDF 页面渲染成图片，供 VLMTool 使用。
 
-- `metadata.py`
-
-  标准化标题、venue、submission date 等 metadata。
-
 ## Schemas 模块
 
 `schemas/` 定义模块之间传递的结构化数据。
@@ -443,36 +416,35 @@ Contribution、Soundness、Presentation 都应该共享同一种状态机：
 
 ```text
 observe paper_summary + previous QA results
-  -> decide action
+  -> output exactly one <tool_call>
      -> ask_question
-     -> write_review
+     -> end_questions
   -> if ask_question:
-       call QATool(question, dimension, need_retrieval)
+       call Answer Agent with the question and dimension
        append QAResult to trace
        continue
-  -> if write_review:
-       generate dimension_review XML
+  -> if end_questions:
+       invoke dimension review writer to generate dimension_review XML
        stop
 ```
 
-Agent 的 action 也建议用 XML 表示，例如：
+Agent 的 question-stage action 用 tool-call XML 表示，例如：
 
 ```xml
-<agent_action>
-  <action>ask_question</action>
+<tool_call>
+  <tool_name>ask_question</tool_name>
   <question>Are the baselines sufficient for this task?</question>
-  <need_retrieval>true</need_retrieval>
   <rationale>The summary lists baselines but does not establish whether they are current.</rationale>
-</agent_action>
+</tool_call>
 ```
 
 当 Agent 认为证据已经足够时，输出：
 
 ```xml
-<agent_action>
-  <action>write_review</action>
+<tool_call>
+  <tool_name>end_questions</tool_name>
   <rationale>The trajectory has enough evidence to score this dimension.</rationale>
-</agent_action>
+</tool_call>
 ```
 
 每个 Agent 必须受 `config.yaml` 中 `max_qa_turns` 控制，避免无限循环。
@@ -481,18 +453,19 @@ Agent 的 action 也建议用 XML 表示，例如：
 
 Q&A answer 是这个系统的关键结构。它不应该只是回答问题，还应该明确说明这个回答如何影响当前维度的 review。
 
-预期 XML 结构：
+Answer Agent 结束当前回答时输出的 XML 结构：
 
 ```xml
-<qa_result>
+<tool_call>
+  <tool_name>end_answer</tool_name>
   <question>Are the baselines sufficient?</question>
   <answer>...</answer>
-	  <evidence>
-	    <item source="paper">...</item>
-	    <item source="visual">...</item>
-	    <item source="retrieval">...</item>
-	    <item source="inference">...</item>
-	  </evidence>
+  <evidence>
+    <item source="paper">...</item>
+    <item source="visual">...</item>
+    <item source="retrieval">...</item>
+    <item source="inference">...</item>
+  </evidence>
   <retrieved_papers>
     <paper>
       <title>...</title>
@@ -501,14 +474,17 @@ Q&A answer 是这个系统的关键结构。它不应该只是回答问题，还
       <relevance>...</relevance>
     </paper>
   </retrieved_papers>
-	  <review_impact>
-	    <dimension>Soundness</dimension>
-	    <polarity>weakness</polarity>
-	    <impact_level>C1</impact_level>
-	    <confidence>high</confidence>
-	  </review_impact>
-	</qa_result>
-	```
+  <review_impact>
+    <dimension>Soundness</dimension>
+    <polarity>weakness</polarity>
+    <impact_level>C1</impact_level>
+    <confidence>high</confidence>
+  </review_impact>
+  <rationale>Enough evidence has been collected to answer the question.</rationale>
+</tool_call>
+```
+
+运行时会把 `end_answer` tool call 转换成内部 `QAResult` 对象，供 Dimension Agent 聚合使用。
 
 `review_impact.polarity` 的候选值：
 
@@ -523,7 +499,7 @@ Q&A answer 是这个系统的关键结构。它不应该只是回答问题，还
 - `C3`: local actionable point
 - `C4`: minor polish, trace-only, or evidence-limitation point
 
-`impact_level` 是优先级信号，不等于最终维度分数。维度 Agent 在 `write_review` 时应该综合整个 trajectory，而不是简单累加或机械映射这些标签。
+`impact_level` 是优先级信号，不等于最终维度分数。维度 review writer 应该综合整个 trajectory，而不是简单累加或机械映射这些标签。
 
 ## Summary、Search File 与 Read File 的关系
 
@@ -667,12 +643,12 @@ trace 是 debug 的核心。如果某个 final score 不合理，应该能沿着
 3. 实现 OpenAI-compatible `LLMClient`。
 4. 实现文本论文加载和 PDF 文本抽取。
 5. 实现 Summary Agent 的 XML 生成和解析。
-6. 实现不带 retrieval 的 QATool。
-7. 实现共享 DimensionAgent loop。
+6. 实现共享 DimensionAgent loop。
+7. 实现 Answer Agent 的单 tool-call 状态机。
 8. 实现 Contribution 和 Soundness Agent。
 9. 实现 Semantic Scholar retrieval。
-10. 实现 query generation、time filter、reranker。
-11. 实现不带 VLM 的 Presentation Agent。
+10. 实现 time filter 和 reranker。
+11. 实现 Presentation Agent。
 12. 实现 PDF 页面渲染和 VLMTool。
 13. 实现 Final Review Agent。
 14. 实现 trace 保存。

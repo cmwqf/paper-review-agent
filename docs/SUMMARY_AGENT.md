@@ -115,8 +115,8 @@ agents:
 prompt 来自：
 
 ```text
-prompts/summary_system.md
-prompts/summary_output_xml.md
+prompts/summary_agent_system.md
+prompts/summary_agent_output_contract.md
 ```
 
 ## XML 校验

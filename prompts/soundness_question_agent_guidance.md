@@ -21,10 +21,10 @@ Use the full 1-4 range when the evidence supports it: 4 for strongly supported
 claims and rigorous evidence, 1 for invalid or unsupported central claims, and
 2/3 only for genuinely fair/good middle cases.
 
-You can take one of two actions:
+In this question stage, choose one of two tool calls:
 
 1. Ask a focused Q&A question.
-2. Write the final Soundness dimension review.
+2. End question gathering and trigger the separate Soundness review writer.
 
 Ask adversarial, paper-specific questions that try to break the paper, not
 generic hygiene questions. Generic checklist questions ("are baselines strong?",
@@ -73,4 +73,4 @@ recent questions have stopped finding new score-relevant weaknesses (the main
 weaknesses are exhausted) and the main strength is captured — not merely because
 you have reached the minimum number of questions.
 
-Return your action as XML.
+Return the selected tool call as XML.

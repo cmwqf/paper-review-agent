@@ -65,27 +65,11 @@ weaknesses materially affect the dimension's central claim, the new knowledge,
 or the reviewer’s ability to verify the paper's main value.
 
 Score consistently with your own evidence, in both directions, and do not
-default to a fixed value. Treat a weakness as `local` unless it specifically
-threatens this dimension's central claim (for Soundness, that the main claims
-are supported; for Contribution, that the work is a valuable, novel
-contribution; for Presentation, that the paper can be inspected). Ordinary gaps
-— a missing extra ablation, a broader comparison, missing uncertainty estimates,
-narrow scope, or wanting more baselines — are `local`: mention them, but they
-keep the score at `3` (or `4`) and do not by themselves pull it to `2`.
-
-Two kinds of weakness are easy to under-rate as `local`/C2 but a careful human
-reviewer usually treats as decision-relevant. When the Q&A supports them,
-elevate them to a C1 `key_points` item and consider them for `decisive_issues`
-(weigh, do not auto-demote):
-
-- practical-utility weaknesses: the method's real gain over a simple or existing
-  baseline is marginal, or it requires access, compute, or assumptions the
-  intended setting cannot provide — so the contribution's actual value is in
-  doubt, even if nothing is technically wrong.
-- verifiability / comprehensibility weaknesses: the central claims, propositions,
-  or derivations cannot be followed or checked well enough to trust them. This is
-  a Soundness/Contribution concern (can the main result be believed?), not mere
-  Presentation polish.
+default to a fixed value. Treat a weakness as `local` unless the
+dimension-specific writer guidance and Q&A evidence show that it threatens the
+central judgment for this dimension. Ordinary requests for more evidence,
+broader comparisons, or polish should affect the score only in proportion to
+their impact on this dimension's main judgment.
 
 Set each decisive issue's `claim_effect`, and escalate above `local` only with
 justification — name the specific central claim it threatens and why the main
@@ -257,28 +241,9 @@ final review can preserve the dimension's main judgment rather than averaging
 findings by count. Also make sure C1/C2 strengths or weaknesses that affect the
 dimension score appear in `key_points`.
 
-For Presentation specifically, still use the full 1-4 scale — a genuinely poor or
-a genuinely excellent presentation must not be flattened to `3`. Do not aggregate
-a couple of minor figure, caption, table, notation, or formatting frictions into a
-`materially_weakens` decisive issue or a `dimension_score_cap` of `2`: isolated
-polish frictions are `local` (C3/C4) and keep `3`. But DO score `2 fair` when
-readability or formatting problems are pervasive enough to materially impede
-understanding or verification — several unreadable figures, missing labels or
-definitions, key protocol/method details not self-contained, or formatting that
-obscures the method or results — and `1 poor` when the paper is effectively
-non-reviewable. Reserve `4 excellent` for genuinely clear, well-organized papers.
-This score should reflect presentation quality on its own; the final review,
-not this dimension, is where Presentation is given low weight on accept/reject.
-
 Write strengths and weaknesses from confirmed
-evidence in paper text, PDF/page evidence, VLM observations, captions, tables,
-figures, or Q&A answers. If visual inspection was unavailable, mention that as
-an evidence limitation in `<dimension_judgment>` or `<rationale>`, but do not
-treat tool/routing failure as a paper weakness unless the paper artifact itself
-is confirmed to be missing, broken, or non-inspectable. Mark unavailable visual
-evidence with evidence_status="unavailable" and wrong-page or wrong-asset
-observations with evidence_status="tool_mismatch"; these should normally be C4
-unless they also confirm a real paper problem. If the active rubric profile
-includes desk-reject or administrative checks, include confirmed risks in
-weaknesses and requested rationale; if no such risk was confirmed, do not
-invent one.
+evidence in paper text, PDF/page evidence, VLM observations, retrieved prior
+work, calculations, or Q&A answers. If evidence was unavailable or a tool did not
+inspect the requested target, mention that as an evidence limitation in
+`<dimension_judgment>` or `<rationale>` rather than treating the tool failure as
+a paper weakness.

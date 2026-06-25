@@ -106,12 +106,12 @@ agents:
 - `model`: model role for dimension-agent decisions and final dimension review.
 - `answer_model`: model role used by AnswerAgent for Q&A evidence gathering.
 - `min_qa_turns`: minimum number of dimension-agent Q&A results required before
-  the agent is allowed to write the dimension review.
-- `max_qa_turns`: maximum number of dimension-agent Q&A turns before writing the
-  dimension review.
+  the agent is allowed to call `end_questions`.
+- `max_qa_turns`: maximum number of dimension-agent Q&A turns before the runtime
+  forces the final dimension-review writer.
 - `require_balanced_qa`: if true, the agent must collect at least one Q&A result
   with `review_impact.polarity=strength` and at least one with
-  `review_impact.polarity=weakness` before it can write the dimension review.
+  `review_impact.polarity=weakness` before it can call `end_questions`.
 
 Presentation-specific fields:
 
@@ -128,11 +128,14 @@ Final review:
 Scoring rules are intentionally not configured here. ICLR rating scales live in
 the prompts:
 
-- `prompts/dimension_review_xml.md`: Contribution/Soundness/Presentation use
-  1-4.
-- `prompts/final_review_xml.md`: final recommendation uses 1, 3, 5, 6, 8, 10;
+- `prompts/contribution_review_writer_guidance.md`, `prompts/soundness_review_writer_guidance.md`,
+  and `prompts/presentation_review_writer_guidance.md`: dimension-specific review-writer
+  guidance.
+- `prompts/dimension_review_output_contract.md`: shared dimension-review XML schema and
+  1-4 score contract.
+- `prompts/final_review_output_contract.md`: final recommendation uses 1, 3, 5, 6, 8, 10;
   confidence uses 1-5.
-- `prompts/qa_answer_xml.md`: Q&A impact uses C1/C2/C3.
+- AnswerAgent `end_answer` tool-call contract: Q&A impact uses C0-C4.
 
 ## Retrieval
 
@@ -177,9 +180,11 @@ qa:
 ```
 
 - `max_answer_steps`: maximum AnswerAgent tool-use steps before it is forced to
-  write a final `<qa_result>`.
-- `max_format_retries`: maximum AnswerAgent format-error retries before a pure
-  multi-`<tool_call>` output falls back to executing the first tool call.
+  write a final `end_answer` tool call.
+- `max_format_retries`: maximum AnswerAgent retries for malformed XML or
+  invalid tool-call output. The AnswerAgent accepts exactly one `<tool_call>`
+  per turn; `end_answer` is the terminating tool and carries the final answer
+  fields.
 
 Allowed impact values are prompt-level contracts, not config-driven validators
 in the current implementation.
