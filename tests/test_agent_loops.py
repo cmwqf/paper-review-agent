@@ -360,6 +360,55 @@ def test_answer_agent_exposes_retrieval_abstracts(monkeypatch) -> None:
     assert observation_event["retrieved_papers"][0]["abstract"] == retrieved[0]["abstract"]
 
 
+def test_answer_agent_can_run_python_before_answering(monkeypatch) -> None:
+    """AnswerAgent should expose run_python for small evidence calculations."""
+    client = FakeClient(
+        [
+            """
+            <tool_call>
+              <tool_name>run_python</tool_name>
+              <code><![CDATA[
+baseline = 82.0
+reported = [83.1, 84.0, 84.4]
+print([round(value - baseline, 2) for value in reported])
+              ]]></code>
+              <rationale>Check the absolute improvements over baseline.</rationale>
+            </tool_call>
+            """,
+            """
+            <qa_result>
+              <question>Are the reported gains consistent?</question>
+              <answer>The calculation shows gains of 1.1, 2.0, and 2.4 points.</answer>
+              <evidence><item source="paper">The numeric claim was checked with run_python.</item></evidence>
+              <retrieved_papers></retrieved_papers>
+              <review_impact>
+                <dimension>Soundness</dimension>
+                <polarity>strength</polarity>
+                <impact_level>C2</impact_level>
+                <confidence>medium</confidence>
+              </review_impact>
+            </qa_result>
+            """,
+        ]
+    )
+    monkeypatch.setattr("reviewer.agents.answer.agent.build_llm", lambda config, model_key: client)
+
+    result = AnswerAgent({"qa": {"max_answer_steps": 2}}).run(
+        "Are the reported gains consistent?",
+        "Soundness",
+        {"text": "The baseline is 82.0 and reported results are 83.1, 84.0, 84.4."},
+        SUMMARY_XML,
+    )
+
+    assert result.answer == "The calculation shows gains of 1.1, 2.0, and 2.4 points."
+    assert "run_python" in client.calls[1][1]["content"]
+    assert "[1.1, 2.0, 2.4]" in client.calls[1][1]["content"]
+    assert any(
+        event["event"] == "tool_call" and event["action"]["action"] == "run_python"
+        for event in result.trace_events
+    )
+
+
 def test_answer_agent_retries_after_mixed_tool_and_answer(monkeypatch) -> None:
     """If the model emits tool_call and qa_result together, AnswerAgent should retry."""
     client = FakeClient(
@@ -424,8 +473,10 @@ def test_answer_agent_retries_after_mixed_tool_and_answer(monkeypatch) -> None:
     assert any(event["event"] == "tool_observation" for event in result.trace_events)
 
 
-def test_answer_agent_retries_multiple_tool_calls_without_spending_tool_step(monkeypatch) -> None:
-    """Multiple tool calls should be retried as a format error without spending a tool step."""
+def test_answer_agent_falls_back_to_first_tool_call_and_reports_format_feedback(
+    monkeypatch,
+) -> None:
+    """Pure multi-tool outputs should run the first tool and report feedback next turn."""
     client = FakeClient(
         [
             """
@@ -442,16 +493,9 @@ def test_answer_agent_retries_multiple_tool_calls_without_spending_tool_step(mon
             </tool_call>
             """,
             """
-            <tool_call>
-              <tool_name>search_file</tool_name>
-              <keyword>baseline</keyword>
-              <rationale>Need paper evidence.</rationale>
-            </tool_call>
-            """,
-            """
             <qa_result>
               <question>Are baselines sufficient?</question>
-              <answer>The forced answer follows the retried tool observation.</answer>
+              <answer>The answer follows the fallback tool observation.</answer>
               <evidence><item source="paper">Evidence from search.</item></evidence>
               <retrieved_papers></retrieved_papers>
               <review_impact>
@@ -466,23 +510,27 @@ def test_answer_agent_retries_multiple_tool_calls_without_spending_tool_step(mon
     )
     monkeypatch.setattr("reviewer.agents.answer.agent.build_llm", lambda config, model_key: client)
 
-    result = AnswerAgent({"qa": {"max_answer_steps": 1}}).run(
+    result = AnswerAgent({"qa": {"max_answer_steps": 2}}).run(
         "Are baselines sufficient?",
         "Soundness",
         {"text": "Intro\nStrong baseline is used.", "metadata": {"title": "Paper"}},
         SUMMARY_XML,
     )
 
-    assert result.answer == "The forced answer follows the retried tool observation."
+    assert result.answer == "The answer follows the fallback tool observation."
+    assert len(client.calls) == 2
     assert "Previous output format error" in client.calls[1][1]["content"]
     assert "multiple <tool_call>" in client.calls[1][1]["content"]
+    assert "search_file('baseline')" in client.calls[1][1]["content"]
+    tool_calls = [event for event in result.trace_events if event["event"] == "tool_call"]
+    assert len(tool_calls) == 1
+    assert tool_calls[0]["action"]["action"] == "search_file"
+    assert any(event["event"] == "output_contract_fallback" for event in result.trace_events)
     assert any(event["event"] == "tool_observation" for event in result.trace_events)
 
 
-def test_answer_agent_falls_back_to_first_tool_call_after_format_retry_limit(
-    monkeypatch,
-) -> None:
-    """After configured format retries, repeated multi-tool output should use the first call."""
+def test_answer_agent_forced_answer_after_first_tool_call_fallback(monkeypatch) -> None:
+    """The first tool-call fallback still works when the answer loop budget is exhausted."""
     multi_tool_output = """
         <tool_call>
           <tool_name>search_file</tool_name>
@@ -498,9 +546,6 @@ def test_answer_agent_falls_back_to_first_tool_call_after_format_retry_limit(
         """
     client = FakeClient(
         [
-            multi_tool_output,
-            multi_tool_output,
-            multi_tool_output,
             multi_tool_output,
             """
             <qa_result>
@@ -528,7 +573,7 @@ def test_answer_agent_falls_back_to_first_tool_call_after_format_retry_limit(
     )
 
     assert result.answer == "The forced answer follows the fallback tool observation."
-    assert len(client.calls) == 5
+    assert len(client.calls) == 2
     assert any(event["event"] == "output_contract_fallback" for event in result.trace_events)
     assert any(event["event"] == "tool_observation" for event in result.trace_events)
 

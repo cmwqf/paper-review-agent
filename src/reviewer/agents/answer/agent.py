@@ -27,6 +27,7 @@ from reviewer.schemas.qa import QAResult, parse_qa_result_xml
 from reviewer.schemas.summary import SummarySchema, render_summary_for_agent
 from reviewer.tools.paper_read_tool import PaperReadTool
 from reviewer.tools.paper_search_tool import PaperSearchTool
+from reviewer.tools.python_tool import RestrictedPythonTool
 from reviewer.tools.retrieval_tool import RetrievalTool
 from reviewer.tools.visual_inspection_tool import VisualInspectionTool
 from reviewer.tools.xml_validator import extract_xml_document, validate_xml_root
@@ -98,6 +99,7 @@ class AnswerAgent(BaseAgent):
                     "raw_output": raw_output,
                 }
             )
+            fallback_feedback = ""
             violation = _output_contract_violation(raw_output)
             if violation:
                 format_retry_count += 1
@@ -113,8 +115,6 @@ class AnswerAgent(BaseAgent):
                         "format_retry": format_retry_count,
                     }
                 )
-                if format_retry_count <= max_format_retries:
-                    continue
                 fallback_output = _fallback_first_tool_call(raw_output)
                 if fallback_output:
                     trace_events.append(
@@ -129,7 +129,11 @@ class AnswerAgent(BaseAgent):
                         }
                     )
                     raw_output = fallback_output
+                    fallback_feedback = violation
+                    format_retry_count = 0
                 else:
+                    if format_retry_count <= max_format_retries:
+                        continue
                     break
             try:
                 action_xml = extract_xml_document(raw_output, "tool_call")
@@ -162,7 +166,7 @@ class AnswerAgent(BaseAgent):
                     continue
                 break
             format_retry_count = 0
-            format_feedback = ""
+            format_feedback = fallback_feedback
             observation, new_retrieved = _run_action(action, self.config, paper, question)
             trace_events.append(
                 {
@@ -217,13 +221,16 @@ with more than one `<tool_call>` is invalid. A response that contains both
 `<tool_call>` and `<qa_result>` is invalid.
 
 <tool_call>
-  <tool_name>search_file | read_file | inspect_visual | search_scholar</tool_name>
+  <tool_name>search_file | read_file | inspect_visual | search_scholar | run_python</tool_name>
   <keyword>keyword or short phrase for search_file</keyword>
   <start_line>1-based start line for read_file</start_line>
   <num_lines>number of lines for read_file, max 50</num_lines>
   <target>one visual target for inspect_visual, such as Figure 2, Table 1, or page 4</target>
   <focus>optional focus for inspect_visual, such as axes/legend readability or page layout</focus>
   <query>concise scholarly query for search_scholar</query>
+  <code><![CDATA[
+small self-contained Python code for run_python
+]]></code>
   <rationale>why this action is needed</rationale>
 </tool_call>
 
@@ -252,6 +259,13 @@ Tool-use policy:
   PDF page. The tool routes Figure/Picture targets to extracted figure assets
   when available, and routes Table/page-layout targets to exactly one rendered
   PDF page. For table contents, use `search_file` and `read_file` instead.
+- Use `run_python` only for small, self-contained calculations over evidence
+  already visible in the prompt, such as relative improvements, averages,
+  simple formula checks, parsing numeric snippets, or toy counterexamples. It
+  has no network access and must not attempt web search, file I/O, subprocesses,
+  package installation, shell commands, environment access, or filesystem
+  inspection. If you need paper evidence, use `search_file`/`read_file` first.
+  If you need prior-work evidence, use `search_scholar`.
 
 When you have enough evidence, return `<qa_result>` directly.
 
@@ -394,6 +408,7 @@ def _parse_action(raw_output: str) -> dict[str, str]:
         "target": _child_text(root, "target"),
         "focus": _child_text(root, "focus"),
         "query": _child_text(root, "query"),
+        "code": _child_text(root, "code"),
         "rationale": _child_text(root, "rationale"),
     }
 
@@ -426,6 +441,10 @@ def _run_action(
             papers = RetrievalTool(config).search(query, paper.get("metadata", {}))
             rendered = "\n\n".join(_format_retrieved_paper(item) for item in papers[:8])
             return f"search_scholar({query!r})\n{rendered or 'No retrieved papers.'}", papers
+        if action_name == "run_python":
+            code = action.get("code", "")
+            observation = RestrictedPythonTool(config).run(code).render()
+            return f"run_python\n{observation}", []
     except Exception as exc:
         return f"{action_name} failed: {exc}", []
     return f"Unsupported action: {action_name}", []

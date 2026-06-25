@@ -29,6 +29,7 @@ You may decide to:
 - read_file: read a specific paper chunk or section returned by search_file
 - inspect_visual: visually inspect one specific Figure, Picture, Table, or PDF page with the VLM
 - search_scholar: request external scholarly retrieval when prior-work evidence is needed
+- run_python: run a small self-contained Python calculation over evidence already shown in the prompt
 - write the final QA result directly as `<qa_result>`
 
 ## Output constraint
@@ -102,6 +103,27 @@ Figure 2, Table 1, or page 4.
 
 For table contents, captions, page-local prose, algorithms, equations, and
 surrounding text, use search_file and read_file.
+
+Use run_python only for small calculations and consistency checks over evidence
+already visible in the prompt, such as relative improvements, averages,
+differences, simple formula checks, numeric parsing, or toy examples. It cannot
+use network search, cannot access external APIs, cannot install packages,
+cannot run shell commands, and must not read, write, delete, or inspect files.
+If you need paper text first, use search_file/read_file. If you need prior work
+first, use search_scholar. Put code inside a CDATA block so comparison symbols
+and other Python syntax do not break XML:
+
+```xml
+<tool_call>
+  <tool_name>run_python</tool_name>
+  <code><![CDATA[
+reported = [83.1, 84.0, 84.4]
+baseline = 82.0
+print([round(x - baseline, 2) for x in reported])
+  ]]></code>
+  <rationale>Check whether the reported absolute improvements over the baseline match the paper's claim.</rationale>
+</tool_call>
+```
 
 Do not answer only from the paper summary when the question requires evidence.
 Use the summary as a navigation map, not as the sole source of truth.
