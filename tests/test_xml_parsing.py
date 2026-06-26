@@ -1,15 +1,62 @@
 """Purpose: Tests for XML parsing and validation helpers."""
 
+import xml.etree.ElementTree as ET
+
 from reviewer.schemas.xml import root_tag
 from reviewer.schemas.final_review import parse_final_review_xml
 from reviewer.schemas.review import parse_dimension_review_xml
 from reviewer.schemas.summary import parse_summary_xml, render_summary_for_agent
-from reviewer.tools.xml_validator import validate_xml_root
+from reviewer.tools.xml_validator import sanitize_xml, validate_xml_root
 
 
 def test_root_tag_reads_valid_xml() -> None:
     """Ensure basic XML parsing works."""
     assert root_tag("<paper_summary></paper_summary>") == "paper_summary"
+
+
+def test_sanitize_escapes_stray_ampersand_and_inequalities() -> None:
+    """Bare & and < before a space/digit become entities; valid markup stays."""
+    raw = "<final_review><summary>Smith & Jones, p<0.05, http://a?x=1&y=2</summary></final_review>"
+    root = ET.fromstring(sanitize_xml(raw))
+    assert "".join(root.find("summary").itertext()) == "Smith & Jones, p<0.05, http://a?x=1&y=2"
+
+
+def test_sanitize_keeps_special_tokens_via_self_derived_whitelist() -> None:
+    """`<eos>`/`<mask>` are literal text (never close), so they get escaped."""
+    raw = "<final_review><summary>Predict <eos> after <sos>; mask<unk> spans.</summary></final_review>"
+    root = ET.fromstring(sanitize_xml(raw))
+    assert "".join(root.find("summary").itertext()) == "Predict <eos> after <sos>; mask<unk> spans."
+
+
+def test_sanitize_preserves_genuine_nested_tags() -> None:
+    """A name used as a real closing tag stays markup, not escaped text."""
+    raw = "<final_review><strengths><item>good</item></strengths></final_review>"
+    root = ET.fromstring(sanitize_xml(raw))
+    assert root.find("strengths").find("item").text == "good"
+
+
+def test_sanitize_accepts_explicit_known_tags() -> None:
+    """An explicit whitelist overrides the self-derived one."""
+    assert sanitize_xml("<a>keep <b> drop <c></a>", known_tags={"a", "b"}) == "<a>keep <b> drop &lt;c></a>"
+
+
+def test_sanitize_is_idempotent_on_valid_documents() -> None:
+    """A well-formed document must be returned byte-for-byte unchanged."""
+    valid = "<r><a>plain text 1 2 3</a></r>"
+    assert sanitize_xml(valid) == valid
+
+
+def test_parse_final_review_recovers_from_unescaped_characters() -> None:
+    """End-to-end: a stray & no longer loses the whole review."""
+    review = parse_final_review_xml(
+        "<final_review>"
+        "<final_score>6</final_score>"
+        "<summary>Compares A & B with <eos> tokens; p<0.05.</summary>"
+        "<confidence_score>3</confidence_score>"
+        "</final_review>"
+    )
+    assert review.final_score == 6
+    assert review.summary == "Compares A & B with <eos> tokens; p<0.05."
 
 
 def test_validate_xml_root_extracts_wrapped_xml() -> None:
@@ -22,17 +69,17 @@ def test_validate_xml_root_extracts_first_matching_xml_document() -> None:
     """Multiple XML documents should not make the first target invalid."""
     xml = validate_xml_root(
         """
-        <tool_call>
+        <action>
           <tool_name>search_file</tool_name>
-        </tool_call>
-        <tool_call>
+        </action>
+        <action>
           <tool_name>search_scholar</tool_name>
-        </tool_call>
+        </action>
         """,
-        "tool_call",
+        "action",
     )
 
-    assert xml.strip() == "<tool_call>\n          <tool_name>search_file</tool_name>\n        </tool_call>"
+    assert xml.strip() == "<action>\n          <tool_name>search_file</tool_name>\n        </action>"
 
 
 def test_parse_summary_xml_to_paper_map() -> None:
@@ -125,9 +172,9 @@ def test_parse_final_review_xml_uses_iclr_confidence_score() -> None:
           <strengths><item>Useful problem.</item></strengths>
           <weaknesses><item>Needs stronger baselines.</item></weaknesses>
           <requested_changes><item>Add comparisons.</item></requested_changes>
-          <administrative_decision>desk_reject_risk</administrative_decision>
+          <administrative_decision>reject</administrative_decision>
           <administrative_reasons>
-            <item>Possible anonymity issue in the PDF.</item>
+            <item>Confirmed fabricated references in the bibliography.</item>
           </administrative_reasons>
           <recommendation>Reject</recommendation>
           <confidence_score>4</confidence_score>
@@ -138,8 +185,8 @@ def test_parse_final_review_xml_uses_iclr_confidence_score() -> None:
     assert review.final_score == 6
     assert review.confidence_score == 4
     assert review.recommendation == "Reject"
-    assert review.administrative_decision == "desk_reject_risk"
-    assert review.administrative_reasons == ["Possible anonymity issue in the PDF."]
+    assert review.administrative_decision == "reject"
+    assert review.administrative_reasons == ["Confirmed fabricated references in the bibliography."]
 
 
 def test_parse_final_review_xml_defaults_administrative_decision() -> None:

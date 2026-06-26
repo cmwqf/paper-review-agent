@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+from collections.abc import Callable
 
 from reviewer.agents.answer.agent import AnswerAgent
 from reviewer.agents.base import BaseAgent
@@ -25,32 +26,57 @@ class DimensionAgent(BaseAgent):
         review_xml, _ = self.run_with_qa(paper, summary_xml)
         return review_xml
 
-    def run_with_qa(self, paper: dict, summary_xml: str) -> tuple[str, list[QAResult]]:
-        """Run Q&A turns until the agent ends questions and writes a review XML."""
+    def run_with_qa(
+        self,
+        paper: dict,
+        summary_xml: str,
+        preloaded_qa_results: list[QAResult] | None = None,
+        on_qa_result: Callable[[QAResult], None] | None = None,
+    ) -> tuple[str, list[QAResult]]:
+        """Run Q&A turns until the agent ends questions and writes a review XML.
+
+        ``preloaded_qa_results`` lets a crash-resume continue a partially
+        answered dimension: the already-answered questions are seeded into the
+        trajectory (counting against the per-dimension turn budget) so only the
+        cheap question-selection loop replays and the expensive AnswerAgent runs
+        are not redone. ``on_qa_result`` is invoked once per *freshly* answered
+        question (never for the preloaded ones), letting the caller checkpoint
+        each answer to durable storage as it lands.
+        """
         model_key = self.config.get("agents", {}).get(self.name, {}).get("model", "agent")
         client = build_llm(self.config, model_key)
         summary = parse_summary_xml(summary_xml)
         paper_map = render_summary_for_agent(summary)
+        # Deterministic preloaded evidence (e.g. Presentation compliance gates) is
+        # regenerated every run and is not a question turn; resumed model answers
+        # are appended after it and DO count against the turn budget below.
         qa_results = self.initial_qa_results(paper, summary_xml)
+        preloaded_turns = len(preloaded_qa_results) if preloaded_qa_results else 0
+        if preloaded_qa_results:
+            qa_results.extend(preloaded_qa_results)
         max_turns = int(self.config.get("agents", {}).get(self.name, {}).get("max_qa_turns", 5))
         min_turns = int(self.config.get("agents", {}).get(self.name, {}).get("min_qa_turns", 0))
         require_balanced_qa = bool(
             self.config.get("agents", {}).get(self.name, {}).get("require_balanced_qa", True)
         )
-        system_prompt = _dimension_system_prompt(self.config, self.name)
+        # Put the stable per-paper context (metadata, paper map, calibration) in
+        # the system prompt so it stays byte-identical across this dimension's
+        # turns and Claude Code's prompt cache (anchored at the system prompt) is
+        # reused instead of recreated on every call.
+        system_prompt = _dimension_cached_system(
+            self.config, self.name, self.dimension.value, paper, paper_map
+        )
         feedback = ""
         max_format_retries = int(self.config.get("qa", {}).get("max_format_retries", 3))
         self.trace_events = []
 
-        for turn_index in range(max_turns + 1):
+        for turn_index in range(preloaded_turns, max_turns + 1):
             base_messages = [
                 {"role": "system", "content": system_prompt},
                 {
                     "role": "user",
                     "content": _dimension_context(
                         dimension=self.dimension.value,
-                        paper=paper,
-                        paper_map=paper_map,
                         qa_results=qa_results,
                         turn_index=turn_index,
                         max_turns=max_turns,
@@ -79,7 +105,7 @@ class DimensionAgent(BaseAgent):
                     trace_events=self.trace_events,
                 )
             except (ET.ParseError, ValueError):
-                # Persistent malformed <tool_call> XML (e.g. an unescaped
+                # Persistent malformed <action> XML (e.g. an unescaped
                 # '<' in an inequality). Don't lose the whole paper: write the
                 # review from the Q&A gathered so far.
                 review_xml = _write_dimension_review(
@@ -137,15 +163,18 @@ class DimensionAgent(BaseAgent):
                     "rationale": action["rationale"],
                 }
             )
-            qa_results.append(
-                AnswerAgent(self.config).run(
-                    question,
-                    self.dimension.value,
-                    paper,
-                    summary,
-                    prior_qa_results=qa_results,
-                )
+            answer_result = AnswerAgent(self.config).run(
+                question,
+                self.dimension.value,
+                paper,
+                summary,
+                prior_qa_results=qa_results,
             )
+            qa_results.append(answer_result)
+            if on_qa_result is not None:
+                # Checkpoint this freshly answered question immediately so a hard
+                # process kill mid-dimension does not discard the expensive run.
+                on_qa_result(answer_result)
             feedback = ""
 
         review_xml = _write_dimension_review(
@@ -188,9 +217,11 @@ def _dimension_system_prompt(config: dict, agent_name: str) -> str:
     action_contract = f"""
 QUESTION TOOL-CALL STAGE
 
-Every response in this stage must be exactly one `<tool_call>` XML document and
+Every response in this stage must be exactly one `<action>` XML document and
 nothing else. Do not output `<dimension_action>`, `<dimension_review>`, markdown
-fences, explanatory text, or multiple XML documents.
+fences, explanatory text, or multiple XML documents. If you emit more than one
+`<action>`, only the FIRST is executed and the rest are ignored, so never
+batch actions.
 
 Choose exactly one tool per turn. Use `ask_question` to ask the Answer Agent one
 focused evidence question. Use `end_questions` when Q&A evidence is saturated;
@@ -198,17 +229,17 @@ after a valid `end_questions`, the runtime exits this question stage and invokes
 the separate dimension-review writer.
 
 For `ask_question`:
-<tool_call>
+<action>
   <tool_name>ask_question</tool_name>
   <question>Focused question for the Answer Agent.</question>
   <rationale>Why this question is needed.</rationale>
-</tool_call>
+</action>
 
 For `end_questions`, include only `tool_name` and `rationale`:
-<tool_call>
+<action>
   <tool_name>end_questions</tool_name>
   <rationale>Why question gathering is complete.</rationale>
-</tool_call>
+</action>
 
 Ask at most one question per turn. You must collect at least {min_turns} Q&A
 result(s) before ending questions, and you may ask up to {max_turns} question(s).
@@ -229,11 +260,32 @@ papers with many real issues should use more questions than papers with few.
     return f"{rubric_prompt}\n\n{prompt}\n\n{action_contract}"
 
 
+def _dimension_paper_context(dimension: str, paper: dict, paper_map: str) -> str:
+    """Stable per-paper context (metadata, paper map, calibration guidance).
+
+    Kept identical across a dimension's turns so it can live in the cached
+    system prompt rather than being re-sent (and re-billed) every turn.
+    """
+    return (
+        f"Dimension-specific calibration guidance:\n{_dimension_calibration_guidance(dimension)}\n\n"
+        f"Paper metadata:\n{paper.get('metadata', {})}\n\n"
+        f"Paper map:\n{paper_map}"
+    )
+
+
+def _dimension_cached_system(
+    config: dict, agent_name: str, dimension: str, paper: dict, paper_map: str
+) -> str:
+    """Build the cache-anchored system prompt: instructions + stable paper context."""
+    return (
+        f"{_dimension_system_prompt(config, agent_name)}\n\n"
+        f"{_dimension_paper_context(dimension, paper, paper_map)}"
+    )
+
+
 def _dimension_context(
     *,
     dimension: str,
-    paper: dict,
-    paper_map: str,
     qa_results: list[QAResult],
     turn_index: int,
     max_turns: int,
@@ -241,7 +293,11 @@ def _dimension_context(
     require_balanced_qa: bool,
     feedback: str = "",
 ) -> str:
-    """Render dimension-agent state for the next decision."""
+    """Render the turn-varying dimension-agent state for the next decision.
+
+    The stable paper context is supplied separately via the system prompt (see
+    :func:`_dimension_cached_system`); only the per-turn state lives here.
+    """
     qa_text = _render_qa_for_dimension_review(dimension, qa_results)
     return (
         f"Dimension: {dimension}\n"
@@ -256,9 +312,6 @@ def _dimension_context(
         f"are exhausted) and the paper's main strength is captured. Do not stop just "
         f"because the minimum is reached.\n"
         f"{'Feedback: ' + feedback + chr(10) if feedback else ''}"
-        f"Dimension-specific calibration guidance:\n{_dimension_calibration_guidance(dimension)}\n\n"
-        f"Paper metadata:\n{paper.get('metadata', {})}\n\n"
-        f"Paper map:\n{paper_map}\n\n"
         f"Q&A evidence for this dimension:\n{qa_text}\n"
     )
 
@@ -449,7 +502,7 @@ def _parse_dimension_tool_call(
     max_retries: int = 0,
     trace_events: list | None = None,
 ) -> dict[str, str]:
-    """Parse one question-stage `<tool_call>`, reprompting on malformed XML.
+    """Parse one question-stage `<action>`, reprompting on malformed XML.
 
     Per-turn action XML occasionally contains unescaped ``&``, ``<``, or ``>``
     (e.g. an inequality inside a question), which makes the parser raise
@@ -504,9 +557,9 @@ def _parse_dimension_tool_call(
                     {
                         "role": "user",
                         "content": (
-                            "The previous output was not valid question-stage <tool_call> XML.\n"
+                            "The previous output was not valid question-stage <action> XML.\n"
                             f"Parser error: {type(exc).__name__}: {exc}\n\n"
-                            "Output exactly one <tool_call> XML document and nothing else. "
+                            "Output exactly one <action> XML document and nothing else. "
                             "Use tool_name=ask_question or tool_name=end_questions. "
                             "For end_questions include only <tool_name> and <rationale>. "
                             "Do not output <dimension_action> or <dimension_review>. "
@@ -520,19 +573,22 @@ def _parse_dimension_tool_call(
 
 
 def _validate_dimension_tool_call_xml(raw_output: str) -> str:
-    """Require exactly one question-stage tool call and no other stage root."""
-    expected_count = raw_output.count("<tool_call")
-    if expected_count != 1:
-        raise ValueError(f"Expected exactly one <tool_call> document, found {expected_count}.")
+    """Validate the question-stage tool call, tolerating extra/multiple calls.
+
+    The model sometimes emits several <action> documents (or wraps one in
+    prose). Since the loop executes one action per turn, we use the first call
+    rather than rejecting and wasting a retry. A wrong-stage root (a dimension
+    action/review where a tool call is expected) is still a hard error.
+    """
+    if raw_output.count("<action") == 0:
+        raise ValueError("Expected a <action> document, found none.")
     for disallowed in ("dimension_action", "dimension_review"):
         if raw_output.count(f"<{disallowed}"):
             raise ValueError(
                 f"Invalid state output: question tool-call stage must not contain <{disallowed}>."
             )
-    extracted = extract_xml_document(raw_output, "tool_call")
-    if raw_output.strip() != extracted.strip():
-        raise ValueError("Output must contain only the <tool_call> XML document.")
-    return validate_xml_root(extracted, "tool_call")
+    extracted = extract_xml_document(raw_output, "action")
+    return validate_xml_root(extracted, "action")
 
 
 def _write_dimension_review(
@@ -557,22 +613,22 @@ def _write_dimension_review(
         messages=[
             {
                 "role": "system",
+                # Stable blocks (guidance, contract, calibration, paper map) lead
+                # so they sit in the cache-anchored system prompt.
                 "content": (
                     f"Write the final {dimension} dimension review now. "
                         "Use only the paper map and this dimension's Q&A evidence ledger.\n\n"
                         f"{rubric_prompt}\n\n"
                         f"{review_guidance}\n\n"
-                        f"{review_contract}"
+                        f"{review_contract}\n\n"
+                        f"Dimension-specific calibration guidance:\n"
+                        f"{_dimension_calibration_guidance(dimension)}\n\n"
+                        f"Paper map:\n{paper_map}"
                 ),
             },
             {
                 "role": "user",
-                "content": (
-                    f"Dimension-specific calibration guidance:\n"
-                    f"{_dimension_calibration_guidance(dimension)}\n\n"
-                    f"Paper map:\n{paper_map}\n\n"
-                    f"Q&A evidence:\n{qa_text}"
-                ),
+                "content": f"Q&A evidence:\n{qa_text}",
             },
         ],
     )

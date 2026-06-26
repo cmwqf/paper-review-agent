@@ -6,15 +6,15 @@ import json
 import re
 from typing import Any
 
-from reviewer.models.llm_client import LLMClient
+from reviewer.models.claude_code_client import make_text_client
 
 
 class RerankerClient:
-    """Use an OpenAI-compatible chat model to rank candidate paper IDs."""
+    """Use a chat model (HTTP API or Claude Code CLI) to rank candidate paper IDs."""
 
     def __init__(self, model_config: dict, global_config: dict | None = None):
         self.model_config = model_config
-        self.client = LLMClient(model_config, global_config=global_config)
+        self.client = make_text_client(model_config, global_config=global_config)
 
     def rank(self, query: str, candidates: list[dict[str, str]]) -> list[str]:
         """Return candidate IDs ordered by relevance to the query."""

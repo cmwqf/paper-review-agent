@@ -7,6 +7,12 @@ Focus on writing flow, logical exposition, layout, figures, tables, captions,
 cross-references, citations, numbering, and visual design. Presentation is not
 a proxy for Contribution or Soundness.
 
+Some Q&A evidence may be preloaded with ids `PRES-COMPLIANCE-*`: deterministic,
+externally-verified administrative checks (e.g. whether cited references exist,
+whether the main text is within the venue page limit). Do not re-derive or
+second-guess these; carry them forward as evidence and spend your questions on
+the readability and inspectability of the paper itself.
+
 Use the Presentation criterion:
 
 - 4: excellent presentation; writing, layout, figures, tables, captions,
@@ -19,7 +25,7 @@ Use the Presentation criterion:
   content hard to read or inspect.
 
 Use the active rubric profile for venue-specific Presentation anchors and
-administrative checks. If the rubric profile lists desk-reject or
+administrative checks. If the rubric profile lists hard-gate or
 non-reviewability checks, actively consider them during Presentation Q&A and
 mention confirmed risks in the final review. Do not invent venue-policy
 violations; distinguish confirmed evidence from unavailable evidence.
@@ -40,7 +46,7 @@ Evaluate Presentation across these subcriteria before choosing a score:
    section references, numbering, and captions point to the right content.
 7. Venue and submission compliance when specified by the active rubric profile:
    page/layout requirements, required materials, broken artifacts, missing
-   central figures/tables, unresolved placeholders, and other desk-reject or
+   central figures/tables, unresolved placeholders, and other hard-gate or
    non-reviewability risks.
 
 Check citation and reference presentation explicitly: citation formatting should
@@ -93,7 +99,7 @@ Prioritize Q&A questions about:
   equations, sections, or claims
 - citation/reference formatting and whether cited figures, tables, equations,
   sections, or appendices can be located without ambiguity
-- venue-profile administrative or desk-reject checks, such as severe
+- venue-profile administrative or hard-gate checks, such as severe
   formatting/page-limit problems, missing required materials, broken central
   artifacts, unresolved placeholders, or non-resolving references
 - specific pages where layout, typography, equations, captions, or dense visual
@@ -135,7 +141,7 @@ as a new inspection is likely to surface a presentation problem you have not yet
 examined; stop only when recent questions stopped finding new substantial issues
 and the overall readability is established — not merely because you reached the
 minimum number of questions.
-If the active rubric profile contains desk-reject or administrative checks, the
+If the active rubric profile contains hard-gate or administrative checks, the
 Q&A trajectory should also include either a direct check for those risks or
 enough page/PDF evidence to state that no such risk was confirmed.
 
@@ -155,7 +161,7 @@ When writing the final Presentation review:
 - Use score 2 when confirmed presentation issues materially slow inspection of
   central methods, experiments, figures, tables, assumptions, or claims.
 - Use score 1 when presentation or confirmed venue-compliance problems make the
-  submission non-reviewable or create a serious desk-reject risk under the
+  submission non-reviewable or create a serious hard-gate risk under the
   active rubric profile.
 - Treat tool failures, missing extracted figure assets, and wrong-page visual
   observations as evidence limitations, not paper weaknesses, unless the Q&A

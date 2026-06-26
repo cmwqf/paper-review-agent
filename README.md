@@ -109,12 +109,21 @@ markdown/
   final_review.md
   qa_trajectory.md
 qa_trajectory.json
+qa/
+  contribution.jsonl
+  soundness.jsonl
+  presentation.jsonl
 status.json
 logs/trace.json
 logs/trace.md
 ```
 
 `status.json` 会记录这篇 paper 已完成到哪个阶段，以及整篇是否完成。
+
+`qa/<dimension>.jsonl` 是按 question 落盘的 append-only 检查点：每答完一个问题就追加一行(含
+`trace_events`)。每个维度写自己的文件，所以并行维度不会互相竞争。这样即使进程在某个维度中途
+被硬杀(OOM / SIGKILL / 重启),已答的 question 也不会丢——续跑时会预加载这些答案,只重放“选下一个问题”
+这步便宜的调用,不会重跑昂贵的 AnswerAgent。`qa_trajectory.json` 仍是收尾时写出的聚合产物,供下游消费。
 
 运行 lite：
 
@@ -167,9 +176,10 @@ PYTHONPATH=src python -m reviewer.cli --split dev --concurrency 4
 
 - 已完整生成 `xml/summary.xml`、三个维度 XML、`qa_trajectory.json` 中三个维度记录、`xml/final_review.xml` 的 paper 会跳过。
 - 如果某篇 paper 只完成了一部分，会从已有阶段继续补缺失阶段。
-- 如果某个维度 XML 或该维度 Q&A 记录缺失，会重跑该维度。
+- 如果某个维度 XML 或该维度 Q&A 记录缺失，会重跑该维度;此时会预加载 `qa/<dimension>.jsonl` 里已答的
+  question,只补问剩下的问题,而不是从第一个问题重跑整个维度。
 - 如果补跑了任一维度，会重新生成 `xml/final_review.xml`，避免最终评分基于旧维度结果。
-- `--fresh` 会忽略这些已有落盘文件，对所选范围重新跑。
+- `--fresh` 会忽略这些已有落盘文件(包括 `qa/` 检查点),对所选范围重新跑。
 
 只复用已有 Q&A，重跑每个维度最后总结和最终总结：
 

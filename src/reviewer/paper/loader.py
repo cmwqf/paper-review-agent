@@ -8,6 +8,18 @@ from typing import Any
 
 from reviewer.paper.text_extractor import extract_pdf_pages
 
+# Generic per-paper filenames (e.g. the DeepReview-Bench `<id>/paper.pdf` layout)
+# carry no identity, so we fall back to the containing folder's name.
+_GENERIC_STEMS = {"paper", "main", "manuscript", "submission"}
+
+
+def _paper_id_from_path(paper_path: Path) -> str:
+    """Derive a paper id from a file path, using the parent folder for generic names."""
+    stem = paper_path.stem
+    if stem.lower() in _GENERIC_STEMS and paper_path.parent.name:
+        return paper_path.parent.name
+    return stem
+
 
 def paper_from_deepreview_row(row: dict[str, Any], source_path: str | Path, index: int) -> dict[str, Any]:
     """Normalize one DeepReview-13K JSONL row into the internal paper format."""
@@ -62,7 +74,7 @@ def load_text(path: str | Path) -> dict[str, Any]:
     """Load a plain-text paper into the internal paper format."""
     paper_path = Path(path)
     text = paper_path.read_text(encoding="utf-8")
-    paper_id = paper_path.stem
+    paper_id = _paper_id_from_path(paper_path)
     return {
         "id": paper_id,
         "title": paper_id,
@@ -81,7 +93,7 @@ def load_pdf(path: str | Path) -> dict[str, Any]:
     """Load a PDF paper by extracting page-level text."""
     paper_path = Path(path)
     pages = extract_pdf_pages(paper_path)
-    paper_id = paper_path.stem
+    paper_id = _paper_id_from_path(paper_path)
     text = "\n\n".join(
         f"=== Page {page_index} ===\n{page_text}"
         for page_index, page_text in enumerate(pages, start=1)

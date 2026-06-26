@@ -7,9 +7,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from reviewer.cli import (
+    _append_qa_result,
     _load_cli_config,
+    _load_partial_qa,
     _paper_is_complete,
     _parse_rerun_stages,
+    _qa_checkpoint_path,
+    _read_qa_checkpoint,
+    _reset_qa_checkpoints,
     _resolve_bench_paths,
     _resolve_reuse_rerun_stages,
     _resolve_run_output_dir,
@@ -93,7 +98,7 @@ class FakeWorkflow:
         self.config = config
         self.__class__.instances.append(self)
 
-    def run(self, paper, artifact_callback=None):
+    def run(self, paper, artifact_callback=None, qa_result_sink=None, preloaded_qa=None):
         if paper["id"] == "bad":
             raise RuntimeError("model failed")
         state = FakeState()
@@ -795,3 +800,69 @@ def test_write_run_metadata_writes_manifest_and_config(tmp_path) -> None:
     assert "_selected_agent" not in config_snapshot
     assert "rubric_profile: ICLR" in config_snapshot
     assert f"log_file: {run_dir / 'logs' / 'reviewer.log'}" in config_snapshot
+
+
+def _make_qa(question: str, *, dimension: str = "Soundness") -> QAResult:
+    """Build a minimal QAResult for checkpoint tests."""
+    return QAResult(
+        question=question,
+        answer=f"Answer to {question}",
+        evidence=["paper: line"],
+        review_impact=ReviewImpact(
+            dimension=dimension,
+            polarity="weakness",
+            impact_level="C2",
+            confidence="medium",
+        ),
+    )
+
+
+def test_qa_checkpoint_appends_and_loads_per_dimension(tmp_path):
+    """Each answered question is appended to its dimension file and reloads losslessly."""
+    output_dir = tmp_path / "paper-1"
+    _append_qa_result(output_dir, "Soundness", _make_qa("Q1"))
+    _append_qa_result(output_dir, "Soundness", _make_qa("Q2"))
+    _append_qa_result(output_dir, "Contribution", _make_qa("C1", dimension="Contribution"))
+
+    # Dimensions are isolated into their own append-only files.
+    assert _qa_checkpoint_path(output_dir, "Soundness").name == "soundness.jsonl"
+    assert len(read_jsonl(_qa_checkpoint_path(output_dir, "Soundness"))) == 2
+
+    partial = _load_partial_qa(output_dir)
+    assert [r.question for r in partial["Soundness"]] == ["Q1", "Q2"]
+    assert [r.question for r in partial["Contribution"]] == ["C1"]
+    assert "Presentation" not in partial
+
+
+def test_qa_checkpoint_preserves_trace_events_for_lossless_resume(tmp_path):
+    """The checkpoint stores trace_events so resumed answers keep their traces."""
+    output_dir = tmp_path / "paper-2"
+    result = _make_qa("Q1")
+    result.trace_events = [{"event": "tool_observation", "step": 1}]
+    _append_qa_result(output_dir, "Soundness", result)
+
+    loaded = _load_partial_qa(output_dir)["Soundness"][0]
+    assert loaded.trace_events == [{"event": "tool_observation", "step": 1}]
+
+
+def test_qa_checkpoint_tolerates_truncated_trailing_line(tmp_path):
+    """A crash mid-write leaves a partial last line that resume skips, not raises."""
+    output_dir = tmp_path / "paper-3"
+    _append_qa_result(output_dir, "Soundness", _make_qa("Q1"))
+    path = _qa_checkpoint_path(output_dir, "Soundness")
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write('{"question": "Q2", "answer": "half-written')  # no newline, invalid JSON
+
+    rows = _read_qa_checkpoint(path)
+    assert [row["question"] for row in rows] == ["Q1"]
+
+
+def test_reset_qa_checkpoints_clears_stale_files(tmp_path):
+    """A fresh run drops stale checkpoints so answers are not duplicated."""
+    output_dir = tmp_path / "paper-4"
+    _append_qa_result(output_dir, "Soundness", _make_qa("Q1"))
+    assert _qa_checkpoint_path(output_dir, "Soundness").exists()
+
+    _reset_qa_checkpoints(output_dir)
+    assert not _qa_checkpoint_path(output_dir, "Soundness").exists()
+    assert _load_partial_qa(output_dir) == {}

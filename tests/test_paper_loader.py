@@ -38,7 +38,8 @@ def test_load_text_paper(tmp_path) -> None:
     path = tmp_path / "paper.txt"
     path.write_text("hello", encoding="utf-8")
     paper = load_paper(path)
-    assert paper["id"] == "paper"
+    # Generic stem "paper" falls back to the containing folder name.
+    assert paper["id"] == tmp_path.name
     assert paper["text"] == "hello"
 
 
@@ -63,7 +64,8 @@ def test_load_pdf_paper_extracts_page_text(tmp_path, monkeypatch) -> None:
 
     paper = load_paper(path)
 
-    assert paper["id"] == "paper"
+    # Generic stem "paper" falls back to the containing folder name.
+    assert paper["id"] == tmp_path.name
     assert paper["metadata"]["source"] == "pdf"
     assert paper["metadata"]["page_count"] == 2
     assert paper["pdf_pages"] == ["page one", "page two"]

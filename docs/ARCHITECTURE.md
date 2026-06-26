@@ -108,7 +108,6 @@ Reviewer/
 ├── prompts/
 ├── docs/
 ├── scripts/
-├── examples/
 ├── outputs/
 ├── tests/
 └── src/reviewer/

@@ -11,6 +11,7 @@ from reviewer.agents.final.agent import FinalReviewAgent
 from reviewer.agents.presentation.agent import PresentationAgent
 from reviewer.agents.soundness.agent import SoundnessAgent
 from reviewer.agents.summary.agent import SummaryAgent
+from reviewer.schemas.qa import QAResult
 from reviewer.workflow.state import ReviewWorkflowState
 
 
@@ -25,12 +26,21 @@ class ReviewWorkflow:
         paper: dict,
         artifact_callback: Callable[[ReviewWorkflowState], None] | None = None,
         summary_xml: str | None = None,
+        qa_result_sink: Callable[[str, QAResult], None] | None = None,
+        preloaded_qa: dict[str, list[QAResult]] | None = None,
     ) -> ReviewWorkflowState:
         """Execute Summary -> dimensions -> Final Review for one paper.
 
         If ``summary_xml`` is provided, it is reused as-is and the Summary stage
         is skipped (used by --reuse-from when 'summary' is not in --rerun-stages);
         otherwise the Summary agent generates it.
+
+        ``qa_result_sink`` is invoked as ``(dimension, qa_result)`` once per
+        freshly answered question so each answer can be checkpointed to durable
+        storage as it lands. ``preloaded_qa`` maps a dimension to its
+        already-answered questions (from a prior partial run); those are seeded
+        into that dimension's trajectory so a crash-resume continues mid-dimension
+        instead of redoing every question.
         """
         state = ReviewWorkflowState(paper=paper)
         if summary_xml:
@@ -45,7 +55,14 @@ class ReviewWorkflow:
         dimension_agents = _dimension_agents(self.config)
         with ThreadPoolExecutor(max_workers=len(dimension_agents)) as executor:
             futures = {
-                executor.submit(_run_dimension_agent, agent, paper, state.summary_xml): agent
+                executor.submit(
+                    _run_dimension_agent,
+                    agent,
+                    paper,
+                    state.summary_xml,
+                    qa_result_sink,
+                    preloaded_qa,
+                ): agent
                 for agent in dimension_agents
             }
             for future in as_completed(futures):
@@ -77,10 +94,27 @@ def _dimension_agents(config: dict):
     ]
 
 
-def _run_dimension_agent(agent, paper: dict, summary_xml: str) -> dict[str, Any]:
+def _run_dimension_agent(
+    agent,
+    paper: dict,
+    summary_xml: str,
+    qa_result_sink: Callable[[str, QAResult], None] | None = None,
+    preloaded_qa: dict[str, list[QAResult]] | None = None,
+) -> dict[str, Any]:
     """Run one dimension agent and collect trace payloads."""
-    review_xml, qa_results = agent.run_with_qa(paper, summary_xml)
     dimension = agent.dimension.value
+    on_qa_result = (
+        (lambda result: qa_result_sink(dimension, result))
+        if qa_result_sink is not None
+        else None
+    )
+    preloaded = (preloaded_qa or {}).get(dimension)
+    review_xml, qa_results = agent.run_with_qa(
+        paper,
+        summary_xml,
+        preloaded_qa_results=preloaded,
+        on_qa_result=on_qa_result,
+    )
     answer_events = []
     for result in qa_results:
         answer_events.extend(getattr(result, "trace_events", []))

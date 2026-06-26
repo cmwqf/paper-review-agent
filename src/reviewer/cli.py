@@ -20,6 +20,7 @@ from reviewer.agents.final.agent import FinalReviewAgent
 from reviewer.agents.presentation.agent import PresentationAgent
 from reviewer.agents.soundness.agent import SoundnessAgent
 from reviewer.agents.summary.agent import SummaryAgent
+from reviewer.models.claude_code_client import reset_usage_log, usage_summary
 from reviewer.models.factory import build_llm
 from reviewer.logging import configure_logging
 from reviewer.paper.bench_loader import load_bench_paper, load_bench_split
@@ -129,6 +130,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     run = subparsers.add_parser("run", help="Run review workflow for one paper.")
     run.add_argument("--paper", required=True, help="Path to a PDF or text paper.")
+    run.add_argument(
+        "--paper-id",
+        default=None,
+        help="Override the paper id (and output subfolder). Defaults to the file "
+        "name, or the parent folder for generic names like 'paper.pdf'.",
+    )
 
     batch = subparsers.add_parser("batch", help="Run review workflow for a JSONL batch.")
     batch.add_argument("--input", required=True, help="Path to input JSONL.")
@@ -164,10 +171,18 @@ def main() -> None:
         config = _load_cli_config(args)
         configure_logging(config)
         paper = load_paper(args.paper)
+        if getattr(args, "paper_id", None):
+            paper["id"] = args.paper_id
+            paper.setdefault("metadata", {})["id"] = args.paper_id
         output_dir = Path(config.get("project", {}).get("output_dir", "outputs")) / "reviews" / paper["id"]
+        reset_usage_log()
+        _reset_qa_checkpoints(output_dir)
         state = ReviewWorkflow(config).run(
             paper,
             artifact_callback=lambda current_state: _write_review_artifacts(output_dir, current_state),
+            qa_result_sink=lambda dimension, result: _append_qa_result(
+                output_dir, dimension, result
+            ),
         )
         _write_review_artifacts(output_dir, state)
         print(output_dir)
@@ -534,11 +549,15 @@ def _run_one_bench_paper(
         elif resume and paper_output_dir.exists():
             state = _run_workflow_from_artifacts(config, paper, paper_output_dir)
         else:
+            _reset_qa_checkpoints(paper_output_dir)
             state = ReviewWorkflow(config).run(
                 paper,
                 artifact_callback=lambda current_state: _write_review_artifacts(
                     paper_output_dir,
                     current_state,
+                ),
+                qa_result_sink=lambda dimension, result: _append_qa_result(
+                    paper_output_dir, dimension, result
                 ),
             )
         _write_review_artifacts(paper_output_dir, state)
@@ -603,12 +622,16 @@ def _run_from_reuse(
 
     if "qa" in rerun:
         # Fresh Q&A + dimension reviews + final, reusing the summary when present.
+        _reset_qa_checkpoints(output_dir)
         return ReviewWorkflow(config).run(
             paper,
             artifact_callback=lambda current_state: _write_review_artifacts(
                 output_dir, current_state
             ),
             summary_xml=summary_xml,
+            qa_result_sink=lambda dimension, result: _append_qa_result(
+                output_dir, dimension, result
+            ),
         )
 
     # Reuse cached Q&A: only re-synthesize selected dimension reviews / final.
@@ -639,6 +662,11 @@ def _run_workflow_from_artifacts(
         state.traces["summary"] = getattr(summary_agent, "trace_events", [])
         _write_review_artifacts(output_dir, state)
 
+    # Per-question checkpoints from the interrupted run let an incomplete
+    # dimension resume mid-trajectory: its already-answered questions are
+    # preloaded so only the cheap question-selection loop replays.
+    partial_qa = _load_partial_qa(output_dir)
+
     regenerated_dimension = False
     for agent in [
         ContributionAgent(config),
@@ -648,7 +676,12 @@ def _run_workflow_from_artifacts(
         dimension = agent.dimension.value
         if state.dimension_reviews.get(dimension) and dimension in state.qa_trajectories:
             continue
-        review_xml, qa_results = agent.run_with_qa(paper, state.summary_xml)
+        review_xml, qa_results = agent.run_with_qa(
+            paper,
+            state.summary_xml,
+            preloaded_qa_results=partial_qa.get(dimension),
+            on_qa_result=lambda result, d=dimension: _append_qa_result(output_dir, d, result),
+        )
         state.dimension_reviews[dimension] = review_xml
         state.qa_trajectories[dimension] = qa_results
         state.traces[f"{dimension}.dimension_agent"] = getattr(agent, "trace_events", [])
@@ -812,6 +845,75 @@ def _run_summary_only_from_artifacts(
     return state
 
 
+def _qa_checkpoint_dir(output_dir: Path) -> Path:
+    """Directory holding per-dimension append-only Q&A checkpoints."""
+    return Path(output_dir) / "qa"
+
+
+def _qa_checkpoint_path(output_dir: Path, dimension: str) -> Path:
+    """Append-only JSONL checkpoint for one dimension's answered questions."""
+    return _qa_checkpoint_dir(output_dir) / f"{dimension.lower()}.jsonl"
+
+
+def _append_qa_result(output_dir: Path, dimension: str, result: QAResult) -> None:
+    """Append one freshly answered question to its dimension checkpoint.
+
+    Each dimension owns its own file and is written by a single worker thread,
+    so concurrent dimensions never contend. Appending (rather than rewriting the
+    shared ``qa_trajectory.json``) keeps each answer durable the moment it lands,
+    so a hard process kill mid-dimension loses at most the in-flight question.
+    The full QAResult — including ``trace_events`` — is stored so a resume is
+    lossless for the expensive answer traces too.
+    """
+    payload = (
+        result.model_dump(exclude_none=True)
+        if hasattr(result, "model_dump")
+        else dict(result)
+    )
+    append_jsonl(_qa_checkpoint_path(output_dir, dimension), payload)
+
+
+def _reset_qa_checkpoints(output_dir: Path) -> None:
+    """Drop stale per-dimension checkpoints before a fresh Q&A run.
+
+    A fresh run re-answers every question, so leftover checkpoint lines from a
+    prior attempt must not be appended onto (which would duplicate answers).
+    """
+    checkpoint_dir = _qa_checkpoint_dir(output_dir)
+    if checkpoint_dir.is_dir():
+        for path in checkpoint_dir.glob("*.jsonl"):
+            path.unlink()
+
+
+def _read_qa_checkpoint(path: Path) -> list[dict]:
+    """Read a per-dimension checkpoint, tolerating a crash-truncated last line."""
+    path = Path(path)
+    if not path.exists():
+        return []
+    rows: list[dict] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        text = line.strip()
+        if not text:
+            continue
+        try:
+            rows.append(json.loads(text))
+        except json.JSONDecodeError:
+            # A process killed mid-write leaves a partial trailing line; skip it
+            # rather than failing the whole resume.
+            continue
+    return rows
+
+
+def _load_partial_qa(output_dir: Path) -> dict[str, list[QAResult]]:
+    """Load each dimension's checkpointed answers for a crash-resume preload."""
+    partial: dict[str, list[QAResult]] = {}
+    for dimension in _DIMENSION_NAMES:
+        rows = _read_qa_checkpoint(_qa_checkpoint_path(output_dir, dimension))
+        if rows:
+            partial[dimension] = _load_qa_results(rows)
+    return partial
+
+
 def _load_qa_results(items: list[dict]) -> list[QAResult]:
     """Load QAResult objects from serialized qa_trajectory.json entries."""
     results = []
@@ -865,15 +967,16 @@ def _write_review_artifacts(output_dir: Path, state) -> None:
 def _write_paper_status(output_dir: Path, state) -> None:
     """Persist per-paper completion status for artifact-based resume."""
     stages = _state_stage_status(state)
-    write_json(
-        output_dir / "status.json",
-        {
-            "id": str(getattr(state, "paper", {}).get("id", output_dir.name)),
-            "updated_at_gmt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-            "stages": stages,
-            "complete": _all_stages_complete(stages),
-        },
-    )
+    status = {
+        "id": str(getattr(state, "paper", {}).get("id", output_dir.name)),
+        "updated_at_gmt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "stages": stages,
+        "complete": _all_stages_complete(stages),
+    }
+    usage = usage_summary()
+    if usage["calls"]:
+        status["usage"] = usage
+    write_json(output_dir / "status.json", status)
 
 
 def _state_stage_status(state) -> dict[str, bool]:

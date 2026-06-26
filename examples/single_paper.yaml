@@ -1,7 +1,0 @@
-# Purpose: Example input descriptor for running Reviewer on one paper.
-
-paper:
-  path: examples/example.pdf
-  submission_date: 2025-09-01
-  venue: ICLR
-

@@ -31,7 +31,7 @@ def test_review_workflow_calls_artifact_callback_after_each_stage(monkeypatch) -
             self.dimension = dimension
             self.trace_events = [{"event": f"{dimension.value}.dimension"}]
 
-        def run_with_qa(self, paper, summary_xml):
+        def run_with_qa(self, paper, summary_xml, preloaded_qa_results=None, on_qa_result=None):
             qa = QAResult(
                 question=f"{self.dimension.value} question",
                 answer="answer",
@@ -43,6 +43,8 @@ def test_review_workflow_calls_artifact_callback_after_each_stage(monkeypatch) -
                     confidence="medium",
                 ),
             )
+            if on_qa_result is not None:
+                on_qa_result(qa)
             return (
                 f"<dimension_review><dimension>{self.dimension.value}</dimension></dimension_review>",
                 [qa],
@@ -114,7 +116,7 @@ def test_review_workflow_runs_dimensions_concurrently(monkeypatch) -> None:
             self.dimension = dimension
             self.trace_events = [{"event": f"{dimension.value}.dimension"}]
 
-        def run_with_qa(self, paper, summary_xml):
+        def run_with_qa(self, paper, summary_xml, preloaded_qa_results=None, on_qa_result=None):
             with self.lock:
                 type(self).active += 1
                 type(self).max_active = max(type(self).max_active, type(self).active)

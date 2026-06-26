@@ -97,10 +97,10 @@ assets are evidence limitations, not paper weaknesses. They should not lower
 the Presentation score unless the Q&A also confirms that the submitted paper
 artifact itself is missing, broken, or non-inspectable.
 
-## ICLR-Style Administrative / Desk-Reject Presentation Checks
+## ICLR-Style Administrative / Hard-Gate Presentation Checks
 
 When there is confirmed evidence, flag possible administrative problems that
-could lead to desk rejection or non-reviewability under an ICLR-style venue.
+could lead to rejection or non-reviewability under an ICLR-style venue.
 These checks are conference-profile specific and should not be treated as
 generic novelty or soundness issues.
 
@@ -120,7 +120,7 @@ Check for:
   nonexistent figures/tables/equations/appendices or citation markers that do
   not resolve in the bibliography.
 
-Do not overstate these checks. Only flag a desk-reject risk when the evidence
+Do not overstate these checks. Only flag a hard-gate risk when the evidence
 is explicit in the paper/PDF or Q&A observations. If the issue is merely a
 minor typo, ordinary formatting imperfection, or missing related work, treat it
 under the normal dimension boundary instead.

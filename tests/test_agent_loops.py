@@ -65,7 +65,7 @@ def end_answer_xml(
 ) -> str:
     """Build an end_answer tool call for AnswerAgent tests."""
     return f"""
-    <tool_call>
+    <action>
       <tool_name>end_answer</tool_name>
       <question>{question}</question>
       <answer>{answer}</answer>
@@ -80,7 +80,7 @@ def end_answer_xml(
         <confidence>{confidence}</confidence>
       </review_impact>
       <rationale>Enough evidence is available.</rationale>
-    </tool_call>
+    </action>
     """
 
 
@@ -93,10 +93,10 @@ def dimension_tool_xml(
     """Build a DimensionAgent question-stage tool call."""
     question_xml = f"\n      <question>{escape(question)}</question>" if question is not None else ""
     return f"""
-    <tool_call>
+    <action>
       <tool_name>{tool_name}</tool_name>{question_xml}
       <rationale>{escape(rationale)}</rationale>
-    </tool_call>
+    </action>
     """
 
 
@@ -105,11 +105,11 @@ def test_answer_agent_can_search_file_before_answering(monkeypatch) -> None:
     client = FakeClient(
         [
             """
-            <tool_call>
+            <action>
               <tool_name>search_file</tool_name>
               <keyword>baseline</keyword>
               <rationale>Need paper evidence.</rationale>
-            </tool_call>
+            </action>
             """,
             end_answer_xml(
                 question="Are baselines sufficient?",
@@ -183,10 +183,10 @@ def test_answer_agent_retries_forced_answer_xml_parse_errors(monkeypatch) -> Non
     client = FakeClient(
         [
             """
-            <tool_call>
+            <action>
               <tool_name>end_answer</tool_name>
               <question>Are baselines sufficient?</question>
-              <answer>The paper compares A & B without escaping the ampersand.</answer>
+              <answer>The paper omits a closing tag.</anwser>
               <evidence><item source="paper">Evidence.</item></evidence>
               <retrieved_papers></retrieved_papers>
               <review_impact>
@@ -196,10 +196,10 @@ def test_answer_agent_retries_forced_answer_xml_parse_errors(monkeypatch) -> Non
                 <confidence>medium</confidence>
               </review_impact>
               <rationale>Enough evidence.</rationale>
-            </tool_call>
+            </action>
             """,
             """
-            <tool_call>
+            <action>
               <tool_name>end_answer</tool_name>
               <question>Are baselines sufficient?</question>
               <answer>The paper compares A &amp; B after retry.</answer>
@@ -212,7 +212,7 @@ def test_answer_agent_retries_forced_answer_xml_parse_errors(monkeypatch) -> Non
                 <confidence>medium</confidence>
               </review_impact>
               <rationale>Enough evidence.</rationale>
-            </tool_call>
+            </action>
             """,
         ]
     )
@@ -239,17 +239,57 @@ def test_answer_agent_retries_forced_answer_xml_parse_errors(monkeypatch) -> Non
     )
 
 
+def test_answer_agent_auto_escapes_stray_ampersand_without_retry(monkeypatch) -> None:
+    """A stray & in the forced answer is repaired deterministically, no retry."""
+    client = FakeClient(
+        [
+            """
+            <action>
+              <tool_name>end_answer</tool_name>
+              <question>Are baselines sufficient?</question>
+              <answer>The paper compares A & B and reports p<0.05.</answer>
+              <evidence><item source="paper">Evidence.</item></evidence>
+              <retrieved_papers></retrieved_papers>
+              <review_impact>
+                <dimension>Soundness</dimension>
+                <polarity>weakness</polarity>
+                <impact_level>C2</impact_level>
+                <confidence>medium</confidence>
+              </review_impact>
+              <rationale>Enough evidence.</rationale>
+            </action>
+            """,
+        ]
+    )
+    monkeypatch.setattr("reviewer.agents.answer.agent.build_llm", lambda config, model_key: client)
+
+    result = AnswerAgent(
+        {
+            "qa": {"max_answer_steps": 0},
+            "xml": {"max_generation_attempts": 2},
+        }
+    ).run(
+        "Are baselines sufficient?",
+        "Soundness",
+        {"text": "Intro", "metadata": {"title": "Paper"}},
+        SUMMARY_XML,
+    )
+
+    assert result.answer == "The paper compares A & B and reports p<0.05."
+    assert len(client.calls) == 1
+
+
 def test_answer_agent_can_inspect_visual_before_answering(monkeypatch, tmp_path) -> None:
     """AnswerAgent should expose inspect_visual as the unified visual tool."""
     client = FakeClient(
         [
             """
-            <tool_call>
+            <action>
               <tool_name>inspect_visual</tool_name>
               <target>Figure 2</target>
               <focus>Check labels and caption readability.</focus>
               <rationale>Need focused visual evidence.</rationale>
-            </tool_call>
+            </action>
             """,
             end_answer_xml(
                 question="Are figures readable?",
@@ -317,7 +357,9 @@ def test_answer_agent_shows_visual_asset_index(monkeypatch, tmp_path) -> None:
         SUMMARY_XML,
     )
 
-    prompt = client.calls[0][1]["content"]
+    # Stable paper context (incl. the visual-asset index) now lives in the
+    # cache-anchored system prompt; check across all messages.
+    prompt = "\n".join(message["content"] for message in client.calls[0])
     assert "Available visual assets for inspect_visual" in prompt
     assert "- Figure 2, PDF page 5" in prompt
     assert str(figure_path) not in prompt
@@ -328,11 +370,11 @@ def test_answer_agent_exposes_retrieval_abstracts(monkeypatch) -> None:
     client = FakeClient(
         [
             """
-            <tool_call>
+            <action>
               <tool_name>search_scholar</tool_name>
               <query>calibration language models</query>
               <rationale>Need prior work.</rationale>
-            </tool_call>
+            </action>
             """,
             end_answer_xml(
                 question="Is this novel?",
@@ -387,7 +429,7 @@ def test_answer_agent_can_run_python_before_answering(monkeypatch) -> None:
     client = FakeClient(
         [
             """
-            <tool_call>
+            <action>
               <tool_name>run_python</tool_name>
               <code><![CDATA[
 baseline = 82.0
@@ -395,7 +437,7 @@ reported = [83.1, 84.0, 84.4]
 print([round(value - baseline, 2) for value in reported])
               ]]></code>
               <rationale>Check the absolute improvements over baseline.</rationale>
-            </tool_call>
+            </action>
             """,
             end_answer_xml(
                 question="Are the reported gains consistent?",
@@ -428,11 +470,11 @@ def test_answer_agent_retries_after_mixed_tool_and_answer(monkeypatch) -> None:
     client = FakeClient(
         [
             """
-            <tool_call>
+            <action>
               <tool_name>search_file</tool_name>
               <keyword>baseline</keyword>
               <rationale>Need paper evidence.</rationale>
-            </tool_call>
+            </action>
             <qa_result>
               <question>Are baselines sufficient?</question>
               <answer>The answer is already included.</answer>
@@ -447,11 +489,11 @@ def test_answer_agent_retries_after_mixed_tool_and_answer(monkeypatch) -> None:
             </qa_result>
             """,
             """
-            <tool_call>
+            <action>
               <tool_name>search_file</tool_name>
               <keyword>baseline</keyword>
               <rationale>Need paper evidence.</rationale>
-            </tool_call>
+            </action>
             """,
             end_answer_xml(
                 question="Are baselines sufficient?",
@@ -470,59 +512,51 @@ def test_answer_agent_retries_after_mixed_tool_and_answer(monkeypatch) -> None:
 
     assert result.answer == "The answer follows the actual tool observation."
     assert len(client.calls) == 3
-    assert "not valid <tool_call> stage XML" in client.calls[1][-1]["content"]
+    assert "not valid <action> stage XML" in client.calls[1][-1]["content"]
     assert "qa_result" in client.calls[1][-1]["content"]
     assert "search_file('baseline')" in client.calls[2][1]["content"]
     assert any(event["event"] == "stage_contract_violation" for event in result.trace_events)
     assert any(event["event"] == "tool_observation" for event in result.trace_events)
 
 
-def test_answer_agent_retries_after_multiple_tool_calls(
+def test_answer_agent_uses_first_of_multiple_tool_calls(
     monkeypatch,
 ) -> None:
-    """AnswerAgent should reject multiple tool_call documents and retry."""
+    """Multiple tool_call documents -> use the first; no retry, no violation."""
     client = FakeClient(
         [
             """
-            <tool_call>
+            <action>
               <tool_name>search_file</tool_name>
               <keyword>baseline</keyword>
               <rationale>Need paper evidence.</rationale>
-            </tool_call>
-            <tool_call>
+            </action>
+            <action>
               <tool_name>read_file</tool_name>
               <start_line>1</start_line>
               <num_lines>2</num_lines>
               <rationale>Read the located evidence.</rationale>
-            </tool_call>
-            """,
-            """
-            <tool_call>
-              <tool_name>search_file</tool_name>
-              <keyword>baseline</keyword>
-              <rationale>Need paper evidence.</rationale>
-            </tool_call>
+            </action>
             """,
             end_answer_xml(
                 question="Are baselines sufficient?",
-                answer="The answer follows the fallback tool observation.",
+                answer="The answer follows the first tool observation.",
                 evidence="Evidence from search.",
             ),
         ]
     )
     monkeypatch.setattr("reviewer.agents.answer.agent.build_llm", lambda config, model_key: client)
 
-    result = AnswerAgent({"qa": {"max_answer_steps": 2}}).run(
+    result = AnswerAgent({"qa": {"max_answer_steps": 3}}).run(
         "Are baselines sufficient?",
         "Soundness",
         {"text": "Intro\nStrong baseline is used.", "metadata": {"title": "Paper"}},
         SUMMARY_XML,
     )
 
-    assert result.answer == "The answer follows the fallback tool observation."
-    assert len(client.calls) == 3
-    assert "Expected exactly one <tool_call>" in client.calls[1][-1]["content"]
-    assert "search_file('baseline')" in client.calls[2][1]["content"]
+    assert result.answer == "The answer follows the first tool observation."
+    # Step 1 uses the first tool_call directly (no retry); step 2 is end_answer.
+    assert len(client.calls) == 2
     tool_calls = [
         event
         for event in result.trace_events
@@ -530,34 +564,34 @@ def test_answer_agent_retries_after_multiple_tool_calls(
     ]
     assert len(tool_calls) == 1
     assert tool_calls[0]["action"]["action"] == "search_file"
-    assert any(event["event"] == "stage_contract_violation" for event in result.trace_events)
+    assert not any(event["event"] == "stage_contract_violation" for event in result.trace_events)
     assert any(event["event"] == "tool_observation" for event in result.trace_events)
 
 
 def test_answer_agent_forced_answer_after_action_retry_when_budget_exhausted(monkeypatch) -> None:
     """After one valid tool step exhausts the budget, AnswerAgent forces end_answer."""
     multi_tool_output = """
-        <tool_call>
+        <action>
           <tool_name>search_file</tool_name>
           <keyword>baseline</keyword>
           <rationale>Need paper evidence.</rationale>
-        </tool_call>
-        <tool_call>
+        </action>
+        <action>
           <tool_name>read_file</tool_name>
           <start_line>1</start_line>
           <num_lines>2</num_lines>
           <rationale>Read the located evidence.</rationale>
-        </tool_call>
+        </action>
         """
     client = FakeClient(
         [
             multi_tool_output,
             """
-            <tool_call>
+            <action>
               <tool_name>search_file</tool_name>
               <keyword>baseline</keyword>
               <rationale>Need paper evidence.</rationale>
-            </tool_call>
+            </action>
             """,
             end_answer_xml(
                 question="Are baselines sufficient?",
@@ -586,11 +620,11 @@ def test_answer_agent_retries_after_tool_call_and_qa_result_before_answer(monkey
     client = FakeClient(
         [
             """
-            <tool_call>
+            <action>
               <tool_name>search_file</tool_name>
               <keyword>baseline</keyword>
               <rationale>Need paper evidence.</rationale>
-            </tool_call>
+            </action>
             <qa_result>
               <question>Are baselines sufficient?</question>
               <answer>Premature answer.</answer>
@@ -620,8 +654,8 @@ def test_answer_agent_retries_after_tool_call_and_qa_result_before_answer(monkey
     )
 
     assert result.answer == "The retry returned one document."
-    assert "not valid <tool_call> stage XML" in client.calls[1][-1]["content"]
-    assert "tool_call" in client.calls[1][-1]["content"]
+    assert "not valid <action> stage XML" in client.calls[1][-1]["content"]
+    assert "action" in client.calls[1][-1]["content"]
     assert not any(event["event"] == "tool_observation" for event in result.trace_events)
 
 
@@ -630,7 +664,7 @@ def test_answer_agent_retries_after_unparseable_xml(monkeypatch) -> None:
     client = FakeClient(
         [
             """
-            <tool_call>
+            <action>
               <tool_name>end_answer</tool_name>
             """,
             end_answer_xml(
@@ -649,7 +683,7 @@ def test_answer_agent_retries_after_unparseable_xml(monkeypatch) -> None:
     )
 
     assert result.answer == "The retry returned a valid answer."
-    assert "not valid <tool_call> stage XML" in client.calls[1][-1]["content"]
+    assert "not valid <action> stage XML" in client.calls[1][-1]["content"]
     assert "No observations yet." in client.calls[1][1]["content"]
 
 
@@ -714,17 +748,107 @@ def test_dimension_agent_asks_question_then_writes_review(monkeypatch) -> None:
     assert len(client.calls) == 3
 
 
+def test_dimension_agent_preloads_answers_and_checkpoints_fresh_ones(monkeypatch) -> None:
+    """Resume preloads answered questions (no re-answer) and checkpoints fresh ones."""
+    client = FakeClient(
+        [
+            # Turn 1 (turn 0 is consumed by the one preloaded answer): ask once more.
+            dimension_tool_xml(
+                tool_name="ask_question",
+                question="Is the evaluation fair?",
+                rationale="Need evidence.",
+            ),
+            dimension_tool_xml(
+                tool_name="end_questions",
+                rationale="The Q&A trajectory is saturated.",
+            ),
+            """
+            <dimension_review>
+              <dimension>Contribution</dimension>
+              <decisive_issues>
+                <item qa_ids="CONTRIB-001" dimension_score_cap="2">Limited novelty evidence caps the contribution score.</item>
+              </decisive_issues>
+              <dimension_judgment>
+                <judgment_posture>limited_but_useful</judgment_posture>
+                <main_thesis>Evidence supports a limited dimension judgment.</main_thesis>
+              </dimension_judgment>
+              <score>2</score>
+              <key_points>
+                <item importance="C2" polarity="weakness" confidence="medium" evidence_status="confirmed">Limited novelty evidence.</item>
+              </key_points>
+              <strengths><item>Interesting task.</item></strengths>
+              <weaknesses><item>Limited novelty evidence.</item></weaknesses>
+              <rationale>Mixed contribution.</rationale>
+            </dimension_review>
+            """,
+        ]
+    )
+    monkeypatch.setattr("reviewer.agents.dimension_base.build_llm", lambda config, model_key: client)
+    answer_calls: list[str] = []
+
+    def _fake_answer(self, question, dimension, paper, paper_summary, **kwargs):
+        answer_calls.append(question)
+        return QAResult(
+            question=question,
+            answer="Fresh answer.",
+            evidence=["paper: line"],
+            review_impact=ReviewImpact(
+                dimension=dimension,
+                polarity="weakness",
+                impact_level="C2",
+                confidence="medium",
+            ),
+        )
+
+    monkeypatch.setattr("reviewer.agents.dimension_base.AnswerAgent.run", _fake_answer)
+
+    preloaded = QAResult(
+        question="Already answered before the crash?",
+        answer="Yes, this was answered.",
+        evidence=["paper: prior"],
+        review_impact=ReviewImpact(
+            dimension="Contribution",
+            polarity="strength",
+            impact_level="C1",
+            confidence="high",
+        ),
+    )
+    checkpointed: list[QAResult] = []
+
+    review_xml, qa_results = ContributionAgent(
+        {"agents": {"contribution": {"max_qa_turns": 3, "require_balanced_qa": False}}}
+    ).run_with_qa(
+        {"text": "paper", "metadata": {"title": "Paper"}},
+        SUMMARY_XML,
+        preloaded_qa_results=[preloaded],
+        on_qa_result=checkpointed.append,
+    )
+
+    # The preloaded question is never re-answered; only the single fresh one runs.
+    assert answer_calls == ["Is the evaluation fair?"]
+    # The sink fires only for the fresh answer, not the preloaded one.
+    assert [result.question for result in checkpointed] == ["Is the evaluation fair?"]
+    # The final trajectory keeps the preloaded answer ahead of the fresh one.
+    assert [result.question for result in qa_results] == [
+        "Already answered before the crash?",
+        "Is the evaluation fair?",
+    ]
+    # The turn budget is offset by the preloaded count: the first decision is turn 1 of 3.
+    assert "Turn: 1 of 3" in client.calls[0][1]["content"]
+    assert "<dimension>Contribution</dimension>" in review_xml
+
+
 def test_dimension_agent_recovers_from_malformed_action_xml(monkeypatch) -> None:
     """A malformed question-stage tool call is reprompted, not allowed to crash the paper."""
     client = FakeClient(
         [
             # Turn 0: unescaped '<' makes the action XML not well-formed.
             """
-            <tool_call>
+            <action>
               <tool_name>ask_question</tool_name>
               <question>Is x < y in all cases?</question>
               <rationale>Check the bound.</rationale>
-            </tool_call>
+            </action>
             """,
             # Reprompt produces a valid action.
             dimension_tool_xml(
@@ -975,7 +1099,7 @@ def test_dimension_agent_rejects_direct_review_in_question_stage(monkeypatch) ->
 
     assert "<dimension>Contribution</dimension>" in review_output
     assert len(client.calls) == 3
-    assert "not valid question-stage <tool_call> XML" in client.calls[1][-1]["content"]
+    assert "not valid question-stage <action> XML" in client.calls[1][-1]["content"]
     assert "Do not output <dimension_action> or <dimension_review>" in client.calls[1][-1]["content"]
 
 
@@ -1003,11 +1127,11 @@ def test_dimension_agent_rejects_end_questions_with_question(monkeypatch) -> Non
     client = FakeClient(
         [
             """
-            <tool_call>
+            <action>
               <tool_name>end_questions</tool_name>
               <question>Should not be here.</question>
               <rationale>Enough evidence.</rationale>
-            </tool_call>
+            </action>
             """,
             dimension_tool_xml(tool_name="end_questions", rationale="Enough evidence."),
             review_xml,

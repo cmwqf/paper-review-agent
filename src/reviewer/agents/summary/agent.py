@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from reviewer.agents.base import BaseAgent
 from reviewer.models.factory import build_llm
-from reviewer.tools.xml_validator import validate_xml_root
 from reviewer.utils.prompts import load_prompt
+from reviewer.utils.xml_retry import generate_valid_xml
 
 
 class SummaryAgent(BaseAgent):
@@ -35,12 +35,15 @@ class SummaryAgent(BaseAgent):
                 ),
             },
         ]
-        raw_output = client.generate(messages)
-        self.trace_events = [
-            {
-                "agent": self.name,
-                "event": "model_output",
-                "raw_output": raw_output,
-            }
-        ]
-        return validate_xml_root(raw_output, "paper_summary")
+        # Retry on malformed XML (e.g. an unescaped '<' from a math inequality),
+        # mirroring the dimension agents instead of crashing the whole paper.
+        max_attempts = int(self.config.get("xml", {}).get("max_generation_attempts", 5))
+        self.trace_events = []
+        return generate_valid_xml(
+            client=client,
+            messages=messages,
+            root_tag="paper_summary",
+            max_attempts=max_attempts,
+            trace_events=self.trace_events,
+            trace_base={"agent": self.name},
+        )

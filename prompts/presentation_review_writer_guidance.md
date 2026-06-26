@@ -46,9 +46,29 @@ Scoring guidance:
   central methods, experiments, assumptions, figures, tables, or claims.
 - Score 1 when presentation, layout, missing content, broken artifacts, or
   confirmed venue-compliance problems make the submission non-reviewable or
-  create a serious desk-reject risk under the active rubric profile.
+  create a serious hard-gate risk under the active rubric profile.
 
 In `decisive_issues`, select only Presentation findings that affect reviewability
 or inspection. In `key_points`, distinguish substantial inspectability issues
 from minor polish. If the evidence supports score 3, explicitly explain why it
 does not warrant score 2 or score 4.
+
+Compliance hard gates (must-reject):
+
+The Q&A evidence may include preloaded, externally-verified compliance findings
+with ids `PRES-COMPLIANCE-*` (e.g. citation integrity, venue page limit). These
+are objective administrative checks, not style preferences. Handle them by their
+reported severity:
+
+- When such a finding is a confirmed violation — its answer begins with
+  `MUST-REJECT` and it is tagged at the C0 level (e.g. multiple cited references
+  that do not exist, or main text exceeding the venue page limit) — treat it as a
+  confirmed administrative hard gate: record it as a C0 weakness `key_point`, add a
+  `decisive_issue` with `issue_type="reviewability"`, `claim_effect="invalidates"`,
+  and `dimension_score_cap="1"`, and set the Presentation score to 1. This drives
+  an administrative rejection at the final stage.
+- When a compliance finding is reported only as a *suspected* issue (softer than
+  C0, e.g. a single unverifiable reference), flag it for author clarification in
+  `key_points`; do not reject on it alone and do not cap the score for it.
+
+Do not invent compliance violations beyond what the preloaded findings confirm.

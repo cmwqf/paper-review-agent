@@ -8,13 +8,13 @@ review:
   rubric_profile: ICLR
 
 bench:
-  root: /home/jiaxiaohan/DeepReview-Bench
+  root: /home/ubuntu/DeepReview-Bench
   output_dir: outputs/deepreview_bench
   splits:
-    dev: /home/jiaxiaohan/DeepReview-Bench/splits/deepreview13k_test_dev_clean100.jsonl
-    lite: /home/jiaxiaohan/DeepReview-Bench/splits/deepreview13k_test_lite.jsonl
-    test: /home/jiaxiaohan/DeepReview-Bench/splits/deepreview13k_test.jsonl
-    all: /home/jiaxiaohan/DeepReview-Bench/splits/all.jsonl
+    dev: /home/ubuntu/DeepReview-Bench/splits/deepreview13k_test_dev_clean100.jsonl
+    lite: /home/ubuntu/DeepReview-Bench/splits/deepreview13k_test_lite.jsonl
+    test: /home/ubuntu/DeepReview-Bench/splits/deepreview13k_test.jsonl
+    all: /home/ubuntu/DeepReview-Bench/splits/all.jsonl
   concurrency: 8
 
 network:
@@ -60,6 +60,28 @@ models:
         model: moonshotai/kimi-k2.6
       final_review:
         model: moonshotai/kimi-k2.6
+
+    # Run every model through the local Claude Code CLI (uses your logged-in
+    # Claude subscription instead of a per-token API key). Activate with:
+    #   model_profile: claude_code   (or models.active_profile / --model-profile)
+    # `model` values are CLI --model arguments (aliases like opus/sonnet/haiku
+    # or full ids like claude-opus-4-8). base_url/api_key_env/temperature are
+    # ignored on this path; Claude runs no built-in tools (see docs).
+    claude_code:
+      default:
+        provider: claude_code
+        model: opus          # opus 仅用于判断/方向：维度提问(agent)+ final 综合
+        timeout_seconds: 600 # CLI 在并发+订阅限流下会排队，180s 太短会超时丢篇
+      summary:
+        model: sonnet
+      answer:
+        model: sonnet        # ~81% 的调用；取证/工具编排偏执行 → sonnet 足够，最大省钱杠杆
+      vlm:
+        model: sonnet        # 视觉检查，调用量小，sonnet 视觉够用
+      reranker:
+        model: haiku         # 纯相关性排序 + JSON 输出，haiku 足够，最便宜
+      citation:
+        model: haiku         # 参考文献文本 → 结构化 JSON，纯机械抽取，haiku 足够
 
   summary:
     temperature: 0.2
@@ -142,6 +164,23 @@ retrieval:
 qa:
   max_answer_steps: 8
   max_format_retries: 3
+
+# Compliance checks folded into the Presentation dimension as preloaded
+# evidence. Hard, reject-worthy violations arrive tagged impact_level=C0
+# (must-reject hard gate); conservative by design so a single ambiguous
+# detection only flags a soft concern, never an automatic reject.
+compliance:
+  enabled: true
+  check_citations: true
+  check_page_limit: true
+  extract_model: citation         # dedicated key: haiku under claude_code, inherits default elsewhere
+  max_refs_checked: 60            # cap API calls per paper
+  request_delay_seconds: 1.0      # pace requests to avoid Semantic Scholar 429s
+  hard_gate_min_nonexistent: 3  # confirmed fabricated refs before it is a C0 hard gate
+  max_section_chars: 40000
+  page_limit_buffer: 1            # grace pages over the limit before flagging (boundary noise)
+  page_limits:                    # main-text page limit per venue (PDF inputs only)
+    ICLR: 10
 
 xml:
   max_generation_attempts: 5

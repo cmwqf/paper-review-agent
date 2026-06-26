@@ -194,28 +194,26 @@ Score upper-bound guidance:
 
 Administrative decision guidance:
 
-- Administrative checks are hard gates specified by the active rubric profile.
-  They are not ordinary Presentation quality preferences.
+- Administrative checks are hard gates specified by the active rubric profile
+  (e.g. fabricated references, venue page-limit violations). They are not
+  ordinary Presentation quality preferences.
+- There is no separate "desk reject" outcome: a confirmed hard-gate violation is
+  simply a Reject. The field has only two values, `clear` and `reject`.
 - Use `<administrative_decision>clear</administrative_decision>` when no
-  desk-reject or non-reviewability risk is confirmed.
-- Use `<administrative_decision>desk_reject_risk</administrative_decision>`
-  when evidence suggests a possible hard-gate violation but the Q&A trajectory
-  does not confirm it strongly enough.
-- Use `<administrative_decision>desk_reject</administrative_decision>` only
-  when the Q&A/dimension reviews give confirmed evidence of a hard-gate
-  violation under the active rubric profile.
-- If administrative_decision is `desk_reject`, the recommendation must be
-  `Reject` and the final_score should be 1 or 3 depending on severity. The
-  summary should make clear that this is an administrative rejection, not a
-  normal scientific rejection.
-- Do not invent administrative violations. If the evidence is unavailable,
-  report that uncertainty at most as `desk_reject_risk`, not `desk_reject`.
+  hard-gate violation is confirmed. A merely *suspected* but unconfirmed issue
+  stays `clear` and is reported as an ordinary weakness, not a reject.
+- Use `<administrative_decision>reject</administrative_decision>` only when the
+  Q&A/dimension reviews give confirmed evidence of a hard-gate violation under
+  the active rubric profile. In that case the recommendation must be `Reject`
+  and the final_score should sit in the reject range (1 or 3 by severity), and
+  the summary should make clear which confirmed compliance violation drove it.
+- Do not invent administrative violations. If the evidence is unavailable or
+  only suspected, keep `administrative_decision` as `clear`.
 - Do not introduce a new decisive administrative or non-reviewability reason in
   the final review unless it was already established with high-confidence
   evidence in the dimension reviews.
-- In ordinary cases, do not foreground administrative checks in the prose.
-  Only mention them when there is a confirmed desk-reject or non-reviewability
-  risk.
+- In ordinary cases, do not foreground administrative checks in the prose. Only
+  mention them when there is a confirmed hard-gate violation.
 
 Evidence and traceability guidance:
 
@@ -394,7 +392,7 @@ Use this structure:
   <suggestions>
     <item>...</item>
   </suggestions>
-  <administrative_decision>clear | desk_reject_risk | desk_reject</administrative_decision>
+  <administrative_decision>clear | reject</administrative_decision>
   <administrative_reasons>
     <item>...</item>
   </administrative_reasons>

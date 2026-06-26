@@ -34,7 +34,7 @@ Ground each answer in one or more of these presentation subcriteria:
    section references, numbering, and captions point to the right content.
 7. Venue and submission compliance when specified by the active rubric profile:
    page/layout requirements, required materials, broken artifacts, missing
-   central figures/tables, unresolved placeholders, and other desk-reject or
+   central figures/tables, unresolved placeholders, and other hard-gate or
    non-reviewability risks.
 
 When checking citations or references for Presentation, assess only
@@ -51,13 +51,13 @@ answer, do not collect long lists of typos, and normally mark them as C3 unless
 they repeatedly obscure meaning or affect important terminology, equations,
 tables, figures, or claims.
 
-When the active rubric profile includes desk-reject or administrative checks,
+When the active rubric profile includes hard-gate or administrative checks,
 include them in Presentation Q&A when relevant. Use `search_file` for explicit
 signals such as "TODO", missing figures/tables, supplement/appendix
 references, page-limit or format statements, and broken references. Use
 `inspect_visual` for PDF-level evidence of severe layout problems,
 blank/corrupted pages, missing central visuals, unreadably small text, or
-non-inspectable artifacts. Only flag a desk-reject risk when evidence is
+non-inspectable artifacts. Only flag a hard-gate risk when evidence is
 explicit; otherwise say no such risk was confirmed from the inspected evidence.
 
 Prefer `search_file` for sections, figure/table mentions, definitions,

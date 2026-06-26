@@ -7,7 +7,7 @@ external retrieval evidence, or both before writing the final QAResult.
 Planned loop:
 
 1. Observe question, dimension, paper map, and compact prior context.
-2. Write exactly one `<tool_call>`.
+2. Write exactly one `<action>`.
 3. Execute the requested evidence tool, or finish when the tool is `end_answer`.
 
 Raw paper chunks and retrieval results should be stored in the full trace, not
@@ -48,7 +48,7 @@ class AnswerAgent(BaseAgent):
     ) -> QAResult:
         """Answer one review question with evidence and review impact.
 
-        The agent repeatedly asks the LLM for exactly one `<tool_call>`.
+        The agent repeatedly asks the LLM for exactly one `<action>`.
         Evidence tools add observations to the next step. The special
         `end_answer` tool carries the final answer fields and exits this run.
         """
@@ -66,15 +66,18 @@ class AnswerAgent(BaseAgent):
         max_format_retries = int(qa_config.get("max_format_retries", 3))
         max_format_attempts = max(1, max_format_retries + 1)
         paper_map = _render_paper_summary(paper_summary)
-        system_prompt = _answer_system_prompt(self.config, dimension)
+        # Stable per-paper context (metadata, paper map, visual assets) goes in
+        # the system prompt so it stays byte-identical across this answer call's
+        # steps and Claude Code reuses the prompt cache instead of recreating it.
+        system_prompt = _answer_cached_system(
+            _answer_system_prompt(self.config, dimension), paper, paper_map
+        )
 
         step_index = 0
         while step_index < max_steps:
             context = _build_answer_context(
                 question=question,
                 dimension=dimension,
-                paper=paper,
-                paper_map=paper_map,
                 observations=observations,
                 retrieved_papers=retrieved_papers,
                 prior_qa_results=prior_qa_results,
@@ -150,7 +153,6 @@ class AnswerAgent(BaseAgent):
             config=self.config,
             question=question,
             dimension=dimension,
-            paper_map=paper_map,
             observations=observations,
             retrieved_papers=retrieved_papers,
             trace_events=trace_events,
@@ -174,7 +176,7 @@ def _answer_system_prompt(config: dict, dimension: str) -> str:
     tool_contract = """
 TOOL-CALL STAGE
 
-Every response must be exactly one `<tool_call>` XML document and nothing else.
+Every response must be exactly one `<action>` XML document and nothing else.
 Do not output `<qa_result>`, `<answer_decision>`, markdown fences, explanatory
 text, or multiple XML documents.
 
@@ -183,7 +185,7 @@ needed. Use `end_answer` when the current observations are enough; after a
 valid `end_answer`, this AnswerAgent run exits and the dimension agent may ask
 the next query.
 
-<tool_call>
+<action>
   <tool_name>search_file | read_file | inspect_visual | search_scholar | run_python | end_answer</tool_name>
   <keyword>keyword or short phrase for search_file</keyword>
   <start_line>1-based start line for read_file</start_line>
@@ -220,7 +222,7 @@ small self-contained Python code for run_python
   </review_impact>
 
   <rationale>why this action is needed</rationale>
-</tool_call>
+</action>
 
 For evidence tools, include only the tool_name, that tool's arguments, and
 rationale. Do not include answer, evidence, retrieved_papers, or review_impact.
@@ -298,33 +300,45 @@ def _render_paper_summary(paper_summary: dict | str) -> str:
     return str(paper_summary)
 
 
+def _answer_cached_system(system_prompt: str, paper: dict, paper_map: str) -> str:
+    """Append stable per-paper context to the system prompt for cache reuse.
+
+    Metadata, the paper map, and the visual-asset list are identical across an
+    answer call's steps, so anchoring them in the system prompt lets Claude
+    Code's prompt cache be read rather than recreated on each step.
+    """
+    return (
+        f"{system_prompt}\n\n"
+        f"Paper metadata:\n{paper.get('metadata', {})}\n\n"
+        f"Paper summary / map:\n{paper_map}\n\n"
+        f"Available visual assets for inspect_visual:\n{_format_visual_assets(paper)}"
+    )
+
+
 def _build_answer_context(
     *,
     question: str,
     dimension: str,
-    paper: dict,
-    paper_map: str,
     observations: list[str],
     retrieved_papers: list[dict],
     prior_qa_results: list[QAResult] | None = None,
     format_feedback: str = "",
 ) -> str:
-    """Build the model-visible evidence state for one Answer Agent step."""
+    """Build the turn-varying evidence state for one Answer Agent step.
+
+    Stable paper context (metadata, map, visual assets) is supplied via the
+    system prompt by :func:`_answer_cached_system`; only per-step state is here.
+    """
     observed = "\n\n".join(observations[-8:]) if observations else "No observations yet."
     retrieved = "\n\n".join(_format_retrieved_paper(paper) for paper in retrieved_papers[:8])
     if not retrieved:
         retrieved = "No retrieved papers yet."
     prior_qa = _format_prior_qa_results(prior_qa_results or [])
-    visual_assets = _format_visual_assets(paper)
-    metadata = paper.get("metadata", {})
     feedback = f"\n\nPrevious output format error:\n{format_feedback}\n" if format_feedback else ""
     return (
         f"Review dimension: {dimension}\n"
         f"Question: {question}\n\n"
-        f"Paper metadata:\n{metadata}\n\n"
         f"Prior Q&A in this dimension for impact calibration:\n{prior_qa}\n\n"
-        f"Paper summary / map:\n{paper_map}\n\n"
-        f"Available visual assets for inspect_visual:\n{visual_assets}\n\n"
         f"Tool observations:\n{observed}\n\n"
         f"Retrieved papers:\n{retrieved}\n"
         f"{feedback}"
@@ -382,12 +396,14 @@ def _write_tool_call(
                 "role": "user",
                 "content": (
                     f"{context}\n\n"
-                    "Return exactly one <tool_call> XML document. Choose one "
-                    "evidence tool, or choose tool_name=end_answer to finish."
+                    "Output EXACTLY ONE <action> XML document this turn — one "
+                    "action only. If you emit more than one <action>, only the "
+                    "FIRST is executed and the rest are ignored, so never batch "
+                    "actions. Choose one evidence tool, or tool_name=end_answer to finish."
                 ),
             },
         ],
-        root_tag="tool_call",
+        root_tag="action",
         disallowed_roots=("answer_decision", "qa_result"),
         max_attempts=max_attempts,
         trace_events=trace_events,
@@ -468,23 +484,26 @@ def _validate_single_stage_xml(
     root_tag: str,
     disallowed_roots: tuple[str, ...],
 ) -> str:
-    """Require exactly one expected XML root and no other stage roots."""
-    expected_count = raw_output.count(f"<{root_tag}")
-    if expected_count != 1:
-        raise ValueError(f"Expected exactly one <{root_tag}> document, found {expected_count}.")
+    """Validate the stage XML, tolerating extra/multiple tool-call documents.
+
+    The model sometimes emits several <root_tag> documents (or wraps one in
+    prose). Since the answer loop executes one action per step, we use the first
+    document rather than rejecting and wasting a retry. A disallowed stage root
+    (the wrong stage's output) is still a hard error.
+    """
+    if raw_output.count(f"<{root_tag}") == 0:
+        raise ValueError(f"Expected a <{root_tag}> document, found none.")
     for disallowed in disallowed_roots:
         if raw_output.count(f"<{disallowed}"):
             raise ValueError(
                 f"Invalid state output: <{root_tag}> stage must not contain <{disallowed}>."
             )
     extracted = extract_xml_document(raw_output, root_tag)
-    if raw_output.strip() != extracted.strip():
-        raise ValueError(f"Output must contain only the <{root_tag}> XML document.")
     return validate_xml_root(extracted, root_tag)
 
 
 def _validate_tool_call_xml(xml_text: str, *, force_end_answer: bool = False) -> None:
-    """Validate the single tool_call contract, including end_answer arguments."""
+    """Validate the single action contract, including end_answer arguments."""
     root = ET.fromstring(xml_text)
     tool_name = _child_text(root, "tool_name").strip()
     valid_tools = {
@@ -523,8 +542,8 @@ def _validate_tool_call_xml(xml_text: str, *, force_end_answer: bool = False) ->
 
 
 def _parse_action(raw_output: str) -> dict[str, str]:
-    """Parse a `<tool_call>` XML document."""
-    action_xml = validate_xml_root(raw_output, "tool_call")
+    """Parse a `<action>` XML document."""
+    action_xml = validate_xml_root(raw_output, "action")
     root = ET.fromstring(action_xml)
     return {
         "action": _child_text(root, "tool_name"),
@@ -540,12 +559,12 @@ def _parse_action(raw_output: str) -> dict[str, str]:
 
 
 def _parse_end_answer(raw_output: str) -> QAResult:
-    """Parse an end_answer `<tool_call>` into the QAResult schema."""
-    action_xml = validate_xml_root(raw_output, "tool_call")
+    """Parse an end_answer `<action>` into the QAResult schema."""
+    action_xml = validate_xml_root(raw_output, "action")
     _validate_tool_call_xml(action_xml)
     root = ET.fromstring(action_xml)
     if _child_text(root, "tool_name") != "end_answer":
-        raise ValueError("Expected end_answer tool_call.")
+        raise ValueError("Expected end_answer action.")
     root.tag = "qa_result"
     for child_name in ("tool_name", "rationale"):
         child = root.find(child_name)
@@ -644,7 +663,6 @@ def _write_forced_answer(
     config: dict,
     question: str,
     dimension: str,
-    paper_map: str,
     observations: list[str],
     retrieved_papers: list[dict],
     trace_events: list[dict] | None = None,
@@ -656,6 +674,7 @@ def _write_forced_answer(
         client=client,
         messages=[
             {
+                # The paper map lives in the cache-anchored system_prompt.
                 "role": "system",
                 "content": system_prompt,
             },
@@ -663,16 +682,15 @@ def _write_forced_answer(
                 "role": "user",
                 "content": (
                     f"Review dimension: {dimension}\nQuestion: {question}\n\n"
-                    f"Paper map:\n{paper_map}\n\n"
                     f"Observations:\n{observations_text}\n\n"
                     f"Retrieved papers:\n{retrieved_papers[:8]}\n\n"
                     "The AnswerAgent tool budget is exhausted. Return exactly one "
-                    "<tool_call> with <tool_name>end_answer</tool_name>. Do not "
+                    "<action> with <tool_name>end_answer</tool_name>. Do not "
                     "request another evidence tool."
                 ),
             },
         ],
-        root_tag="tool_call",
+        root_tag="action",
         disallowed_roots=("answer_decision", "qa_result"),
         max_attempts=max_attempts,
         trace_events=trace_events,

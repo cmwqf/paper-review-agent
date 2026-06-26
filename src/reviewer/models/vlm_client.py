@@ -7,15 +7,21 @@ import mimetypes
 from pathlib import Path
 from typing import Any
 
-from reviewer.models.llm_client import LLMClient
+from reviewer.models.claude_code_client import make_text_client
 
 
 class VLMClient:
-    """Call an OpenAI-compatible vision chat-completions model."""
+    """Call a vision chat model via the OpenAI-compatible API or Claude Code CLI.
+
+    Image attachment is provider-neutral: ``_messages_with_images`` adds OpenAI
+    ``image_url`` blocks, and the underlying text client renders them — the HTTP
+    client sends them as-is, the Claude Code client converts them to base64
+    stream-json input.
+    """
 
     def __init__(self, model_config: dict[str, Any], global_config: dict[str, Any] | None = None):
         self.model_config = model_config
-        self.client = LLMClient(model_config, global_config=global_config)
+        self.client = make_text_client(model_config, global_config=global_config)
 
     def generate_with_images(self, messages: list[dict[str, Any]], image_paths: list[str]) -> str:
         """Call the configured VLM with rendered page images."""
