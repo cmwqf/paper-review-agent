@@ -44,6 +44,16 @@ positioning, or claimed impact is weak. When requesting more experiments or
 comparisons, make clear whether they are decision-critical for contribution or
 only useful future work.
 
-In `decisive_issues`, select the 1-2 Contribution findings that most determine
-the score. In `key_points`, include both the main contribution strength and the
-main contribution limitation when both are supported.
+In `decisive_issues`, select the Contribution findings that most determine the
+score (usually 1-3; include every genuinely decisive one rather than dropping
+any to hit a count). In `key_points`, include all supported contribution
+strengths and all supported limitations — not just the single main one of each —
+ordered by impact.
+
+Coverage checks (include as `key_points` even when not score-driving): when the
+paper map or Q&A shows them, surface rather than omit: novelty/positioning gaps
+versus specific named prior work, missing related-work citations, scope or
+overclaim relative to what is demonstrated, generalization limits (untested
+settings, models, or domains a reviewer would ask about), and questions about
+whether the claimed advantage is unique to this method. These are common reviewer
+points; state minor ones briefly but keep them in the list.

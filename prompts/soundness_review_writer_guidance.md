@@ -43,7 +43,24 @@ experiments are necessary to validate the existing results. Extra experiments
 should be limited in scope and aimed at more thoroughly validating claims
 already made by the submission.
 
-In `decisive_issues`, select the 1-2 Soundness findings that most determine the
-score. Give claim-level explanations: name the central claim affected, explain
+In `decisive_issues`, select the Soundness findings that most determine the
+score (usually 1-3; include every genuinely decisive one rather than dropping any
+to hit a count). Give claim-level explanations: name the central claim affected, explain
 whether the issue invalidates it, materially weakens it, or remains local, and
 state why the adjacent score boundary is or is not crossed.
+
+Coverage checks (include as `key_points` even when not score-driving): human
+reviewers very often raise these, so when the paper map or Q&A shows them,
+surface them rather than omitting them:
+
+- Missing comparisons/baselines: an obvious baseline, prior method, ablation
+  decomposition, or upper-bound the paper does not run.
+- Reproducibility: undisclosed hyperparameters, no released code, missing dataset
+  or protocol details, no reported compute/runtime cost.
+- Statistical reliability: single-run results, no seeds/variance/error bars,
+  no significance testing.
+- Experimental-setup confounds: an unfair or sandbagged baseline, a fixed
+  training budget that advantages one method, or an evaluation gap.
+
+State each briefly when minor, but do not drop it; these are the most common
+review points the pipeline under-covers.

@@ -488,12 +488,46 @@ def parse_judge_json(raw: str) -> dict[str, Any]:
     if text.startswith("```"):
         text = re.sub(r"^```(?:json)?\s*", "", text)
         text = re.sub(r"\s*```$", "", text)
+    def repair_invalid_json_escapes(candidate: str) -> str:
+        repaired: list[str] = []
+        index = 0
+        while index < len(candidate):
+            char = candidate[index]
+            if char != "\\":
+                repaired.append(char)
+                index += 1
+                continue
+
+            next_char = candidate[index + 1] if index + 1 < len(candidate) else ""
+            if next_char in {'"', "\\", "/", "b", "f", "n", "r", "t"}:
+                repaired.append(candidate[index : index + 2])
+                index += 2
+                continue
+            if (
+                next_char == "u"
+                and index + 5 < len(candidate)
+                and re.fullmatch(r"[0-9a-fA-F]{4}", candidate[index + 2 : index + 6])
+            ):
+                repaired.append(candidate[index : index + 6])
+                index += 6
+                continue
+
+            repaired.append("\\\\")
+            index += 1
+        return "".join(repaired)
+
+    def loads_with_escape_repair(candidate: str) -> dict[str, Any]:
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            return json.loads(repair_invalid_json_escapes(candidate))
+
     try:
-        return json.loads(text)
+        return loads_with_escape_repair(text)
     except json.JSONDecodeError:
         match = re.search(r"\{.*\}", text, flags=re.S)
         if match:
-            return json.loads(match.group(0))
+            return loads_with_escape_repair(match.group(0))
         raise
 
 

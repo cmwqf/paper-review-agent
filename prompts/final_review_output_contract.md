@@ -15,7 +15,11 @@ administrative_decision, and administrative_reasons.
 Human-review style:
 
 - Write like a careful reviewer speaking to the authors and area chairs.
-- Do not over-standardize the prose into a perfectly exhaustive checklist.
+- Keep the prose natural rather than a mechanical checklist, but do not drop
+  substantive points for the sake of brevity. Coverage of confirmed
+  reviewer-relevant points takes priority over conciseness everywhere except the
+  summary: a panel of human reviewers raises many points, and the review is
+  judged on how many of them it covers.
 - The summary should briefly describe the paper and the reviewer's overall
   judgment, not merely restate the dimension scores.
 - Strengths and weaknesses should be concrete, reviewer-facing comments.
@@ -252,13 +256,18 @@ Evidence traceability:
   `<final_decision_ledger>`.
 - If a critical C1 Q&A finding is not reflected in the final_score, make sure
   the final review explains why it is non-decisive or outweighed.
-- Preserve evidence the pipeline already gathered. Every confirmed C0/C1
-  weakness and every `<decisive_issues>` item from the three dimension reviews
-  must either appear in the final `<weaknesses>` (or, when it is an open
-  uncertainty, in `<questions>`), or be explicitly dismissed in
-  `<final_decision_ledger>` with a one-line reason. Do not silently drop a
-  decisive weakness that a dimension review already established — that is the
-  most common way the final review under-rates the importance of a real flaw.
+- Preserve evidence the pipeline already gathered. Every confirmed weakness and
+  every `<key_points>` / `<decisive_issues>` item from the three dimension
+  reviews must appear in the final review somewhere — a C0/C1/C2 point in
+  `<weaknesses>` (or, when it is an open uncertainty, in `<questions>`), and a
+  smaller C3/C4 actionable point in `<weaknesses>`, `<questions>`, or
+  `<suggestions>` — or be explicitly dismissed in `<final_decision_ledger>` with
+  a one-line reason. Do not silently drop a point a dimension review already
+  established: dropping a decisive weakness under-rates a real flaw, and dropping
+  the long tail of smaller confirmed points is the most common way the final
+  review under-covers what human reviewers raise. The dimension reviews no longer
+  cap their `key_points`, so expect to carry a longer list of confirmed points
+  through to the final review.
 
 Review-impact labels may appear in the dimension reviews or their evidence:
 
@@ -284,10 +293,16 @@ labels as automatic score changes. Do not let tool_mismatch, unavailable
 evidence, or C4 polish notes lower the final_score unless the dimension review
 confirms a real paper problem.
 
-The final strengths and weaknesses should normally include only the most
-decision-relevant points. Prefer 2-5 well-supported strengths and 2-5
-well-supported weaknesses over an exhaustive list. Let questions and
-suggestions carry secondary details and author-facing requested changes.
+Lead the final `<strengths>` and `<weaknesses>` with the most decision-relevant
+points, but be comprehensive in coverage: include every confirmed,
+reviewer-relevant point the three dimension reviews surfaced (their
+`<key_points>`, `<strengths>`, and `<weaknesses>`). Do not cap strengths or
+weaknesses at a fixed number, and do not drop a confirmed point merely because it
+is secondary — state minor points briefly, but keep them. Route author-facing
+clarifications and smaller requested changes to `<questions>` and `<suggestions>`
+so they are captured rather than omitted. Only the `<summary>` must stay concise;
+the `<weaknesses>`, `<questions>`, and `<suggestions>` together should leave no
+confirmed reviewer-relevant point uncovered.
 
 Boundary reasoning:
 
@@ -325,15 +340,24 @@ Boundary reasoning:
   caveats are not over-penalized; clearly below-threshold papers are not kept at
   5; clearly good papers are not kept at 6; solid-but-flawed reject papers (no
   confirmed `invalidates`, no dimension at 1) are not collapsed to 3 when they
-  belong at 5; Presentation polish issues did not by themselves lower the score.
+  belong at 5; Presentation polish issues did not by themselves lower the score;
+  and every confirmed `key_point` from the three dimension reviews is covered in
+  `<weaknesses>`, `<questions>`, or `<suggestions>` (or explicitly dismissed in
+  the ledger), so no confirmed reviewer-relevant point is silently dropped.
 
 Questions guidance:
 
-- Include 0-4 questions.
+- Include as many genuine author-facing questions as the evidence warrants; do
+  not truncate to a fixed small number. Human reviewers collectively raise many
+  clarification questions per paper, and `<questions>` is a primary channel for
+  review-point coverage — under-filling it is a top cause of missed points.
 - Use questions for genuine reviewer uncertainties, missing clarifications,
-  sensitivity checks, unexplained design choices, or possible rebuttal points.
+  sensitivity checks, unexplained design choices, underspecified experimental
+  setup, requested comparisons or baselines, or possible rebuttal points.
 - Do not turn every weakness into a question. If the evidence already clearly
   supports the weakness, state it as a weakness and optionally add a suggestion.
+  But every confirmed, reviewer-relevant clarification that is not already a
+  weakness or suggestion should appear here rather than being dropped.
 
 Suggestions guidance:
 

@@ -25,6 +25,7 @@ from __future__ import annotations
 import json
 import logging
 import subprocess
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -88,6 +89,14 @@ def make_text_client(
 
 class ClaudeCodeError(RuntimeError):
     """A Claude Code CLI invocation failed or returned an error result."""
+
+
+class ClaudeSessionLimitError(ClaudeCodeError):
+    """The Claude subscription session/usage limit was hit.
+
+    Retrying does not help until the limit resets (hours away), so callers must
+    fail fast rather than burn retries/backoff on it.
+    """
 
 
 @dataclass
@@ -182,6 +191,15 @@ class ClaudeCodeClient:
                     exc,
                 )
                 last_error = exc
+                # The session/usage limit won't clear within retries — fail fast.
+                if isinstance(exc, ClaudeSessionLimitError):
+                    break
+                # Back off before retrying so a transient blip — e.g. the CLI
+                # being upgraded (symlink briefly missing -> FileNotFoundError) or
+                # a momentary rate-limit — has time to clear instead of burning
+                # all retries in milliseconds.
+                if attempt < max_retries:
+                    time.sleep(min(2 * attempt, 10))
         assert last_error is not None
         raise last_error
 
@@ -192,6 +210,14 @@ class ClaudeCodeClient:
         stream-json`` (used for image input) emits newline-delimited events, of
         which the final ``type: result`` event carries the text.
         """
+        lowered = completed.stdout.lower()
+        if "hit your session limit" in lowered or "not logged in" in lowered:
+            # Session/usage limit OR a dropped login (e.g. after a CLI upgrade):
+            # neither clears within the retry window, so fail fast.
+            raise ClaudeSessionLimitError(
+                f"Claude unavailable (session limit / not logged in): "
+                f"{completed.stdout.strip()[:200]!r}"
+            )
         if completed.returncode != 0:
             raise ClaudeCodeError(
                 f"Claude Code CLI exited {completed.returncode}: "

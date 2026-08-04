@@ -749,7 +749,8 @@ def _validate_dimension_review_contract(xml_text: str) -> None:
     key_points = root.find("key_points")
     if key_points is None:
         raise ValueError(
-            "The dimension_review must include a <key_points> section with 2-5 scored findings."
+            "The dimension_review must include a <key_points> section listing every "
+            "decision-relevant and actionable scored finding (no maximum)."
         )
     items = [
         item

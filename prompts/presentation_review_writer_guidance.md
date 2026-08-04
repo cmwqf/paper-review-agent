@@ -53,6 +53,24 @@ or inspection. In `key_points`, distinguish substantial inspectability issues
 from minor polish. If the evidence supports score 3, explicitly explain why it
 does not warrant score 2 or score 4.
 
+Coverage of local clarity issues (separate from the score): an overall
+"generally readable" judgment does NOT justify dropping specific local
+presentation defects. The score can stay 3 or 4 while you still list every
+confirmed local clarity problem the Q&A surfaced as its own `key_point` and
+`<weakness>` (minor ones stated briefly): undefined or inconsistent symbols,
+a figure missing units/axis labels/legend, unreadable or dense figures, broken or
+unresolved cross-references, missing definitions, notation inconsistencies, or
+equation/typo errors. Human reviewers raise many of these per paper; they are a
+primary coverage gap when collapsed into a single "readable" verdict.
+
+Do not assert positive compliance you did not actually verify. Do not claim that
+"all references resolve", that the formatting/template is standard or
+venue-compliant, or that there are no missing citations, unless Q&A evidence
+checked it. If it was not checked, say nothing about it rather than asserting it
+is fine — a false "looks clean" statement suppresses real reviewer concerns
+(missing related-work citations, non-standard templates, text-overlap/integrity
+issues).
+
 Compliance hard gates (must-reject):
 
 The Q&A evidence may include preloaded, externally-verified compliance findings

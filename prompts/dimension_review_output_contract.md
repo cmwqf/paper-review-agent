@@ -33,11 +33,16 @@ review-impact labels from the Answer Agent:
 - C3: local actionable review point
 - C4: minor polish, trace-only, low-confidence, or evidence-limitation point
 
-Use these labels as priority signals, not as a mechanical formula. Select the
-most important 2-5 Q&A findings into `key_points` so the Final Review Agent can
-see which points determined the dimension score. Prefer C0, C1, and C2 points.
-Use C3 only when it is a clear local requested-change item. Use C4 only when it
-is useful trace context and should not affect the score.
+Use these labels as priority signals, not as a mechanical formula. Put **every**
+decision-relevant or actionable Q&A finding into `key_points` — there is no
+maximum and no target count. A point the Q&A confirmed and a careful reviewer
+would raise belongs in `key_points` even when it is minor and does not change the
+score, so the Final Review Agent can see both what drove the dimension score and
+the full set of reviewer-relevant points. Use the C0–C4 labels to ORDER and weight
+the list (C0, C1, C2 first; then C3 local requested-changes; then C4 trace/polish),
+not to drop points: C3 and C4 items must still appear so they are not lost before
+the final review. Only omit a finding if it is unsupported or not reviewer-relevant
+— never to shorten the list.
 
 Q&A items are canonical evidence-bank entries with stable ids such as
 `CONTRIB-001`, `SOUND-002`, or `PRES-003`. Use those ids internally when
@@ -88,8 +93,9 @@ value does not survive:
   weakening. It is NOT an automatic `2`.
 - `local`: scoped, secondary, or polish. Does not pull the score below `3`.
 
-Reserve `materially_weakens`/`invalidates` for the 1-2 weaknesses that truly put
-the central claim in doubt. If you are tagging most weaknesses as
+Reserve `materially_weakens`/`invalidates` for the genuinely decisive weaknesses
+(usually 1-3) that truly put the central claim in doubt — list every one of
+them, but do not pad the set. If you are tagging most weaknesses as
 `materially_weakens`, you are over-escalating — re-tag the ordinary ones as
 `local`.
 
@@ -100,8 +106,9 @@ genuinely strong. A weakness with `evidence_status` other than `confirmed`
 (partial / unavailable / tool_mismatch) or `confidence="low"` must not by itself
 force the score down; treat it as a rebuttal-critical uncertainty, not a cap.
 
-Before choosing the score, first identify the 1-2 most decision-critical
-issues in this dimension. A decisive issue is a Q&A-supported finding that a
+Before choosing the score, first identify the decision-critical issues in this
+dimension (usually 1-3; list every genuinely decisive one and never drop a real
+score-driver just to hit a count). A decisive issue is a Q&A-supported finding that a
 careful human reviewer would likely use to set the upper bound of this
 dimension score, change the accept/reject recommendation, or frame the main
 rebuttal question. Decisive issues must come from Q&A ids or from key_points
@@ -140,10 +147,13 @@ Use dimension-specific judgment postures:
   clear | excellent
 
 The strengths, weaknesses, and rationale should be consistent with the
-dimension_judgment. Do not write a balanced checklist that obscures the main
-dimension thesis. If the thesis is skeptical, foreground the score-driving
-weakness. If the thesis is positive, explain why the strengths outweigh the
-decisive concerns.
+dimension_judgment. Foreground the main dimension thesis — if it is skeptical,
+lead with the score-driving weakness; if positive, explain why the strengths
+outweigh the decisive concerns — but foregrounding the thesis is about ORDER and
+emphasis, not about dropping points. Still cover the full set of confirmed,
+reviewer-relevant findings: a minor or non-score-driving point should be stated
+briefly and last, never omitted. The goal is high coverage of what a panel of
+human reviewers would raise, with the decisive points made most prominent.
 
 Then compare adjacent ratings:
 
@@ -166,16 +176,22 @@ Build the dimension review in this order internally:
    supported claims. Do not treat the raw Q&A order as the priority order.
 2. Record the strongest evidence and Q&A ids in `<evidence_trace>` before
    choosing the score.
-3. Select 1-2 Q&A-supported `decisive_issues` that would most likely affect a
-   human reviewer's dimension score or accept/reject posture.
+3. Select the Q&A-supported `decisive_issues` (usually 1-3) that would most
+   likely affect a human reviewer's dimension score or accept/reject posture;
+   include every genuinely decisive one rather than dropping any to hit a count.
 4. Write `<dimension_judgment>` as the evidence-derived main thesis and
    judgment posture for this dimension.
-5. Select the 2-5 decision-critical findings for `key_points`; do not select by
-   count or balance, select by impact on this dimension.
+5. Put every decision-relevant and actionable finding into `key_points`, ordered
+   by impact on this dimension. Do not cap or balance the list by count: selecting
+   by impact controls the ORDER of the points, not how many you include. Every
+   confirmed, reviewer-relevant finding from the Q&A belongs here.
 6. Choose the dimension score using the decisive issues, dimension_judgment,
    and adjacent-score boundary reasoning.
-7. Write natural reviewer-facing strengths and weaknesses from the selected
-   findings.
+7. Write natural reviewer-facing strengths and weaknesses covering ALL the
+   confirmed findings, not only the decisive ones. Every reviewer-relevant
+   weakness in `key_points` should be reflected in `<weaknesses>` and every
+   supported strength in `<strengths>` (state minor points briefly, but do not
+   drop them). Do not cap `<strengths>` or `<weaknesses>` at a fixed number.
 8. In `<rationale>`, explain how the decisive issues, dimension_judgment, and
    boundary reasoning produced the final dimension score.
 
@@ -227,15 +243,17 @@ Use this structure:
 
 Base the review on the paper summary and the Q&A trajectory. Use evidence that
 has already appeared in the paper map or Q&A results.
-Keep `key_points` concise and evidence-bearing. Each item should name the
-specific evidence that makes it important when possible, such as a baseline,
-dataset, table, figure, equation, algorithm, section, reported metric, or
-missing protocol detail.
+Make `key_points` complete and evidence-bearing: include every confirmed,
+reviewer-relevant finding, and keep each individual item concise rather than
+shortening the list. Each item should name the specific evidence that makes it
+important when possible, such as a baseline, dataset, table, figure, equation,
+algorithm, section, reported metric, or missing protocol detail.
 
 The final review is downstream of the three dimension reviews. Therefore the
 dimension review must be self-contained enough for final aggregation: include
-all score-driving Q&A ids in `<evidence_trace>`, make sure the 1-2 issues most
-likely to change a human reviewer's judgment appear in `<decisive_issues>`, and
+all score-driving Q&A ids in `<evidence_trace>`, make sure every genuinely
+decisive issue (usually 1-3) likely to change a human reviewer's judgment
+appears in `<decisive_issues>`, and
 include the evidence-derived dimension thesis in `<dimension_judgment>` so the
 final review can preserve the dimension's main judgment rather than averaging
 findings by count. Also make sure C1/C2 strengths or weaknesses that affect the
