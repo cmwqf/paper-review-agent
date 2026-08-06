@@ -82,6 +82,8 @@ def make_text_client(
     provider = str(model_config.get("provider") or "openai").strip().lower().replace("-", "_")
     if provider in ("claude_code", "claudecode"):
         return ClaudeCodeClient(model_config, global_config=global_config)
+    if provider in ("codex", "codex_cli", "codex_code"):
+        return CodexCliClient(model_config, global_config=global_config)
     if provider in ("", "openai", "openai_compatible"):
         return LLMClient(model_config, global_config=global_config)
     raise ConfigError(f"Unknown model provider: {provider!r}")
@@ -97,6 +99,93 @@ class ClaudeSessionLimitError(ClaudeCodeError):
     Retrying does not help until the limit resets (hours away), so callers must
     fail fast rather than burn retries/backoff on it.
     """
+
+
+class CodexCliError(RuntimeError):
+    """A Codex CLI invocation failed or returned no assistant text."""
+
+
+@dataclass
+class CodexCliClient:
+    """Text generation backed by ``codex exec``.
+
+    Codex is an agent CLI, not a bare chat-completions endpoint. The reviewer
+    still needs a pure text response, so this client flattens the system/user
+    messages into one prompt and asks Codex to return only the requested
+    assistant content.
+    """
+
+    model_config: dict[str, Any]
+    global_config: dict[str, Any] | None = None
+
+    def __post_init__(self) -> None:
+        self.global_config = self.global_config or {}
+        self.model = str(self.model_config.get("model") or "").strip()
+        if not self.model:
+            raise ConfigError("Model config must define model.")
+        self.cli_command = str(self.model_config.get("cli_command") or "codex").strip()
+        self.reasoning_effort = str(self.model_config.get("reasoning_effort") or "medium").strip()
+        extra = self.model_config.get("extra_cli_args") or []
+        self.extra_cli_args = [str(item) for item in extra] if isinstance(extra, list) else []
+
+    def _base_command(self) -> list[str]:
+        command = [
+            self.cli_command,
+            "exec",
+            "-m",
+            self.model,
+            "-c",
+            f'model_reasoning_effort="{self.reasoning_effort}"',
+            "--dangerously-bypass-approvals-and-sandbox",
+            "--ephemeral",
+            "--skip-git-repo-check",
+        ]
+        command += self.extra_cli_args
+        command.append("-")
+        return command
+
+    def generate(self, messages: list[dict[str, Any]], **kwargs: Any) -> str:
+        timeout = float(kwargs.pop("timeout_seconds", self.model_config.get("timeout_seconds", 180)))
+        max_retries = int(kwargs.pop("max_retries", self.model_config.get("max_retries", 3)))
+        prompt = _codex_prompt(messages)
+        command = self._base_command()
+
+        last_error: Exception | None = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                completed = subprocess.run(
+                    command,
+                    input=prompt,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                )
+                if completed.returncode != 0:
+                    raise CodexCliError(
+                        f"Codex CLI exited {completed.returncode}: "
+                        f"stderr={_head_tail(completed.stderr.strip(), 1000)!r} "
+                        f"stdout={completed.stdout.strip()[:500]!r}"
+                    )
+                output = completed.stdout.strip()
+                if not output:
+                    raise CodexCliError(
+                        f"Codex CLI returned empty content: stderr={_head_tail(completed.stderr.strip(), 1000)!r}"
+                    )
+                return output
+            except Exception as exc:
+                LOGGER.warning(
+                    "Codex CLI call attempt %s/%s failed: model=%s cli=%s error=%r",
+                    attempt,
+                    max_retries,
+                    self.model,
+                    self.cli_command,
+                    exc,
+                )
+                last_error = exc
+                if attempt < max_retries:
+                    time.sleep(min(2 * attempt, 10))
+        assert last_error is not None
+        raise last_error
 
 
 @dataclass
@@ -318,6 +407,28 @@ def _flatten_turns(turns: list[dict[str, Any]]) -> str:
         role = str(turn.get("role", "user")).capitalize()
         rendered.append(f"## {role}:\n{_text_of(turn.get('content', ''))}")
     return "\n\n".join(rendered)
+
+
+def _codex_prompt(messages: list[dict[str, Any]]) -> str:
+    """Flatten chat messages into one Codex exec prompt."""
+    system_prompt = _join_system(messages)
+    turns = [message for message in messages if message.get("role") != "system"]
+    parts = [
+        "You are acting as a pure text-generation model inside an automated paper-review pipeline.",
+        "Do not inspect files, run commands, or use tools. Return only the assistant content requested by the prompt.",
+    ]
+    if system_prompt:
+        parts.append(f"## System Instructions\n{system_prompt}")
+    if turns:
+        parts.append(f"## Conversation\n{_flatten_turns(turns)}")
+    return "\n\n".join(parts)
+
+
+def _head_tail(text: str, max_each: int) -> str:
+    """Keep both ends of long CLI diagnostics."""
+    if len(text) <= max_each * 2:
+        return text
+    return text[:max_each] + "\n...[truncated]...\n" + text[-max_each:]
 
 
 def _text_of(content: Any) -> str:

@@ -10,6 +10,7 @@ import pytest
 from reviewer.models.claude_code_client import (
     ClaudeCodeClient,
     ClaudeCodeError,
+    CodexCliClient,
     make_text_client,
 )
 from reviewer.models.llm_client import LLMClient
@@ -54,6 +55,8 @@ def test_make_text_client_dispatches_on_provider() -> None:
     """provider routes to the right client; default stays OpenAI-compatible."""
     cc = make_text_client({"model": "opus", "provider": "claude_code"})
     assert isinstance(cc, ClaudeCodeClient)
+    codex = make_text_client({"model": "gpt-5.6-sol", "provider": "codex_cli"})
+    assert isinstance(codex, CodexCliClient)
     http = make_text_client({"model": "x", "base_url": "http://h/v1", "api_key_env": None})
     assert isinstance(http, LLMClient)
 
@@ -158,3 +161,42 @@ def test_generate_raises_on_nonzero_exit(monkeypatch) -> None:
     client = ClaudeCodeClient({"model": "opus", "provider": "claude_code", "max_retries": 1})
     with pytest.raises(ClaudeCodeError):
         client.generate([{"role": "user", "content": "hi"}])
+
+
+def test_codex_cli_client_builds_exec_prompt(monkeypatch) -> None:
+    """Codex provider runs codex exec with xhigh effort and a flattened prompt."""
+    capture: dict = {}
+
+    def fake_run(command, input=None, capture_output=None, text=None, timeout=None):
+        capture["command"] = command
+        capture["input"] = input
+        capture["timeout"] = timeout
+        return FakeCompleted(stdout="<xml>ok</xml>\n")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    client = CodexCliClient(
+        {
+            "model": "gpt-5.6-sol",
+            "provider": "codex_cli",
+            "reasoning_effort": "xhigh",
+            "timeout_seconds": 123,
+        }
+    )
+
+    out = client.generate(
+        [
+            {"role": "system", "content": "Return XML."},
+            {"role": "user", "content": "Review this paper."},
+        ]
+    )
+
+    assert out == "<xml>ok</xml>"
+    command = capture["command"]
+    assert command[:4] == ["codex", "exec", "-m", "gpt-5.6-sol"]
+    assert 'model_reasoning_effort="xhigh"' in command
+    assert "--dangerously-bypass-approvals-and-sandbox" in command
+    assert command[-1] == "-"
+    assert "Do not inspect files, run commands, or use tools." in capture["input"]
+    assert "## System Instructions\nReturn XML." in capture["input"]
+    assert "Review this paper." in capture["input"]
+    assert capture["timeout"] == 123

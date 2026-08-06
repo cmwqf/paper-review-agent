@@ -50,6 +50,23 @@ models:
       vlm:
         model: openai/gpt-5.5
 
+    gpt-5.6-sol-xhigh:
+      default:
+        provider: codex_cli
+        model: gpt-5.6-sol
+        reasoning_effort: xhigh
+        timeout_seconds: 600
+      summary:
+        timeout_seconds: 600
+      agent:
+        timeout_seconds: 600
+      answer:
+        timeout_seconds: 600
+      final_review:
+        timeout_seconds: 600
+      vlm:
+        timeout_seconds: 600
+
     deepseek_v4_pro:
       agent:
         model: deepseek/deepseek-v4-pro
