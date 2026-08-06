@@ -26,6 +26,7 @@ DIMENSIONS = (
     "Analytical Depth",
     "Novelty and Significance Assessment",
 )
+PROTOCOL_NAME = "ScholarPeer Appendix H.1 H-Max Score + Human Issue Consistency"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -90,7 +91,7 @@ def main() -> None:
     retrieval_tool = RetrievalTool(config) if retrieval_enabled else None
 
     manifest = {
-        "protocol": "ScholarPeer Appendix H.1 H-Max Score",
+        "protocol": PROTOCOL_NAME,
         "run_dir": str(run_dir),
         "papers_dir": str(papers_dir),
         "bench_root": str(bench_root),
@@ -300,6 +301,12 @@ def normalize_evaluation(job: dict[str, Any], parsed: dict[str, Any], raw: str) 
     row["Novelty and Significance Assessment External Sources Used"] = parsed.get(
         "Novelty and Significance Assessment External Sources Used", []
     )
+    row["Human Review Issue Consistency Findings"] = parsed.get(
+        "Human Review Issue Consistency Findings", []
+    )
+    row["Human Review Issue Consistency Reason"] = normalize_text(
+        parsed.get("Human Review Issue Consistency Reason")
+    )
     row["Overall Reason"] = normalize_text(parsed.get("Overall Reason"))
     row["Overall Score"] = clamp_score_10(parsed.get("Overall Score"))
     return row
@@ -382,16 +389,25 @@ Special Instruction for evaluating "Novelty and Significance Assessment": You mu
 
 To support this, you are given a pre-retrieved list of candidate prior work under "#### Retrieved Prior Work ####", obtained from Semantic Scholar and already filtered to papers published on or before {cutoff_date}. Treat this list as your external search results: ground your Novelty and Significance Assessment in it, and cite the specific entries you rely on in "Novelty and Significance Assessment External Sources Used". You may also draw on your own knowledge of work published on or before {cutoff_date}, but never rely on or cite anything published after it.
 
+Special Instruction for human-review issue consistency: Before using Human Reviews as the baseline, extract the concrete technical criticisms, missing-experiment requests, presentation complaints, and novelty objections made by the human reviewers. For each issue that affects scoring, verify whether the issue is still supported by the current "Paper Text" supplied in this input.
+- Treat an issue as supported only when the paper text still contains direct evidence for it or fails to contain the requested information.
+- Treat an issue as unsupported/resolved when the current paper text directly addresses it, contradicts it, or includes the missing information.
+- Treat an issue as unverifiable when the current paper text is insufficient to decide.
+- Unsupported/resolved human-review issues must not make the best-human baseline stronger, and the AI review must not be penalized for omitting them.
+- If the AI review correctly avoids, corrects, or improves on an unsupported/resolved human-review issue, count that as positive value-add.
+- If the AI repeats an unsupported/resolved human-review issue as if it still exists, count that against Technical Accuracy and Overall Score.
+
 Follow the steps below for each evaluation:
 1. Thoroughly understand the paper by analyzing:
 - Research objectives and contributions
 - Methodology and experiments
 - Claims and evidence
 - Results and conclusions
-2. Identify the strongest points in the Human Reviews (collectively) to establish a standard expert baseline.
-3. Identify the delta: What did the AI mention that the humans missed? What did the humans mention that the AI missed?
-4. Verify the validity of each of the delta claims using direct quotes from the paper and external sources (for novelty and significance only).
-5. Assess the value-add of the AI review compared to the best human review for each aspect.
+2. Run the human-review issue consistency check above. Identify which important human-review issues are supported, unsupported/resolved, or unverifiable in the current paper text.
+3. Identify the strongest still-supported points in the Human Reviews (collectively) to establish a standard expert baseline.
+4. Identify the delta: What did the AI mention that the supported human baseline missed? What did the supported human baseline mention that the AI missed?
+5. Verify the validity of each of the delta claims using direct quotes from the paper and external sources (for novelty and significance only).
+6. Assess the value-add of the AI review compared to the consistency-adjusted best human review for each aspect.
 
 You will evaluate reviews based on these key aspects:
 **Technical Accuracy**
@@ -416,6 +432,7 @@ For each of the above aspects and overall judgment, you must:
 2. Quote directly from paper and reviews; external sources only for "Novelty and Significance Assessment"
 3. Explain your reasoning in detail
 4. Consider alternative interpretations
+5. Explain how unsupported/resolved or unverifiable human-review issues affected the baseline, if any
 
 **Input Format:**
 #### Paper Text: ####
@@ -435,9 +452,9 @@ EVALUATION JSON:
 <JSON>
 ```
 
-In <THOUGHT>, for each aspect, compare the AI Assistant's review against the set of Human Reviews. Identify the best human review for that specific aspect and use it as your baseline (Score = 5), as a standard expert. You must justify why the AI deserves a higher or lower score based on the "Value-Add" it provides.
+In <THOUGHT>, first perform the human-review issue consistency check. Then, for each aspect, compare the AI Assistant's review against the set of Human Reviews after discounting unsupported/resolved human-review issues. Identify the best consistency-adjusted human review for that specific aspect and use it as your baseline (Score = 5), as a standard expert. You must justify why the AI deserves a higher or lower score based on the "Value-Add" it provides.
 
-Scoring Rubric (Compare against Best Human Baseline):
+Scoring Rubric (Compare against Consistency-Adjusted Best Human Baseline):
 - 10 (Superhuman / Verdict-Changing): The AI uncovers a critical insight that changes the fate of the paper (e.g., finding a fatal math error humans missed OR identifying a profound theoretical connection that elevates a rejected paper to an acceptance).
 - 9 (Transformative / Insightful): The AI provides a novel perspective that significantly reframes the paper's contribution. It might articulate the significance better than the authors did, or identify a missing baseline that reframes the results.
 - 8 (Clearly Superior): The AI review is significantly more thorough, constructive, or better substantiated than the best human review. It offers deep questions or literature context that humans omitted.
@@ -450,6 +467,8 @@ Scoring Rubric (Compare against Best Human Baseline):
 - 1 (Failure - Critical Error/Hallucination): The AI makes a factual error about the paper (e.g., claims it uses Method A when it uses Method B) or cites non-existent papers. The review actively misleads the reader.
 
 In <JSON>, provide the evaluation in JSON format with the following fields in the order:
+- "Human Review Issue Consistency Findings": [{{"human_review_id": "<id>", "issue": "<issue>", "status": "supported|unsupported/resolved|unverifiable", "paper_evidence": "<quote or concise evidence from current paper text>", "scoring_effect": "<how this changed the human baseline or AI penalty>"}}].
+- "Human Review Issue Consistency Reason": "<concise explanation of which human-review issues remained valid and which were discounted>".
 - "Technical Accuracy Reason": "<detailed reason>".
 - "Technical Accuracy Score": <int 1-10>.
 - "Constructive Value Reason": "<detailed reason>".
